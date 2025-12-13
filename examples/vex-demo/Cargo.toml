@@ -1,0 +1,25 @@
+[package]
+name = "vex-demo"
+version = "0.1.0"
+edition = "2021"
+description = "VEX Protocol Demo - Multi-Agent Examples"
+
+[[bin]]
+name = "research-agent"
+path = "src/main.rs"
+
+[[bin]]
+name = "fraud-detector"
+path = "src/fraud_detector.rs"
+
+[[bin]]
+name = "interactive"
+path = "src/interactive.rs"
+
+[dependencies]
+vex-core = { path = "../../crates/vex-core" }
+vex-adversarial = { path = "../../crates/vex-adversarial" }
+vex-llm = { path = "../../crates/vex-llm" }
+vex-temporal = { path = "../../crates/vex-temporal" }
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"

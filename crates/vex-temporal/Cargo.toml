@@ -1,0 +1,15 @@
+[package]
+name = "vex-temporal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Time-aware memory compression for VEX"
+
+[dependencies]
+vex-core = { path = "../vex-core" }
+vex-llm = { path = "../vex-llm" }
+tokio = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }

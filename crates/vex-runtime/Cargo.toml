@@ -1,0 +1,17 @@
+[package]
+name = "vex-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Tokio-based agent orchestration for VEX"
+
+[dependencies]
+vex-core = { path = "../vex-core" }
+vex-adversarial = { path = "../vex-adversarial" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }

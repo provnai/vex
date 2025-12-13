@@ -1,0 +1,45 @@
+[package]
+name = "vex-api"
+version = "0.1.0"
+edition = "2021"
+description = "Industry-grade HTTP API gateway for VEX Protocol"
+
+[dependencies]
+# Core VEX crates
+vex-core = { path = "../vex-core" }
+vex-adversarial = { path = "../vex-adversarial" }
+vex-llm = { path = "../vex-llm" }
+vex-persist = { path = "../vex-persist" }
+vex-queue = { path = "../vex-queue" }
+vex-runtime = { path = "../vex-runtime" }
+
+# Async runtime & web framework
+tokio = { workspace = true }
+async-trait = { workspace = true }
+axum = { version = "0.8", features = ["macros"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "timeout", "limit", "compression-gzip"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Observability (OpenTelemetry-ready)
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Security
+jsonwebtoken = "9"
+argon2 = "0.5"
+base64 = "0.22"
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+rand = { workspace = true }
+http-body-util = "0.1"
+

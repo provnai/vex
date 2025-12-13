@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vex-core",
+    "crates/vex-adversarial",
+    "crates/vex-temporal",
+    "crates/vex-llm",
+    "crates/vex-runtime",
+    "crates/vex-persist",
+    "crates/vex-api",
+    "crates/vex-queue",
+    "examples/vex-demo",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/yourusername/vex"
+description = "Evolutionary Adversarial Temporal Verified Agent Protocol"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Cryptography (Merkle trees)
+sha2 = "0.10"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging/tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+hex = "0.4"

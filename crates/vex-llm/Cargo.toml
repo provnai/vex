@@ -1,0 +1,24 @@
+[package]
+name = "vex-llm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "LLM provider integrations for VEX"
+
+[dependencies]
+vex-core = { path = "../vex-core" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
+
+[features]
+default = []
+openai = ["dep:async-openai"]
+
+[dependencies.async-openai]
+version = "0.24"
+optional = true

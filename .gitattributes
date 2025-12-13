@@ -1,0 +1,14 @@
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files to be normalized to LF (Unix-style)
+*.rs text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
