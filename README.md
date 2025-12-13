@@ -17,18 +17,18 @@ The system operates as a recursive fractal of agents, where every "Action" is ac
 
 ```mermaid
 graph TD
-    API[Gateway (vex-api)] --> Runtime[Orchestrator (vex-runtime)]
-    Runtime --> Hierarchy[Fractal Hierarchy]
+    API["Gateway (vex-api)"] --> Runtime["Orchestrator (vex-runtime)"]
+    Runtime --> Hierarchy["Fractal Hierarchy"]
     
     subgraph "Agent Kernel"
-        Hierarchy --> Blue[Blue Agent (Explorer)]
-        Hierarchy --> Red[Red Agent (Shadow Challenger)]
-        Blue <--> Debate[Adversarial Core (vex-adversarial)]
+        Hierarchy --> Blue["Blue Agent (Explorer)"]
+        Hierarchy --> Red["Red Agent (Shadow Challenger)"]
+        Blue <--> Debate["Adversarial Core (vex-adversarial)"]
         Red <--> Debate
     end
     
-    Runtime --> Memory[Temporal Store (vex-temporal)]
-    Runtime --> Ledger[Merkle Log (vex-persist)]
+    Runtime --> Memory["Temporal Store (vex-temporal)"]
+    Runtime --> Ledger["Merkle Log (vex-persist)"]
 ```
 
 ---
