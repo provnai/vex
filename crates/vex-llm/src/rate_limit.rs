@@ -98,7 +98,6 @@ impl RateLimiter {
                 Err(RateLimitError::Limited { retry_after }) => {
                     tokio::time::sleep(retry_after).await;
                 }
-                Err(e) => return Err(e),
             }
         }
     }

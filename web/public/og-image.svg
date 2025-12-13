@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#grid)" opacity="0.3"/>
+  <circle cx="900" cy="100" r="300" fill="#3b82f6" opacity="0.15" filter="blur(100px)"/>
+  <circle cx="200" cy="500" r="250" fill="#8b5cf6" opacity="0.1" filter="blur(80px)"/>
+  <text x="100" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="white">VEX</text>
+  <text x="245" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="#3b82f6">.</text>
+  <text x="100" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="36" fill="#a1a1aa">AI Agent Infrastructure</text>
+  <text x="100" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#71717a">Production-ready Rust framework • 550k+ ops/sec • Full IP Acquisition</text>
+  <rect x="100" y="480" width="200" height="50" rx="8" fill="#3b82f6"/>
+  <text x="135" y="513" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="600" fill="white">Learn More</text>
+  <text x="100" y="580" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#52525b">By ProvnAI</text>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#27272a" stroke-width="1"/>
+    </pattern>
+  </defs>
+</svg>

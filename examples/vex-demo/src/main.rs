@@ -12,6 +12,9 @@ use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
 use vex_adversarial::{ShadowAgent, ShadowConfig, Debate, DebateRound, Consensus, ConsensusProtocol, Vote};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest};
 
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
     // Load API key from environment or use empty string (which will trigger Mock provider fallback in logic)
     let api_key = std::env::var("DEEPSEEK_API_KEY").unwrap_or_default();
     let llm = DeepSeekProvider::chat(&api_key);
@@ -254,4 +257,5 @@ use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest};
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║              VEX Demo Complete! 🎉                           ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
+    Ok(())
 }
