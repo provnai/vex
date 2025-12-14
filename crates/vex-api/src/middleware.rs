@@ -164,6 +164,61 @@ pub fn body_limit_layer(limit: usize) -> tower_http::limit::RequestBodyLimitLaye
     tower_http::limit::RequestBodyLimitLayer::new(limit)
 }
 
+/// Security headers middleware
+/// Adds standard security headers to all responses
+pub async fn security_headers_middleware(
+    request: Request,
+    next: Next,
+) -> Response {
+    let mut response = next.run(request).await;
+    
+    let headers = response.headers_mut();
+    
+    // Prevent MIME type sniffing
+    headers.insert(
+        "X-Content-Type-Options",
+        "nosniff".parse().unwrap(),
+    );
+    
+    // Prevent clickjacking
+    headers.insert(
+        "X-Frame-Options",
+        "DENY".parse().unwrap(),
+    );
+    
+    // XSS protection (legacy, but still useful)
+    headers.insert(
+        "X-XSS-Protection",
+        "1; mode=block".parse().unwrap(),
+    );
+    
+    // Content Security Policy
+    headers.insert(
+        "Content-Security-Policy",
+        "default-src 'self'; frame-ancestors 'none'".parse().unwrap(),
+    );
+    
+    // HSTS (only enable in production with HTTPS)
+    // headers.insert(
+    //     "Strict-Transport-Security",
+    //     "max-age=31536000; includeSubDomains".parse().unwrap(),
+    // );
+    
+    // Referrer policy
+    headers.insert(
+        "Referrer-Policy",
+        "strict-origin-when-cross-origin".parse().unwrap(),
+    );
+    
+    // Permissions policy
+    headers.insert(
+        "Permissions-Policy",
+        "geolocation=(), microphone=(), camera=()".parse().unwrap(),
+    );
+    
+    response
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  vex-api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - VEX_JWT_SECRET=${VEX_JWT_SECRET:-change-me-in-production-32chars}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - RUST_LOG=info,vex=debug
+    volumes:
+      - vex-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  vex-data:

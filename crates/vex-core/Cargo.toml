@@ -24,3 +24,7 @@ criterion = "0.5"
 [[bench]]
 name = "merkle_benchmark"
 harness = false
+
+[[bench]]
+name = "agent_benchmark"
+harness = false

@@ -2,125 +2,268 @@
 
 > **V**erified **E**volutionary **X**enogenesis — A Rust framework for adversarial, temporal, cryptographically-verified hierarchical AI agents.
 
-## Executive Summary
-
-VEX is not just another agent framework. It is a biological and cryptographic approach to autonomous intelligence, designed to solve three critical failure modes of current LLM agents:
-1.  **Hallucination** → Solved via **Adversarial Verification** (Red Teaming).
-2.  **Context Overflow** → Solved via **Temporal Memory** (Bio-inspired Decay).
-3.  **Audibility** → Solved via **Merkle Identity** (Cryptographic chains).
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
+[![CI](https://github.com/YOUR_ORG/vex/workflows/CI/badge.svg)](https://github.com/YOUR_ORG/vex/actions)
 
 ---
 
-## 🏗️ System Architecture
+## Why VEX?
 
-The system operates as a recursive fractal of agents, where every "Action" is actually a "Debate" between a proposer and a shadow challenger.
+Current LLM agents fail in predictable ways. VEX is an infrastructure layer that solves three critical failure modes:
+
+| Problem | VEX Solution | Mechanism |
+|---------|--------------|-----------|
+| **Hallucination** | Adversarial Verification | Red/Blue agent debate with consensus protocols |
+| **Context Overflow** | Temporal Memory | Bio-inspired decay with LLM-powered compression |
+| **Unauditability** | Merkle Identity | Cryptographic hash chains with tamper-evident proofs |
+
+**VEX is not another agent framework.** It's a verification and memory layer that wraps your existing LLM, making it accountable.
+
+---
+
+## Architecture
 
 ```mermaid
-graph TD
-    API["Gateway (vex-api)"] --> Runtime["Orchestrator (vex-runtime)"]
-    Runtime --> Hierarchy["Fractal Hierarchy"]
-    
-    subgraph "Agent Kernel"
-        Hierarchy --> Blue["Blue Agent (Explorer)"]
-        Hierarchy --> Red["Red Agent (Shadow Challenger)"]
-        Blue <--> Debate["Adversarial Core (vex-adversarial)"]
-        Red <--> Debate
+graph TB
+    subgraph "Gateway Layer"
+        API["vex-api<br/>Axum HTTP + JWT + Rate Limiting"]
     end
     
-    Runtime --> Memory["Temporal Store (vex-temporal)"]
-    Runtime --> Ledger["Merkle Log (vex-persist)"]
+    subgraph "Intelligence Layer"
+        LLM["vex-llm<br/>DeepSeek / OpenAI / Ollama"]
+        ADV["vex-adversarial<br/>Red/Blue Debate Engine"]
+    end
+    
+    subgraph "Execution Layer"
+        RT["vex-runtime<br/>Orchestrator + Executor"]
+        Q["vex-queue<br/>Async Worker Pool"]
+    end
+    
+    subgraph "Core Layer"
+        CORE["vex-core<br/>Agent + Genome + Merkle"]
+        TEMP["vex-temporal<br/>Episodic Memory + Decay"]
+    end
+    
+    subgraph "Persistence Layer"
+        DB["vex-persist<br/>SQLite + Audit Logs"]
+    end
+    
+    API --> RT
+    RT --> LLM
+    RT --> ADV
+    RT --> CORE
+    RT --> Q
+    CORE --> TEMP
+    Q --> DB
+    API --> DB
 ```
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed component breakdowns.
+
 ---
 
-## 🧩 Core Subsystems
+## Core Capabilities
 
 ### 1. Fractal Agents (`vex-core`)
-Agents in VEX are not static prompts. They are biological entities with a **Genome**.
-*   **Traits**: Agents have `Openness`, `Conscientiousness`, and `Neuroticism` scores that influence their prompting strategy.
-*   **Evolution**: Successful agents (those whose outputs survive verification) propagate their traits to child agents via **Genetic Crossover**.
-*   **Recursive Spawning**: A root agent can spawn a `Researcher` and a `Critic` to decompose complex queries.
+
+Agents are not static prompts — they are **evolvable entities** with a genetic profile.
+
+- **Genome**: Five behavioral traits that map to LLM parameters
+  - `exploration` → temperature
+  - `precision` → top_p
+  - `creativity` → presence_penalty
+  - `skepticism` → frequency_penalty
+  - `verbosity` → max_tokens multiplier
+
+- **Hierarchical Spawning**: Root agents decompose tasks by spawning specialized children (Researcher, Critic, etc.)
+
+- **Genetic Evolution**: High-performing agents propagate traits via tournament selection and crossover
 
 ### 2. Adversarial Verification (`vex-adversarial`)
-Every task execution triggers a **Shadow Agent** instanced with the opposite goal of the primary agent.
-*   **The Debate Loop**:
-    1.  **Blue Agent**: Generates a response.
-    2.  **Red Agent**: Scans response for logic gaps, assumptions, or hallucinations.
-    3.  **Rebuttal**: Blue Agent must defend its position.
-    4.  **Consensus**: A weighted voting algorithm determines if the output is true.
-*   **Result**: High-confidence, battle-tested outputs.
+
+Every task triggers a **Shadow Agent** that challenges the primary response.
+
+**The Debate Protocol:**
+1. **Blue Agent** generates a response
+2. **Red Agent** scans for logic gaps, assumptions, and hallucinations using pattern heuristics
+3. **Rebuttal** phase allows Blue to defend
+4. **Consensus** via configurable protocols (Majority, SuperMajority, Unanimous, WeightedConfidence)
+
+**Result:** Battle-tested outputs with quantified confidence scores.
 
 ### 3. Temporal Memory (`vex-temporal`)
-VEX implements "Time Horizons" to approximate human memory processing.
-*   **Immediate Horizon** (5 mins): Full fidelity, raw context.
-*   **Short Term** (1 hour): Compressed summary.
-*   **Long Term** (Weeks): Vector embeddings & high-level narrative.
-*   **Decay Strategy**: Memories decay exponentially unless "reinforced" (accessed) by the agent.
+
+Bio-inspired memory management with automatic compression and decay.
+
+| Horizon | Duration | Max Entries | Behavior |
+|---------|----------|-------------|----------|
+| Immediate | 5 min | 10 | Full fidelity, raw context |
+| Short-term | 1 hour | 25 | Light compression |
+| Medium-term | 24 hours | 50 | Moderate compression |
+| Long-term | 1 week | 100 | Heavy compression |
+| Permanent | ∞ | 500 | Maximum compression |
+
+**Decay Strategies:** Linear, Exponential, Step, or None — configurable per agent depth.
 
 ### 4. Cryptographic Persistence (`vex-persist`)
+
 Every thought, debate round, and decision is hashed using SHA-256.
-*   **Audit Trail**: Events are linked (`previous_hash`), forming a local blockchain.
-*   **Merkle Root**: The entire session state is rolled up into a single **Merkle Root**, allowing for succinct proofs of agent behavior.
+
+- **Audit Trail**: Events are hash-chained (`previous_hash`), forming tamper-evident logs
+- **Merkle Root**: Session state rolls up to a single root hash for succinct proofs
+- **Chain Verification**: Built-in integrity checks detect tampering
+
+### 5. Production API (`vex-api`)
+
+Enterprise-grade HTTP gateway with:
+
+- **Authentication**: JWT with role-based access control
+- **Rate Limiting**: Per-user tier-based limits (Free/Pro/Enterprise)
+- **Resilience**: 3-state circuit breaker (Closed → Open → HalfOpen)
+- **Observability**: Prometheus metrics endpoint
+- **Security**: Input sanitization with 17 prompt injection patterns blocked
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy
 
 ---
 
-## 📦 Workspace Structure
-
-Verified on **Rust 1.92.0**.
+## Workspace Structure
 
 | Crate | Role |
 |-------|------|
-| **`vex-core`** | The nucleus. Defines `Agent`, `Genome`, `ContextPacket`, and `MerkleTree`. |
-| **`vex-runtime`** | The brain. Manages the `Orchestrator` and the `Executor` loop. |
-| **`vex-api`** | The gateway. Axum-based HTTP server with JWT and Rate Limiting. |
-| **`vex-adversarial`** | The conscience. Implements the Red/Blue debate protocols. |
-| **`vex-temporal`** | The memory. Handles time horizons and compression. |
-| **`vex-persist`** | The ledger. SQLite storage for agents and audit logs. |
-| **`vex-queue`** | The nervous system. Async job queue with backoff. |
-| **`vex-llm`** | The mouth. Providers for DeepSeek, OpenAI, etc. |
-| **`vex-macros`** | Tooling. `#[derive(VexJob)]` and `#[vex_tool]` macros. |
+| `vex-core` | Agent, Genome, ContextPacket, MerkleTree, Evolution operators |
+| `vex-adversarial` | ShadowAgent, Debate, Consensus protocols |
+| `vex-temporal` | EpisodicMemory, TimeHorizon, Decay strategies |
+| `vex-persist` | SQLite backend, AgentStore, AuditStore, API key management |
+| `vex-api` | Axum server, JWT auth, middleware stack, circuit breaker |
+| `vex-runtime` | Orchestrator, AgentExecutor, hierarchical execution |
+| `vex-queue` | WorkerPool, Job trait, exponential backoff |
+| `vex-llm` | LlmProvider trait, DeepSeek, OpenAI, Ollama, Mock, ToolDefinition |
+| `vex-macros` | Procedural macros (`#[derive(VexJob)]`, `#[vex_tool]`, `#[instrument_agent]`) |
+| `vex-demo` | Example applications (research agent, fraud detection, chat) |
 
 ---
 
-## 🚀 Quick Start (WSL/Linux)
+## Quick Start
 
-The project is verified to run on Linux/WSL environments.
+### Prerequisites
+- Rust 1.75+ (stable)
+- SQLite (bundled via sqlx)
 
-### 1. Build
+### Build
 ```bash
 cargo build --workspace --release
 ```
 
-### 2. Test
-Run the full test suite (Unit, Integration, Logic):
+### Test
 ```bash
+# Run all 85+ tests
 cargo test --workspace
+
+# Run integration tests with real LLM
+DEEPSEEK_API_KEY="sk-..." cargo test -p vex-llm -- --ignored
 ```
 
-### 3. Run Demo
-Launch a self-contained Research Agent that debates itself:
+### Run Demo
 ```bash
-export DEEPSEEK_API_KEY="sk-..." # Optional, falls back to Mock
+# Optional: Set API key for real LLM (falls back to mock)
+export DEEPSEEK_API_KEY="sk-..."
+
+# Run research agent demo
 cargo run -p vex-demo
+
+# Run fraud detection demo
+cargo run -p vex-demo --bin fraud-detector
+
+# Run interactive chat
+cargo run -p vex-demo --bin interactive
 ```
 
-### 4. Start API Server
+### Start API Server
 ```bash
+export VEX_JWT_SECRET="your-32-char-secret-here"
 cargo run -p vex-api
-# Server starting on 0.0.0.0:3000...
+# Server starts on 0.0.0.0:3000
+```
+
+### Docker
+```bash
+docker build -t vex-api .
+docker-compose up -d
 ```
 
 ---
 
-## ⚡ Benchmarks
+## Configuration
 
-| Component | Metric | Notes |
-|-----------|--------|-------|
-| **Merkle Integrity** | **27,800 ops/sec** | SHA-256 Hashing |
-| **Agent Spawning** | **5,000 ops/sec** | Genetic Init |
-| **Context Switching** | **50ms** | Temporal Decay Calc |
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEEPSEEK_API_KEY` | DeepSeek API key | — |
+| `OPENAI_API_KEY` | OpenAI API key | — |
+| `OLLAMA_URL` | Ollama base URL | `http://localhost:11434` |
+| `VEX_JWT_SECRET` | JWT signing secret (min 32 chars) | **Required** |
+| `VEX_DEFAULT_PROVIDER` | Default LLM provider | `deepseek` |
+| `VEX_DEFAULT_MODEL` | Default model name | `deepseek-chat` |
+
+---
+
+## Benchmarks
+
+Verified on Linux/WSL with Rust 1.75+:
+
+| Component | Performance | Scale | Method |
+|-----------|-------------|-------|--------|
+| Merkle Tree Creation | 1.97 ms | 10,000 leaves | Criterion |
+| Merkle Tree Creation | 191 µs | 1,000 leaves | Criterion |
+| Merkle Contains | 1.63 µs | 10,000 leaves | Criterion |
+| Contains Throughput | **613,000 ops/sec** | — | Calculated |
+
+Run benchmarks:
+```bash
+cargo bench -p vex-core
+cargo bench -p vex-temporal
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
+
+---
+
+## Test Coverage
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Unit Tests | 65+ | ✅ |
+| Integration Tests | 15+ | ✅ |
+| Chaos/Fault Tests | 6 | ✅ |
+| Doc Tests | 1 | ✅ |
+| **Total** | **85+** | ✅ |
+
+---
+
+## Use Cases
+
+- **Financial Services**: Fraud detection with audit trails (SOX/AML compliance)
+- **Healthcare**: Medical reasoning with verification and provenance
+- **Legal**: Contract analysis with adversarial review
+- **Research**: Multi-agent exploration with evolutionary improvement
+
+---
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System design and component breakdown
+- [BENCHMARKS.md](BENCHMARKS.md) — Performance methodology and results
 
 ---
 
 ## License
-MIT
+
+MIT — See [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <strong>VEX: Bring your own LLM. We make it accountable.</strong>
+</p>
