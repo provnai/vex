@@ -9,6 +9,7 @@ members = [
     "crates/vex-persist",
     "crates/vex-api",
     "crates/vex-queue",
+    "crates/vex-macros",
     "examples/vex-demo",
 ]
 
@@ -16,8 +17,8 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/yourusername/vex"
-description = "Evolutionary Adversarial Temporal Verified Agent Protocol"
+repository = "https://github.com/provnai/vex"
+description = "Verified Evolutionary Xenogenesis - Adversarial, temporal, cryptographically-verified AI agents"
 
 [workspace.dependencies]
 # Async runtime

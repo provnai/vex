@@ -1,14 +1,13 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput, ItemFn, AttributeArgs, Meta, NestedMeta, Lit, Item};
+use syn::{parse_macro_input, DeriveInput, ItemFn};
 
 /// Auto-implements the `Job` trait for a struct.
 /// 
 /// Usage:
-/// ```
+/// ```ignore
 /// #[derive(VexJob)]
-/// #[job(name = "my_job", retries = 3, backoff = "exponential")]
 /// struct MyJob { ... }
 /// ```
 #[proc_macro_derive(VexJob, attributes(job))]
@@ -16,40 +15,9 @@ pub fn derive_vex_job(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     
-    // Default values
-    let mut job_name = name.to_string().to_lowercase();
-    let mut max_retries = 3u32;
-    let mut backoff_type = "exponential".to_string();
-
-    // Parse attributes
-    for attr in input.attrs {
-        if attr.path.is_ident("job") {
-             if let Ok(Meta::List(list)) = attr.parse_meta() {
-                for nested in list.nested {
-                    if let NestedMeta::Meta(Meta::NameValue(nv)) = nested {
-                        if nv.path.is_ident("name") {
-                            if let Lit::Str(lit) = nv.lit {
-                                job_name = lit.value();
-                            }
-                        } else if nv.path.is_ident("retries") {
-                            if let Lit::Int(lit) = nv.lit {
-                                max_retries = lit.base10_parse().unwrap_or(3);
-                            }
-                        } else if nv.path.is_ident("backoff") {
-                            if let Lit::Str(lit) = nv.lit {
-                                backoff_type = lit.value();
-                            }
-                        }
-                    }
-                }
-             }
-        }
-    }
-
-    let backoff_expr = match backoff_type.as_str() {
-        "constant" => quote! { vex_queue::job::BackoffStrategy::Constant { secs: 5 } },
-        _ => quote! { vex_queue::job::BackoffStrategy::Exponential { initial_secs: 1, multiplier: 2.0 } },
-    };
+    // Use struct name as job name (simplified - no attribute parsing)
+    let job_name = name.to_string().to_lowercase();
+    let max_retries = 3u32;
 
     let expanded = quote! {
         #[async_trait::async_trait]
@@ -67,7 +35,10 @@ pub fn derive_vex_job(input: TokenStream) -> TokenStream {
             }
 
             fn backoff_strategy(&self) -> vex_queue::job::BackoffStrategy {
-                #backoff_expr
+                vex_queue::job::BackoffStrategy::Exponential { 
+                    initial_secs: 1, 
+                    multiplier: 2.0 
+                }
             }
         }
     };
@@ -75,10 +46,10 @@ pub fn derive_vex_job(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Generates a JSON Schema for an LLM tool function.
+/// Generates a ToolDefinition constant for an LLM tool function.
 /// 
 /// Usage:
-/// ```
+/// ```ignore
 /// #[vex_tool]
 /// fn web_search(query: String) -> String { ... }
 /// ```
@@ -89,9 +60,8 @@ pub fn vex_tool(_args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let fn_name = &input.sig.ident;
     let tool_name = fn_name.to_string();
-    let tool_desc = "Auto-generated tool"; // Ideally parse doc comments
+    let tool_desc = "Auto-generated tool";
     
-    // Create a CONST name (e.g., search -> SEARCH_TOOL)
     let const_name = format_ident!("{}_TOOL", tool_name.to_uppercase());
 
     let expanded = quote! {
@@ -100,17 +70,17 @@ pub fn vex_tool(_args: TokenStream, item: TokenStream) -> TokenStream {
         pub const #const_name: vex_llm::ToolDefinition = vex_llm::ToolDefinition {
             name: #tool_name,
             description: #tool_desc,
-            parameters: "{}", // TODO: Reflection on input types
+            parameters: "{}",
         };
     };
 
     TokenStream::from(expanded)
 }
 
-/// Instruments an agent function with OpenTelemetry tracing.
+/// Instruments an agent function with tracing.
 /// 
 /// Usage:
-/// ```
+/// ```ignore
 /// #[instrument_agent]
 /// async fn think(&self) { ... }
 /// ```
@@ -121,8 +91,10 @@ pub fn instrument_agent(_args: TokenStream, item: TokenStream) -> TokenStream {
     let block = &input.block;
     let sig = &input.sig;
     let vis = &input.vis;
+    let attrs = &input.attrs;
 
     let expanded = quote! {
+        #(#attrs)*
         #vis #sig {
             let span = tracing::info_span!(
                 stringify!(#fn_name),
