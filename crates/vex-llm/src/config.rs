@@ -19,6 +19,8 @@ pub enum ConfigError {
 pub struct LlmConfig {
     /// DeepSeek API key (env: DEEPSEEK_API_KEY)
     pub deepseek_api_key: Option<String>,
+    /// Mistral API key (env: MISTRAL_API_KEY)
+    pub mistral_api_key: Option<String>,
     /// OpenAI API key (env: OPENAI_API_KEY)
     pub openai_api_key: Option<String>,
     /// Anthropic API key (env: ANTHROPIC_API_KEY)
@@ -35,6 +37,7 @@ impl Default for LlmConfig {
     fn default() -> Self {
         Self {
             deepseek_api_key: None,
+            mistral_api_key: None,
             openai_api_key: None,
             anthropic_api_key: None,
             ollama_url: "http://localhost:11434".to_string(),
@@ -49,6 +52,7 @@ impl LlmConfig {
     pub fn from_env() -> Self {
         Self {
             deepseek_api_key: env::var("DEEPSEEK_API_KEY").ok(),
+            mistral_api_key: env::var("MISTRAL_API_KEY").ok(),
             openai_api_key: env::var("OPENAI_API_KEY").ok(),
             anthropic_api_key: env::var("ANTHROPIC_API_KEY").ok(),
             ollama_url: env::var("OLLAMA_URL")
@@ -64,6 +68,7 @@ impl LlmConfig {
     pub fn api_key(&self, provider: &str) -> Option<&str> {
         match provider.to_lowercase().as_str() {
             "deepseek" => self.deepseek_api_key.as_deref(),
+            "mistral" => self.mistral_api_key.as_deref(),
             "openai" => self.openai_api_key.as_deref(),
             "anthropic" => self.anthropic_api_key.as_deref(),
             _ => None,
@@ -74,6 +79,7 @@ impl LlmConfig {
     pub fn is_configured(&self, provider: &str) -> bool {
         match provider.to_lowercase().as_str() {
             "deepseek" => self.deepseek_api_key.is_some(),
+            "mistral" => self.mistral_api_key.is_some(),
             "openai" => self.openai_api_key.is_some(),
             "anthropic" => self.anthropic_api_key.is_some(),
             "ollama" | "mock" => true, // Always available
@@ -86,6 +92,9 @@ impl LlmConfig {
         let mut providers = vec!["mock", "ollama"];
         if self.deepseek_api_key.is_some() {
             providers.push("deepseek");
+        }
+        if self.mistral_api_key.is_some() {
+            providers.push("mistral");
         }
         if self.openai_api_key.is_some() {
             providers.push("openai");

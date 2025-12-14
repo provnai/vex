@@ -33,7 +33,7 @@ graph TB
     end
     
     subgraph "Intelligence Layer"
-        LLM["vex-llm<br/>DeepSeek / OpenAI / Ollama"]
+        LLM["vex-llm<br/>DeepSeek / Mistral / OpenAI / Ollama"]
         ADV["vex-adversarial<br/>Red/Blue Debate Engine"]
     end
     
@@ -140,7 +140,7 @@ Enterprise-grade HTTP gateway with:
 | `vex-api` | Axum server, JWT auth, middleware stack, circuit breaker |
 | `vex-runtime` | Orchestrator, AgentExecutor, hierarchical execution |
 | `vex-queue` | WorkerPool, Job trait, exponential backoff |
-| `vex-llm` | LlmProvider trait, DeepSeek, OpenAI, Ollama, Mock, ToolDefinition |
+| `vex-llm` | LlmProvider trait, DeepSeek, Mistral, OpenAI, Ollama, Mock, ToolDefinition |
 | `vex-macros` | Procedural macros (`#[derive(VexJob)]`, `#[vex_tool]`, `#[instrument_agent]`) |
 | `vex-demo` | Example applications (research agent, fraud detection, chat) |
 
@@ -203,6 +203,7 @@ docker-compose up -d
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DEEPSEEK_API_KEY` | DeepSeek API key | — |
+| `MISTRAL_API_KEY` | Mistral AI API key | — |
 | `OPENAI_API_KEY` | OpenAI API key | — |
 | `OLLAMA_URL` | Ollama base URL | `http://localhost:11434` |
 | `VEX_JWT_SECRET` | JWT signing secret (min 32 chars) | **Required** |

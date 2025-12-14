@@ -7,6 +7,7 @@
 //! | Provider | Type | Key Required |
 //! |----------|------|--------------|
 //! | DeepSeek | API | `DEEPSEEK_API_KEY` |
+//! | Mistral | API | `MISTRAL_API_KEY` |
 //! | OpenAI | API | `OPENAI_API_KEY` |
 //! | Ollama | Local | None |
 //! | Mock | Testing | None |
@@ -38,6 +39,17 @@
 //! let response = llm.ask("Explain Merkle trees").await.unwrap();
 //! ```
 //!
+//! ## With Mistral
+//!
+//! ```rust,ignore
+//! use vex_llm::MistralProvider;
+//!
+//! let api_key = std::env::var("MISTRAL_API_KEY").unwrap();
+//! let llm = MistralProvider::small(&api_key); // or large(), medium(), codestral()
+//!
+//! let response = llm.ask("Explain Merkle trees").await.unwrap();
+//! ```
+//!
 //! ## Rate Limiting
 //!
 //! ```rust
@@ -52,6 +64,7 @@
 pub mod config;
 pub mod deepseek;
 pub mod metrics;
+pub mod mistral;
 pub mod mock;
 pub mod ollama;
 pub mod openai;
@@ -62,6 +75,7 @@ pub mod tool;
 pub use config::{ConfigError, LlmConfig, VexConfig};
 pub use deepseek::DeepSeekProvider;
 pub use metrics::{global_metrics, Metrics, MetricsSnapshot, Span, Timer};
+pub use mistral::MistralProvider;
 pub use mock::MockProvider;
 pub use ollama::OllamaProvider;
 pub use openai::OpenAIProvider;

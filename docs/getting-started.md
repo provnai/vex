@@ -55,7 +55,10 @@ async fn main() {
 
 ```bash
 # Set up API key (optional, uses mock if not set)
+# Supports: DEEPSEEK_API_KEY, MISTRAL_API_KEY, or OPENAI_API_KEY
 export DEEPSEEK_API_KEY="sk-..."
+# or
+export MISTRAL_API_KEY="your-mistral-key"
 
 # Run the research agent demo
 cargo run -p vex-demo
