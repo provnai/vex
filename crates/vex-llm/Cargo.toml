@@ -3,7 +3,11 @@ name = "vex-llm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "LLM provider integrations for VEX"
+readme = "README.md"
+keywords = ["ai", "llm", "openai", "ollama", "agents"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
 vex-core = { path = "../vex-core" }

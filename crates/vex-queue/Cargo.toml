@@ -1,8 +1,13 @@
 [package]
 name = "vex-queue"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Async background worker queue for VEX Protocol"
+readme = "README.md"
+keywords = ["ai", "agents", "queue", "worker", "async"]
+categories = ["asynchronous", "concurrency"]
 
 [dependencies]
 tokio = { workspace = true }

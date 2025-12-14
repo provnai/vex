@@ -3,7 +3,11 @@ name = "vex-adversarial"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Adversarial (Red/Blue) agent pairing for VEX"
+readme = "README.md"
+keywords = ["ai", "agents", "adversarial", "red-team", "security"]
+categories = ["algorithms", "asynchronous"]
 
 [dependencies]
 vex-core = { path = "../vex-core" }

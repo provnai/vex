@@ -1,8 +1,13 @@
 [package]
 name = "vex-api"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Industry-grade HTTP API gateway for VEX Protocol"
+readme = "README.md"
+keywords = ["ai", "agents", "api", "http", "gateway"]
+categories = ["web-programming::http-server", "asynchronous"]
 
 [dependencies]
 # Core VEX crates

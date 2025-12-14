@@ -3,7 +3,11 @@ name = "vex-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Tokio-based agent orchestration for VEX"
+readme = "README.md"
+keywords = ["ai", "agents", "tokio", "orchestration", "runtime"]
+categories = ["asynchronous", "concurrency"]
 
 [dependencies]
 vex-core = { path = "../vex-core" }
