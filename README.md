@@ -4,7 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![CI](https://github.com/YOUR_ORG/vex/workflows/CI/badge.svg)](https://github.com/YOUR_ORG/vex/actions)
+[![CI](https://github.com/provnai/vex/workflows/CI/badge.svg)](https://github.com/provnai/vex/actions)
+[![Docs](https://img.shields.io/badge/docs-provnai.dev-4285F4.svg)](https://provnai.dev)
+[![Website](https://img.shields.io/badge/website-provnai.com-00C7B7.svg)](https://provnai.com)
 
 ---
 
@@ -259,8 +261,12 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
 
 ## Documentation
 
+- **API Reference**: [provnai.dev](https://provnai.dev) — Full Rustdoc documentation
+- **Getting Started**: [docs/getting-started.md](docs/getting-started.md) — Quickstart guide
 - [ARCHITECTURE.md](ARCHITECTURE.md) — System design and component breakdown
 - [BENCHMARKS.md](BENCHMARKS.md) — Performance methodology and results
+- [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Community guidelines
 
 ---
 
