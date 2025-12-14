@@ -14,8 +14,6 @@ use crate::state::AppState;
 // use vex_llm::{RateLimiter, Metrics}; // No longer needed directly here? No, rate_limiter is used.
 
 /// Authentication middleware
-
-/// Authentication middleware
 pub async fn auth_middleware(
     State(state): State<AppState>,
     mut request: Request,
@@ -110,22 +108,20 @@ pub async fn tracing_middleware(
 }
 
 /// Request ID middleware
-pub async fn request_id_middleware(
-    mut request: Request,
-    next: Next,
-) -> Response {
+pub async fn request_id_middleware(mut request: Request, next: Next) -> Response {
     let request_id = uuid::Uuid::new_v4().to_string();
-    
+
     // Add to request extensions
-    request.extensions_mut().insert(RequestId(request_id.clone()));
+    request
+        .extensions_mut()
+        .insert(RequestId(request_id.clone()));
 
     let mut response = next.run(request).await;
-    
+
     // Add to response headers
-    response.headers_mut().insert(
-        "X-Request-ID",
-        request_id.parse().unwrap(),
-    );
+    response
+        .headers_mut()
+        .insert("X-Request-ID", request_id.parse().unwrap());
 
     response
 }
@@ -145,11 +141,7 @@ pub fn cors_layer() -> tower_http::cors::CorsLayer {
             axum::http::Method::DELETE,
             axum::http::Method::OPTIONS,
         ])
-        .allow_headers([
-            header::AUTHORIZATION,
-            header::CONTENT_TYPE,
-            header::ACCEPT,
-        ])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT])
         .max_age(std::time::Duration::from_secs(3600))
 }
 
@@ -166,56 +158,46 @@ pub fn body_limit_layer(limit: usize) -> tower_http::limit::RequestBodyLimitLaye
 
 /// Security headers middleware
 /// Adds standard security headers to all responses
-pub async fn security_headers_middleware(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn security_headers_middleware(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
-    
+
     let headers = response.headers_mut();
-    
+
     // Prevent MIME type sniffing
-    headers.insert(
-        "X-Content-Type-Options",
-        "nosniff".parse().unwrap(),
-    );
-    
+    headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+
     // Prevent clickjacking
-    headers.insert(
-        "X-Frame-Options",
-        "DENY".parse().unwrap(),
-    );
-    
+    headers.insert("X-Frame-Options", "DENY".parse().unwrap());
+
     // XSS protection (legacy, but still useful)
-    headers.insert(
-        "X-XSS-Protection",
-        "1; mode=block".parse().unwrap(),
-    );
-    
+    headers.insert("X-XSS-Protection", "1; mode=block".parse().unwrap());
+
     // Content Security Policy
     headers.insert(
         "Content-Security-Policy",
-        "default-src 'self'; frame-ancestors 'none'".parse().unwrap(),
+        "default-src 'self'; frame-ancestors 'none'"
+            .parse()
+            .unwrap(),
     );
-    
+
     // HSTS (only enable in production with HTTPS)
     // headers.insert(
     //     "Strict-Transport-Security",
     //     "max-age=31536000; includeSubDomains".parse().unwrap(),
     // );
-    
+
     // Referrer policy
     headers.insert(
         "Referrer-Policy",
         "strict-origin-when-cross-origin".parse().unwrap(),
     );
-    
+
     // Permissions policy
     headers.insert(
         "Permissions-Policy",
         "geolocation=(), microphone=(), camera=()".parse().unwrap(),
     );
-    
+
     response
 }
 

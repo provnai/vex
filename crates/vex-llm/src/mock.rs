@@ -39,7 +39,8 @@ impl MockProvider {
     pub fn adversarial() -> Self {
         Self::new(vec![
             "I agree with this assessment. The reasoning is sound.".to_string(),
-            "I disagree. There are several issues: 1) The logic is flawed, 2) Missing evidence.".to_string(),
+            "I disagree. There are several issues: 1) The logic is flawed, 2) Missing evidence."
+                .to_string(),
         ])
     }
 
@@ -57,33 +58,31 @@ impl MockProvider {
         let prompt_lower = request.prompt.to_lowercase();
 
         // Detect if this is a challenge/verification request
-        if prompt_lower.contains("challenge") 
-            || prompt_lower.contains("verify") 
-            || prompt_lower.contains("critique") 
+        if prompt_lower.contains("challenge")
+            || prompt_lower.contains("verify")
+            || prompt_lower.contains("critique")
         {
-            return format!(
-                "After careful analysis, I found the following concerns:\n\
+            return "After careful analysis, I found the following concerns:\n\
                  1. The claim requires additional evidence\n\
                  2. There may be alternative interpretations\n\
                  3. Confidence level: 70%\n\n\
                  Recommendation: Proceed with caution."
-            );
+                .to_string();
         }
 
         // Detect if this is a research/exploration request
-        if prompt_lower.contains("research") 
-            || prompt_lower.contains("explore") 
-            || prompt_lower.contains("analyze") 
+        if prompt_lower.contains("research")
+            || prompt_lower.contains("explore")
+            || prompt_lower.contains("analyze")
         {
-            return format!(
-                "Based on my analysis:\n\n\
+            return "Based on my analysis:\n\n\
                  ## Key Findings\n\
                  1. Primary insight discovered\n\
                  2. Supporting evidence found\n\
                  3. Potential implications identified\n\n\
                  ## Confidence: 85%\n\n\
                  This analysis is based on available information."
-            );
+                .to_string();
         }
 
         // Detect if this is a summary request
@@ -123,7 +122,9 @@ impl LlmProvider for MockProvider {
             self.generate_smart_response(&request)
         } else {
             // Cycle through canned responses
-            let idx = self.index.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let idx = self
+                .index
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             self.responses[idx % self.responses.len()].clone()
         };
 

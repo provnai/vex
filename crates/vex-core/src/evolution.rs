@@ -217,10 +217,7 @@ impl GeneticOperator for StandardOperator {
 }
 
 /// Select parents from a population based on fitness (tournament selection)
-pub fn tournament_select<'a>(
-    population: &'a [(Genome, Fitness)],
-    tournament_size: usize,
-) -> &'a Genome {
+pub fn tournament_select(population: &[(Genome, Fitness)], tournament_size: usize) -> &Genome {
     let mut rng = rand::thread_rng();
     let mut best: Option<&(Genome, Fitness)> = None;
 
@@ -251,14 +248,10 @@ mod tests {
 
     #[test]
     fn test_crossover() {
-        let parent_a = Genome::with_traits("A", vec![
-            ("a".to_string(), 0.0),
-            ("b".to_string(), 0.0),
-        ]);
-        let parent_b = Genome::with_traits("B", vec![
-            ("a".to_string(), 1.0),
-            ("b".to_string(), 1.0),
-        ]);
+        let parent_a =
+            Genome::with_traits("A", vec![("a".to_string(), 0.0), ("b".to_string(), 0.0)]);
+        let parent_b =
+            Genome::with_traits("B", vec![("a".to_string(), 1.0), ("b".to_string(), 1.0)]);
 
         let operator = StandardOperator;
         let child = operator.crossover(&parent_a, &parent_b);
@@ -276,6 +269,10 @@ mod tests {
         operator.mutate(&mut genome, 1.0); // 100% mutation rate
 
         // At least some traits should have changed
-        assert!(genome.traits.iter().zip(original_traits.iter()).any(|(a, b)| a != b));
+        assert!(genome
+            .traits
+            .iter()
+            .zip(original_traits.iter())
+            .any(|(a, b)| a != b));
     }
 }

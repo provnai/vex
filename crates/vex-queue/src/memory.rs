@@ -1,9 +1,9 @@
 //! In-memory queue implementation with priority scheduling
 
 use async_trait::async_trait;
-use chrono::{Duration, Utc, DateTime};
-use std::collections::{HashMap, BinaryHeap};
+use chrono::{DateTime, Duration, Utc};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -45,7 +45,12 @@ impl MemoryQueue {
 
 #[async_trait]
 impl QueueBackend for MemoryQueue {
-    async fn enqueue(&self, job_type: &str, payload: serde_json::Value, delay_secs: Option<u64>) -> Result<Uuid, QueueError> {
+    async fn enqueue(
+        &self,
+        job_type: &str,
+        payload: serde_json::Value,
+        delay_secs: Option<u64>,
+    ) -> Result<Uuid, QueueError> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let run_at = now + Duration::seconds(delay_secs.unwrap_or(0) as i64);
@@ -73,14 +78,14 @@ impl QueueBackend for MemoryQueue {
     async fn dequeue(&self) -> Result<Option<JobEntry>, QueueError> {
         let mut queue = self.queue.write().await;
         let now = Utc::now();
-        
+
         // Peek at the earliest job
         if let Some(entry) = queue.peek() {
             if entry.run_at <= now {
                 // Job is ready - pop it
                 let entry = queue.pop().unwrap();
                 let mut jobs = self.jobs.write().await;
-                
+
                 if let Some(job) = jobs.get_mut(&entry.id) {
                     // Only process if still pending
                     if job.status == JobStatus::Pending {
@@ -90,50 +95,55 @@ impl QueueBackend for MemoryQueue {
                 }
             }
         }
-        
+
         Ok(None)
     }
 
-    async fn update_status(&self, id: Uuid, status: JobStatus, error: Option<String>, delay_secs: Option<u64>) -> Result<(), QueueError> {
+    async fn update_status(
+        &self,
+        id: Uuid,
+        status: JobStatus,
+        error: Option<String>,
+        delay_secs: Option<u64>,
+    ) -> Result<(), QueueError> {
         let mut jobs = self.jobs.write().await;
-        
+
         if let Some(job) = jobs.get_mut(&id) {
             job.status = status;
             job.last_error = error;
-            job.attempts += if matches!(status, JobStatus::Failed(_)) { 1 } else { 0 };
+            job.attempts += if matches!(status, JobStatus::Failed(_)) {
+                1
+            } else {
+                0
+            };
 
-            match status {
-                JobStatus::Failed(retry_count) => {
-                    // Use provided delay or fall back to exponential backoff
-                    let backoff_secs = delay_secs.unwrap_or_else(|| {
-                        2_u64.pow(retry_count.min(6)) // Default: exponential, cap at ~1 min
-                    });
-                    let run_at = Utc::now() + Duration::seconds(backoff_secs as i64);
-                    job.run_at = run_at;
-                    job.status = JobStatus::Pending; // Reset to pending for retry
-                    
-                    tracing::debug!(
-                        job_id = %id,
-                        retry_count = retry_count,
-                        delay_secs = backoff_secs,
-                        "Re-queuing job with backoff"
-                    );
-                    
-                    let mut queue = self.queue.write().await;
-                    queue.push(PriorityEntry { run_at, id });
-                }
-                _ => {}
+            if let JobStatus::Failed(retry_count) = status {
+                // Use provided delay or fall back to exponential backoff
+                let backoff_secs = delay_secs.unwrap_or_else(|| {
+                    2_u64.pow(retry_count.min(6)) // Default: exponential, cap at ~1 min
+                });
+                let run_at = Utc::now() + Duration::seconds(backoff_secs as i64);
+                job.run_at = run_at;
+                job.status = JobStatus::Pending; // Reset to pending for retry
+
+                tracing::debug!(
+                    job_id = %id,
+                    retry_count = retry_count,
+                    delay_secs = backoff_secs,
+                    "Re-queuing job with backoff"
+                );
+
+                let mut queue = self.queue.write().await;
+                queue.push(PriorityEntry { run_at, id });
             }
         }
-        
+
         Ok(())
     }
 
     async fn get_status(&self, id: Uuid) -> Result<JobStatus, QueueError> {
         let jobs = self.jobs.read().await;
-        jobs.get(&id)
-            .map(|j| j.status)
-            .ok_or(QueueError::NotFound)
+        jobs.get(&id).map(|j| j.status).ok_or(QueueError::NotFound)
     }
 }
 
@@ -146,10 +156,13 @@ mod tests {
     async fn test_enqueue_dequeue() {
         let queue = MemoryQueue::new();
         let payload = json!({ "foo": "bar" });
-        
+
         // Enqueue
-        let id = queue.enqueue("test_job", payload.clone(), None).await.unwrap();
-        
+        let id = queue
+            .enqueue("test_job", payload.clone(), None)
+            .await
+            .unwrap();
+
         let status = queue.get_status(id).await.unwrap();
         assert_eq!(status, JobStatus::Pending);
 
@@ -158,7 +171,7 @@ mod tests {
         assert_eq!(job.id, id);
         assert_eq!(job.job_type, "test_job");
         assert_eq!(job.status, JobStatus::Running);
-        
+
         // Dequeue empty
         let empty = queue.dequeue().await.unwrap();
         assert!(empty.is_none());
@@ -168,19 +181,23 @@ mod tests {
     async fn test_delayed_job() {
         let queue = MemoryQueue::new();
         let payload = json!({});
-        
+
         // Enqueue with delay
         let id = queue.enqueue("delayed", payload, Some(1)).await.unwrap();
-        
+
         // Should be none immediately
         let job = queue.dequeue().await.unwrap();
         assert!(job.is_none());
-        
+
         // Wait
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-        
+
         // Should be available (Note: MemoryQueue checks run_at > now)
-        let job = queue.dequeue().await.unwrap().expect("Should have delayed job");
+        let job = queue
+            .dequeue()
+            .await
+            .unwrap()
+            .expect("Should have delayed job");
         assert_eq!(job.id, id);
     }
 }

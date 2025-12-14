@@ -19,7 +19,7 @@ pub struct RateLimitConfig {
 impl Default for RateLimitConfig {
     fn default() -> Self {
         Self {
-            max_requests: 60,  // 60 requests per minute
+            max_requests: 60, // 60 requests per minute
             window: Duration::from_secs(60),
             max_tokens_per_minute: Some(100_000),
         }
@@ -85,7 +85,7 @@ impl RateLimiter {
     pub async fn check(&self, provider: &str) -> RateLimitResult {
         let windows = self.windows.read().await;
         let window = windows.get(provider).cloned().unwrap_or_default();
-        
+
         self.evaluate(&window)
     }
 
@@ -109,23 +109,27 @@ impl RateLimiter {
 
     /// Try to acquire a permit with estimated token usage (atomic check)
     /// This prevents race conditions between request counting and token tracking
-    pub async fn try_acquire_with_tokens(&self, provider: &str, estimated_tokens: u32) -> Result<(), RateLimitError> {
+    pub async fn try_acquire_with_tokens(
+        &self,
+        provider: &str,
+        estimated_tokens: u32,
+    ) -> Result<(), RateLimitError> {
         let mut windows = self.windows.write().await;
         let window = windows.entry(provider.to_string()).or_default();
-        
+
         // Check if window expired
         let elapsed = window.window_start.elapsed();
         if elapsed >= self.config.window {
             // Reset window
             *window = RequestWindow::default();
         }
-        
+
         // Check request limit
         if window.count >= self.config.max_requests {
             let retry_after = self.config.window - elapsed;
             return Err(RateLimitError::Limited { retry_after });
         }
-        
+
         // Check token limit (if configured and tokens provided)
         if let Some(max_tokens) = self.config.max_tokens_per_minute {
             if estimated_tokens > 0 && window.tokens + estimated_tokens > max_tokens {
@@ -133,7 +137,7 @@ impl RateLimiter {
                 return Err(RateLimitError::Limited { retry_after });
             }
         }
-        
+
         // Acquire atomically - update both counters under same lock
         window.count += 1;
         window.tokens += estimated_tokens;
@@ -153,13 +157,16 @@ impl RateLimiter {
     pub async fn stats(&self, provider: &str) -> RateLimitStats {
         let windows = self.windows.read().await;
         let window = windows.get(provider).cloned().unwrap_or_default();
-        
+
         RateLimitStats {
             requests_used: window.count,
             requests_limit: self.config.max_requests,
             tokens_used: window.tokens,
             tokens_limit: self.config.max_tokens_per_minute,
-            window_remaining: self.config.window.saturating_sub(window.window_start.elapsed()),
+            window_remaining: self
+                .config
+                .window
+                .saturating_sub(window.window_start.elapsed()),
         }
     }
 
@@ -168,19 +175,19 @@ impl RateLimiter {
         if elapsed >= self.config.window {
             return RateLimitResult::Allowed;
         }
-        
+
         if window.count >= self.config.max_requests {
             let retry_after = self.config.window - elapsed;
             return RateLimitResult::Limited { retry_after };
         }
-        
+
         if let Some(max_tokens) = self.config.max_tokens_per_minute {
             if window.tokens >= max_tokens {
                 let retry_after = self.config.window - elapsed;
                 return RateLimitResult::Limited { retry_after };
             }
         }
-        
+
         RateLimitResult::Allowed
     }
 }
@@ -239,9 +246,10 @@ impl<P> RateLimitedProvider<P> {
 }
 
 /// User tier for rate limiting
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum UserTier {
     /// Free tier - limited access
+    #[default]
     Free,
     /// Pro tier - increased limits
     Pro,
@@ -269,12 +277,6 @@ impl UserTier {
                 max_tokens_per_minute: Some(500_000),
             },
         }
-    }
-}
-
-impl Default for UserTier {
-    fn default() -> Self {
-        UserTier::Free
     }
 }
 
@@ -332,33 +334,37 @@ impl UserRateLimiter {
     }
 
     /// Try to acquire a permit with estimated tokens for a user
-    pub async fn try_acquire_with_tokens(&self, user_id: &str, estimated_tokens: u32) -> Result<(), RateLimitError> {
+    pub async fn try_acquire_with_tokens(
+        &self,
+        user_id: &str,
+        estimated_tokens: u32,
+    ) -> Result<(), RateLimitError> {
         let tier = self.get_user_tier(user_id).await;
         let config = tier.rate_limit_config();
-        
+
         let mut windows = self.user_windows.write().await;
-        let state = windows.entry(user_id.to_string()).or_insert_with(|| {
-            UserRateLimitState {
+        let state = windows
+            .entry(user_id.to_string())
+            .or_insert_with(|| UserRateLimitState {
                 tier,
                 window: RequestWindow::default(),
-            }
-        });
-        
+            });
+
         // Update tier if it changed
         state.tier = tier;
-        
+
         // Check if window expired
         let elapsed = state.window.window_start.elapsed();
         if elapsed >= config.window {
             state.window = RequestWindow::default();
         }
-        
+
         // Check request limit
         if state.window.count >= config.max_requests {
             let retry_after = config.window - elapsed;
             return Err(RateLimitError::Limited { retry_after });
         }
-        
+
         // Check token limit
         if let Some(max_tokens) = config.max_tokens_per_minute {
             if estimated_tokens > 0 && state.window.tokens + estimated_tokens > max_tokens {
@@ -366,7 +372,7 @@ impl UserRateLimiter {
                 return Err(RateLimitError::Limited { retry_after });
             }
         }
-        
+
         // Acquire
         state.window.count += 1;
         state.window.tokens += estimated_tokens;
@@ -377,17 +383,17 @@ impl UserRateLimiter {
     pub async fn user_stats(&self, user_id: &str) -> UserRateLimitStats {
         let tier = self.get_user_tier(user_id).await;
         let config = tier.rate_limit_config();
-        
+
         let windows = self.user_windows.read().await;
         let state = windows.get(user_id).cloned().unwrap_or_default();
-        
+
         let elapsed = state.window.window_start.elapsed();
         let window_remaining = if elapsed >= config.window {
             config.window
         } else {
             config.window - elapsed
         };
-        
+
         UserRateLimitStats {
             user_id: user_id.to_string(),
             tier,
@@ -446,10 +452,10 @@ mod tests {
     #[tokio::test]
     async fn test_stats() {
         let limiter = RateLimiter::new(RateLimitConfig::default());
-        
+
         limiter.try_acquire("provider1").await.unwrap();
         limiter.try_acquire("provider1").await.unwrap();
-        
+
         let stats = limiter.stats("provider1").await;
         assert_eq!(stats.requests_used, 2);
     }
@@ -457,14 +463,14 @@ mod tests {
     #[tokio::test]
     async fn test_user_rate_limiter_tiers() {
         let limiter = UserRateLimiter::new(UserTier::Free);
-        
+
         // Default tier should be Free (10 requests/min)
         assert_eq!(limiter.get_user_tier("user1").await, UserTier::Free);
-        
+
         // Set user to Pro tier
         limiter.set_user_tier("user2", UserTier::Pro).await;
         assert_eq!(limiter.get_user_tier("user2").await, UserTier::Pro);
-        
+
         // Free user should be limited after 10 requests
         for _ in 0..10 {
             assert!(limiter.try_acquire("free_user").await.is_ok());
@@ -473,7 +479,7 @@ mod tests {
             limiter.try_acquire("free_user").await,
             Err(RateLimitError::Limited { .. })
         ));
-        
+
         // Pro user should have 100 request limit
         limiter.set_user_tier("pro_user", UserTier::Pro).await;
         for _ in 0..50 {

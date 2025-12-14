@@ -20,7 +20,7 @@ Current LLM agents fail in predictable ways. VEX is an infrastructure layer that
 | **Context Overflow** | Temporal Memory | Bio-inspired decay with LLM-powered compression |
 | **Unauditability** | Merkle Identity | Cryptographic hash chains with tamper-evident proofs |
 
-**VEX is not another agent framework.** It's a verification and memory layer that wraps your existing LLM, making it accountable.
+VEX is a verification and memory layer that works with any LLM provider.
 
 ---
 
@@ -245,17 +245,8 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
 | Unit Tests | 65+ | ✅ |
 | Integration Tests | 15+ | ✅ |
 | Chaos/Fault Tests | 6 | ✅ |
-| Doc Tests | 1 | ✅ |
+| Doc Tests | 8 | ✅ |
 | **Total** | **85+** | ✅ |
-
----
-
-## Use Cases
-
-- **Financial Services**: Fraud detection with audit trails (SOX/AML compliance)
-- **Healthcare**: Medical reasoning with verification and provenance
-- **Legal**: Contract analysis with adversarial review
-- **Research**: Multi-agent exploration with evolutionary improvement
 
 ---
 
@@ -274,8 +265,4 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
 
 MIT — See [LICENSE](LICENSE) for details.
 
----
 
-<p align="center">
-  <strong>VEX: Bring your own LLM. We make it accountable.</strong>
-</p>

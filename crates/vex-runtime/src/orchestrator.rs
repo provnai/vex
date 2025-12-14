@@ -5,7 +5,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use vex_core::{Agent, AgentConfig, MerkleTree, Hash, Fitness, Genome, GeneticOperator, StandardOperator, tournament_select};
+use vex_core::{
+    tournament_select, Agent, AgentConfig, Fitness, GeneticOperator, Genome, Hash, MerkleTree,
+    StandardOperator,
+};
 
 use crate::executor::{AgentExecutor, ExecutionResult, ExecutorConfig, LlmBackend};
 
@@ -132,7 +135,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
              Critic's Analysis: \"{}\"\n\n\
              Synthesize these into a final, well-reasoned response.",
             query,
-            child_results.get(0).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
+            child_results.first().map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
             child_results.get(1).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
         );
 
@@ -159,7 +162,10 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         Ok(OrchestrationResult {
             root_agent_id: root_id,
             response: root_result.response,
-            merkle_root: merkle_tree.root_hash().cloned().unwrap_or(Hash::digest(b"empty")),
+            merkle_root: merkle_tree
+                .root_hash()
+                .cloned()
+                .unwrap_or(Hash::digest(b"empty")),
             agent_results: all_results,
             levels_processed: 2,
             confidence: avg_confidence,
@@ -167,7 +173,11 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
     }
 
     /// Evolve agents based on fitness - persists evolved genome to fittest agent
-    fn evolve_agents(&self, agents: &mut HashMap<Uuid, Agent>, results: &HashMap<Uuid, ExecutionResult>) {
+    fn evolve_agents(
+        &self,
+        agents: &mut HashMap<Uuid, Agent>,
+        results: &HashMap<Uuid, ExecutionResult>,
+    ) {
         let operator = StandardOperator;
 
         // Build population with fitness scores from actual agent genomes
@@ -198,7 +208,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
             if let Some(agent) = agents.get_mut(best_id) {
                 let old_traits = agent.genome.traits.clone();
                 agent.apply_evolved_genome(offspring.clone());
-                
+
                 tracing::info!(
                     agent_id = %best_id,
                     old_traits = ?old_traits,
@@ -230,7 +240,10 @@ mod tests {
             } else if system.contains("critic") {
                 Ok("Critical analysis: The main concern is validation of assumptions.".to_string())
             } else {
-                Ok("Synthesized response combining all findings into a coherent answer.".to_string())
+                Ok(
+                    "Synthesized response combining all findings into a coherent answer."
+                        .to_string(),
+                )
             }
         }
     }
@@ -240,7 +253,10 @@ mod tests {
         let llm = Arc::new(MockLlm);
         let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default());
 
-        let result = orchestrator.process("What is the meaning of life?").await.unwrap();
+        let result = orchestrator
+            .process("What is the meaning of life?")
+            .await
+            .unwrap();
 
         assert!(!result.response.is_empty());
         assert!(result.confidence > 0.0);

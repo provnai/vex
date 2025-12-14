@@ -40,11 +40,10 @@
 //! | LongTerm | 1 week | 100 |
 //! | Permanent | ∞ | 500 |
 
-pub mod horizon;
 pub mod compression;
+pub mod horizon;
 pub mod memory;
 
-pub use horizon::{TimeHorizon, HorizonConfig};
-pub use compression::{TemporalCompressor, DecayStrategy};
-pub use memory::{EpisodicMemory, Episode};
-
+pub use compression::{DecayStrategy, TemporalCompressor};
+pub use horizon::{HorizonConfig, TimeHorizon};
+pub use memory::{Episode, EpisodicMemory};

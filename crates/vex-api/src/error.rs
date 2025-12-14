@@ -69,16 +69,38 @@ impl IntoResponse for ApiError {
             ApiError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg.clone()),
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "FORBIDDEN", msg.clone()),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg.clone()),
-            ApiError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMITED", "Too many requests".to_string()),
-            ApiError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", msg.clone()),
+            ApiError::RateLimited => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "RATE_LIMITED",
+                "Too many requests".to_string(),
+            ),
+            ApiError::ServiceUnavailable(msg) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "SERVICE_UNAVAILABLE",
+                msg.clone(),
+            ),
             ApiError::Internal(msg) => {
                 // Don't expose internal errors to clients
                 tracing::error!(error = %msg, "Internal error");
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An internal error occurred".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "An internal error occurred".to_string(),
+                )
             }
-            ApiError::CircuitOpen(msg) => (StatusCode::SERVICE_UNAVAILABLE, "CIRCUIT_OPEN", msg.clone()),
-            ApiError::Timeout => (StatusCode::GATEWAY_TIMEOUT, "TIMEOUT", "Request timed out".to_string()),
-            ApiError::Validation(msg) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", msg.clone()),
+            ApiError::CircuitOpen(msg) => {
+                (StatusCode::SERVICE_UNAVAILABLE, "CIRCUIT_OPEN", msg.clone())
+            }
+            ApiError::Timeout => (
+                StatusCode::GATEWAY_TIMEOUT,
+                "TIMEOUT",
+                "Request timed out".to_string(),
+            ),
+            ApiError::Validation(msg) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "VALIDATION_ERROR",
+                msg.clone(),
+            ),
         };
 
         let body = ErrorResponse {
@@ -109,11 +131,15 @@ impl From<serde_json::Error> for ApiError {
 impl From<vex_llm::LlmError> for ApiError {
     fn from(e: vex_llm::LlmError) -> Self {
         match e {
-            vex_llm::LlmError::ConnectionFailed(_) => ApiError::ServiceUnavailable("LLM service unavailable".to_string()),
+            vex_llm::LlmError::ConnectionFailed(_) => {
+                ApiError::ServiceUnavailable("LLM service unavailable".to_string())
+            }
             vex_llm::LlmError::RequestFailed(msg) => ApiError::Internal(msg),
             vex_llm::LlmError::InvalidResponse(msg) => ApiError::Internal(msg),
             vex_llm::LlmError::RateLimited => ApiError::RateLimited,
-            vex_llm::LlmError::NotAvailable => ApiError::ServiceUnavailable("LLM provider not available".to_string()),
+            vex_llm::LlmError::NotAvailable => {
+                ApiError::ServiceUnavailable("LLM provider not available".to_string())
+            }
         }
     }
 }
@@ -139,13 +165,13 @@ mod tests {
     async fn test_error_response() {
         let error = ApiError::NotFound("User not found".to_string());
         let response = error.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        
+
         let body = response.into_body();
         let bytes = body.collect().await.unwrap().to_bytes();
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        
+
         assert_eq!(json["error"]["code"], "NOT_FOUND");
     }
 }

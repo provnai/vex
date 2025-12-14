@@ -1,3 +1,5 @@
 pub mod agent;
 
-pub use agent::{AgentJobPayload, AgentJobResult, AgentExecutionJob, JobResultStore, new_result_store};
+pub use agent::{
+    new_result_store, AgentExecutionJob, AgentJobPayload, AgentJobResult, JobResultStore,
+};

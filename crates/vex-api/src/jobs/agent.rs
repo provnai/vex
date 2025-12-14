@@ -1,14 +1,14 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error};
-use vex_queue::{Job, JobResult};
-use vex_queue::job::BackoffStrategy;
-use vex_llm::{LlmProvider, LlmRequest};
-use chrono::{DateTime, Utc};
+use tracing::{error, info};
 use uuid::Uuid;
+use vex_llm::{LlmProvider, LlmRequest};
+use vex_queue::job::BackoffStrategy;
+use vex_queue::{Job, JobResult};
 
 /// Payload for agent execution job
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,11 +50,16 @@ pub struct AgentExecutionJob {
 impl AgentExecutionJob {
     pub fn new(
         job_id: Uuid,
-        payload: AgentJobPayload, 
+        payload: AgentJobPayload,
         llm: Arc<dyn LlmProvider>,
         result_store: JobResultStore,
     ) -> Self {
-        Self { job_id, payload, llm, result_store }
+        Self {
+            job_id,
+            payload,
+            llm,
+            result_store,
+        }
     }
 }
 
@@ -68,16 +73,16 @@ impl Job for AgentExecutionJob {
         info!(job_id = %self.job_id, agent_id = %self.payload.agent_id, "Executing agent job");
 
         let request = LlmRequest::with_role("You are a helpful VEX agent.", &self.payload.prompt);
-        
+
         match self.llm.complete(request).await {
             Ok(response) => {
                 info!(
-                    job_id = %self.job_id, 
-                    agent_id = %self.payload.agent_id, 
+                    job_id = %self.job_id,
+                    agent_id = %self.payload.agent_id,
                     response_len = response.content.len(),
                     "Agent job completed successfully"
                 );
-                
+
                 // Store the result
                 let result = AgentJobResult {
                     job_id: self.job_id,
@@ -89,14 +94,14 @@ impl Job for AgentExecutionJob {
                     success: true,
                     error: None,
                 };
-                
+
                 self.result_store.write().await.insert(self.job_id, result);
-                
+
                 JobResult::Success
             }
             Err(e) => {
                 error!(job_id = %self.job_id, error = %e, "LLM call failed");
-                
+
                 // Store error result
                 let result = AgentJobResult {
                     job_id: self.job_id,
@@ -108,19 +113,22 @@ impl Job for AgentExecutionJob {
                     success: false,
                     error: Some(e.to_string()),
                 };
-                
+
                 self.result_store.write().await.insert(self.job_id, result);
-                
+
                 JobResult::Retry(e.to_string())
             }
         }
     }
-    
+
     fn max_retries(&self) -> u32 {
         5
     }
-    
+
     fn backoff_strategy(&self) -> BackoffStrategy {
-        BackoffStrategy::Exponential { initial_secs: 2, multiplier: 2.0 }
+        BackoffStrategy::Exponential {
+            initial_secs: 2,
+            multiplier: 2.0,
+        }
     }
 }

@@ -1,9 +1,9 @@
 //! Metrics and tracing for VEX
 
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
 
 /// Global metrics collector
 #[derive(Debug, Default)]
@@ -118,43 +118,49 @@ impl MetricsSnapshot {
     /// Export metrics in Prometheus text format
     pub fn to_prometheus(&self) -> String {
         let mut output = String::new();
-        
+
         // LLM metrics
         output.push_str("# HELP vex_llm_calls_total Total number of LLM API calls\n");
         output.push_str("# TYPE vex_llm_calls_total counter\n");
         output.push_str(&format!("vex_llm_calls_total {}\n", self.llm_calls));
-        
+
         output.push_str("# HELP vex_llm_errors_total Total number of LLM API errors\n");
         output.push_str("# TYPE vex_llm_errors_total counter\n");
         output.push_str(&format!("vex_llm_errors_total {}\n", self.llm_errors));
-        
+
         output.push_str("# HELP vex_tokens_used_total Total tokens consumed by LLM calls\n");
         output.push_str("# TYPE vex_tokens_used_total counter\n");
         output.push_str(&format!("vex_tokens_used_total {}\n", self.tokens_used));
-        
+
         // Agent metrics
         output.push_str("# HELP vex_agents_created_total Total number of agents created\n");
         output.push_str("# TYPE vex_agents_created_total counter\n");
-        output.push_str(&format!("vex_agents_created_total {}\n", self.agents_created));
-        
+        output.push_str(&format!(
+            "vex_agents_created_total {}\n",
+            self.agents_created
+        ));
+
         output.push_str("# HELP vex_debates_total Total number of debates conducted\n");
         output.push_str("# TYPE vex_debates_total counter\n");
         output.push_str(&format!("vex_debates_total {}\n", self.debates));
-        
+
         // Verification metrics
         output.push_str("# HELP vex_verifications_total Total adversarial verifications\n");
         output.push_str("# TYPE vex_verifications_total counter\n");
         output.push_str(&format!("vex_verifications_total {}\n", self.verifications));
-        
+
         output.push_str("# HELP vex_verifications_passed_total Successful verifications\n");
         output.push_str("# TYPE vex_verifications_passed_total counter\n");
-        output.push_str(&format!("vex_verifications_passed_total {}\n", self.verifications_passed));
-        
+        output.push_str(&format!(
+            "vex_verifications_passed_total {}\n",
+            self.verifications_passed
+        ));
+
         // Audit metrics
         output.push_str("# HELP vex_audit_events_total Total audit events logged\n");
         output.push_str("# TYPE vex_audit_events_total counter\n");
         output.push_str(&format!("vex_audit_events_total {}\n", self.audit_events));
-        
+
         // Derived gauges
         let error_rate = if self.llm_calls > 0 {
             self.llm_errors as f64 / self.llm_calls as f64
@@ -164,7 +170,7 @@ impl MetricsSnapshot {
         output.push_str("# HELP vex_llm_error_rate Current LLM error rate\n");
         output.push_str("# TYPE vex_llm_error_rate gauge\n");
         output.push_str(&format!("vex_llm_error_rate {:.4}\n", error_rate));
-        
+
         let verification_rate = if self.verifications > 0 {
             self.verifications_passed as f64 / self.verifications as f64
         } else {
@@ -172,8 +178,11 @@ impl MetricsSnapshot {
         };
         output.push_str("# HELP vex_verification_success_rate Verification success rate\n");
         output.push_str("# TYPE vex_verification_success_rate gauge\n");
-        output.push_str(&format!("vex_verification_success_rate {:.4}\n", verification_rate));
-        
+        output.push_str(&format!(
+            "vex_verification_success_rate {:.4}\n",
+            verification_rate
+        ));
+
         output
     }
 }

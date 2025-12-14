@@ -3,13 +3,13 @@
 use serde::{Deserialize, Serialize};
 
 /// Definition of a tool that can be called by an LLM.
-/// 
+///
 /// Used with the `#[vex_tool]` macro to generate tool schemas.
-/// 
+///
 /// # Example
 /// ```
 /// use vex_llm::ToolDefinition;
-/// 
+///
 /// const SEARCH_TOOL: ToolDefinition = ToolDefinition {
 ///     name: "web_search",
 ///     description: "Search the web for information",
@@ -28,10 +28,18 @@ pub struct ToolDefinition {
 
 impl ToolDefinition {
     /// Create a new tool definition
-    pub const fn new(name: &'static str, description: &'static str, parameters: &'static str) -> Self {
-        Self { name, description, parameters }
+    pub const fn new(
+        name: &'static str,
+        description: &'static str,
+        parameters: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            parameters,
+        }
     }
-    
+
     /// Convert to OpenAI-compatible tool format
     pub fn to_openai_format(&self) -> serde_json::Value {
         serde_json::json!({
@@ -52,12 +60,9 @@ mod tests {
 
     #[test]
     fn test_tool_definition() {
-        const TEST_TOOL: ToolDefinition = ToolDefinition::new(
-            "test_tool",
-            "A test tool",
-            r#"{"type": "object"}"#,
-        );
-        
+        const TEST_TOOL: ToolDefinition =
+            ToolDefinition::new("test_tool", "A test tool", r#"{"type": "object"}"#);
+
         assert_eq!(TEST_TOOL.name, "test_tool");
         assert_eq!(TEST_TOOL.description, "A test tool");
     }
@@ -69,7 +74,7 @@ mod tests {
             "Search the web",
             r#"{"type": "object", "properties": {"query": {"type": "string"}}}"#,
         );
-        
+
         let json = tool.to_openai_format();
         assert_eq!(json["type"], "function");
         assert_eq!(json["function"]["name"], "search");

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 use crate::backend::QueueBackend;
 use crate::job::{Job, JobResult, JobStatus};
@@ -51,8 +51,8 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
         Self {
             backend,
             config,
-            registry: Arc::new(JobRegistry { 
-                factories: RwLock::new(std::collections::HashMap::new()) 
+            registry: Arc::new(JobRegistry {
+                factories: RwLock::new(std::collections::HashMap::new()),
             }),
         }
     }
@@ -60,24 +60,37 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
     /// Register a job type handler
     pub fn register_job_type<J: Job + DeserializeOwned + 'static>(&self, name: &str) {
         let factory = Box::new(|payload: serde_json::Value| {
-            let job: J = serde_json::from_value(payload).expect("Job payload deserialization failed");
+            let job: J =
+                serde_json::from_value(payload).expect("Job payload deserialization failed");
             Box::new(job) as Box<dyn Job>
         });
-        
-        self.registry.factories.write().unwrap().insert(name.to_string(), factory);
+
+        self.registry
+            .factories
+            .write()
+            .unwrap()
+            .insert(name.to_string(), factory);
     }
-    
+
     /// Register a custom factory (useful for jobs with dependency injection)
-    pub fn register_job_factory<F>(&self, name: &str, factory: F) 
-    where F: Fn(serde_json::Value) -> Box<dyn Job> + Send + Sync + 'static 
+    pub fn register_job_factory<F>(&self, name: &str, factory: F)
+    where
+        F: Fn(serde_json::Value) -> Box<dyn Job> + Send + Sync + 'static,
     {
-        self.registry.factories.write().unwrap().insert(name.to_string(), Box::new(factory));
+        self.registry
+            .factories
+            .write()
+            .unwrap()
+            .insert(name.to_string(), Box::new(factory));
     }
 
     pub async fn start(&self) {
         let semaphore = Arc::new(Semaphore::new(self.config.max_concurrency));
-        
-        info!("Worker pool started with concurrency {}", self.config.max_concurrency);
+
+        info!(
+            "Worker pool started with concurrency {}",
+            self.config.max_concurrency
+        );
 
         loop {
             if semaphore.available_permits() > 0 {
@@ -86,50 +99,75 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                         let permit = semaphore.clone().acquire_owned().await.unwrap();
                         let backend = self.backend.clone();
                         let registry = self.registry.clone();
-                        
+
                         tokio::spawn(async move {
                             let job_opt = {
                                 let factories = registry.factories.read().unwrap();
-                                factories.get(&entry.job_type).map(|f| f(entry.payload.clone()))
+                                factories
+                                    .get(&entry.job_type)
+                                    .map(|f| f(entry.payload.clone()))
                             };
 
                             if let Some(mut job) = job_opt {
                                 info!("Processing job {} ({})", entry.id, entry.job_type);
-                                
+
                                 let result = job.execute().await;
-                                
+
                                 match result {
                                     JobResult::Success => {
-                                        let _ = backend.update_status(entry.id, JobStatus::Completed, None, None).await;
+                                        let _ = backend
+                                            .update_status(
+                                                entry.id,
+                                                JobStatus::Completed,
+                                                None,
+                                                None,
+                                            )
+                                            .await;
                                     }
                                     JobResult::Retry(e) => {
                                         // Calculate backoff delay from job's strategy
                                         let delay = job.backoff_strategy().delay(entry.attempts);
                                         let delay_secs = delay.as_secs();
-                                        
+
                                         info!(
                                             job_id = %entry.id,
                                             attempt = entry.attempts + 1,
                                             delay_secs = delay_secs,
                                             "Job failed, scheduling retry with backoff"
                                         );
-                                        
-                                        let _ = backend.update_status(
-                                            entry.id, 
-                                            JobStatus::Failed(entry.attempts + 1), 
-                                            Some(e),
-                                            Some(delay_secs)
-                                        ).await;
+
+                                        let _ = backend
+                                            .update_status(
+                                                entry.id,
+                                                JobStatus::Failed(entry.attempts + 1),
+                                                Some(e),
+                                                Some(delay_secs),
+                                            )
+                                            .await;
                                     }
                                     JobResult::Fatal(e) => {
-                                        let _ = backend.update_status(entry.id, JobStatus::DeadLetter, Some(e), None).await;
+                                        let _ = backend
+                                            .update_status(
+                                                entry.id,
+                                                JobStatus::DeadLetter,
+                                                Some(e),
+                                                None,
+                                            )
+                                            .await;
                                     }
                                 }
                             } else {
                                 warn!("No handler registered for job type: {}", entry.job_type);
-                                let _ = backend.update_status(entry.id, JobStatus::DeadLetter, Some(format!("No handler for {}", entry.job_type)), None).await;
+                                let _ = backend
+                                    .update_status(
+                                        entry.id,
+                                        JobStatus::DeadLetter,
+                                        Some(format!("No handler for {}", entry.job_type)),
+                                        None,
+                                    )
+                                    .await;
                             }
-                            
+
                             drop(permit);
                         });
                     }
@@ -149,4 +187,3 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
         }
     }
 }
-

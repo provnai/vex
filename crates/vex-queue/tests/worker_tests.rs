@@ -1,10 +1,10 @@
 //! Unit tests for vex-queue worker pool
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 use vex_queue::backend::QueueBackend;
-use vex_queue::job::{Job, JobResult, BackoffStrategy};
+use vex_queue::job::{BackoffStrategy, Job, JobResult};
 use vex_queue::memory::MemoryQueue;
 use vex_queue::worker::WorkerConfig;
 
@@ -18,11 +18,19 @@ struct CounterJob {
 
 impl CounterJob {
     fn new(counter: Arc<AtomicU32>) -> Self {
-        Self { counter, should_fail: false, fail_times: 0 }
+        Self {
+            counter,
+            should_fail: false,
+            fail_times: 0,
+        }
     }
 
     fn failing(counter: Arc<AtomicU32>, fail_times: u32) -> Self {
-        Self { counter, should_fail: true, fail_times }
+        Self {
+            counter,
+            should_fail: true,
+            fail_times,
+        }
     }
 }
 
@@ -34,7 +42,7 @@ impl Job for CounterJob {
 
     async fn execute(&mut self) -> JobResult {
         let count = self.counter.fetch_add(1, Ordering::SeqCst);
-        
+
         if self.should_fail && count < self.fail_times {
             JobResult::Retry(format!("Failing on attempt {}", count + 1))
         } else {
@@ -81,16 +89,17 @@ mod tests {
     #[tokio::test]
     async fn test_memory_queue_enqueue_dequeue() {
         let queue = MemoryQueue::new();
-        
+
         // Enqueue a job
-        let id = queue.enqueue("test_job", json!({"key": "value"}), None)
+        let id = queue
+            .enqueue("test_job", json!({"key": "value"}), None)
             .await
             .unwrap();
-        
+
         // Dequeue it
         let job = queue.dequeue().await.unwrap();
         assert!(job.is_some());
-        
+
         let job = job.unwrap();
         assert_eq!(job.id, id);
         assert_eq!(job.job_type, "test_job");
@@ -100,14 +109,14 @@ mod tests {
     #[tokio::test]
     async fn test_memory_queue_fifo_ordering() {
         let queue = MemoryQueue::new();
-        
+
         let id1 = queue.enqueue("job1", json!({}), None).await.unwrap();
         let id2 = queue.enqueue("job2", json!({}), None).await.unwrap();
-        
+
         // First in, first out
         let job1 = queue.dequeue().await.unwrap().unwrap();
         let job2 = queue.dequeue().await.unwrap().unwrap();
-        
+
         assert_eq!(job1.id, id1);
         assert_eq!(job2.id, id2);
     }
@@ -122,14 +131,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_backoff_strategy_exponential() {
-        let strategy = BackoffStrategy::Exponential { 
-            initial_secs: 1, 
-            multiplier: 2.0 
+        let strategy = BackoffStrategy::Exponential {
+            initial_secs: 1,
+            multiplier: 2.0,
         };
-        assert_eq!(strategy.delay(0).as_secs(), 1);  // 1 * 2^0 = 1
-        assert_eq!(strategy.delay(1).as_secs(), 2);  // 1 * 2^1 = 2
-        assert_eq!(strategy.delay(2).as_secs(), 4);  // 1 * 2^2 = 4
-        assert_eq!(strategy.delay(3).as_secs(), 8);  // 1 * 2^3 = 8
+        assert_eq!(strategy.delay(0).as_secs(), 1); // 1 * 2^0 = 1
+        assert_eq!(strategy.delay(1).as_secs(), 2); // 1 * 2^1 = 2
+        assert_eq!(strategy.delay(2).as_secs(), 4); // 1 * 2^2 = 4
+        assert_eq!(strategy.delay(3).as_secs(), 8); // 1 * 2^3 = 8
     }
 
     #[tokio::test]
@@ -138,7 +147,7 @@ mod tests {
         let success = JobResult::Success;
         let retry = JobResult::Retry("error".to_string());
         let fatal = JobResult::Fatal("error".to_string());
-        
+
         assert!(matches!(success, JobResult::Success));
         assert!(matches!(retry, JobResult::Retry(_)));
         assert!(matches!(fatal, JobResult::Fatal(_)));
@@ -147,13 +156,16 @@ mod tests {
     #[tokio::test]
     async fn test_delayed_job_not_immediately_available() {
         let queue = MemoryQueue::new();
-        
+
         // Enqueue with 10 second delay
         let _id = queue.enqueue("delayed", json!({}), Some(10)).await.unwrap();
-        
+
         // Should not be dequeue-able immediately
         let job = queue.dequeue().await.unwrap();
-        assert!(job.is_none(), "Delayed job should not be immediately available");
+        assert!(
+            job.is_none(),
+            "Delayed job should not be immediately available"
+        );
     }
 
     #[tokio::test]

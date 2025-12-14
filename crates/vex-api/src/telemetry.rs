@@ -37,22 +37,22 @@ impl Default for OtelConfig {
 
 impl OtelConfig {
     /// Create config from environment variables
-    /// 
+    ///
     /// Reads:
     /// - OTEL_SERVICE_NAME: Service name (default: "vex-api")
     /// - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP endpoint
     /// - OTEL_TRACES_SAMPLER_ARG: Sample rate (default: 1.0)
     pub fn from_env() -> Self {
-        let service_name = std::env::var("OTEL_SERVICE_NAME")
-            .unwrap_or_else(|_| "vex-api".to_string());
-        
+        let service_name =
+            std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "vex-api".to_string());
+
         let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
-        
+
         let sample_rate = std::env::var("OTEL_TRACES_SAMPLER_ARG")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(1.0);
-        
+
         Self {
             service_name,
             endpoint: endpoint.clone(),
@@ -88,7 +88,7 @@ impl OtelConfig {
 }
 
 /// Initialize tracing with optional OpenTelemetry export
-/// 
+///
 /// This sets up the tracing subscriber with:
 /// - Console output (always)
 /// - OpenTelemetry OTLP export (if configured)
@@ -96,8 +96,8 @@ pub fn init_tracing(config: &OtelConfig) {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
     // Build the base subscriber with env filter
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,vex=debug"));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,vex=debug"));
 
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
@@ -150,7 +150,7 @@ pub fn init_tracing(config: &OtelConfig) {
     //             ]))
     //     )
     //     .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-    // 
+    //
     // let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
     // ```
 }
@@ -169,11 +169,11 @@ impl VexSpanExt for tracing::Span {
     fn record_user_id(&self, user_id: &str) {
         self.record("user_id", user_id);
     }
-    
+
     fn record_agent_id(&self, agent_id: &str) {
         self.record("agent_id", agent_id);
     }
-    
+
     fn record_request_id(&self, request_id: &str) {
         self.record("request_id", request_id);
     }

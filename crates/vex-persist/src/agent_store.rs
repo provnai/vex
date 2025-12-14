@@ -1,11 +1,11 @@
 //! Agent storage
 
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 
+use crate::backend::{StorageBackend, StorageError, StorageExt};
 use vex_core::{Agent, AgentConfig};
-use crate::backend::{StorageBackend, StorageExt, StorageError};
 
 /// Serializable agent state
 #[derive(Debug, Clone, Serialize, Deserialize)]

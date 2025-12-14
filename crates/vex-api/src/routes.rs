@@ -10,8 +10,8 @@ use uuid::Uuid;
 
 use crate::auth::Claims;
 use crate::error::{ApiError, ApiResult};
+use crate::sanitize::{sanitize_name, sanitize_prompt, sanitize_role};
 use crate::state::AppState;
-use crate::sanitize::{sanitize_name, sanitize_role, sanitize_prompt};
 use vex_persist::AgentStore;
 // use vex_queue::QueueBackend; // Removed unused import
 
@@ -51,28 +51,26 @@ pub async fn health() -> Json<HealthResponse> {
 }
 
 /// Detailed health check with database connectivity
-pub async fn health_detailed(
-    State(state): State<AppState>,
-) -> Json<HealthResponse> {
+pub async fn health_detailed(State(state): State<AppState>) -> Json<HealthResponse> {
     let start = std::time::Instant::now();
-    
+
     // Check database
     let db_healthy = state.db().is_healthy().await;
     let db_latency = start.elapsed().as_millis() as u64;
-    
+
     // Queue is always healthy (in-memory)
     let queue_status = ComponentStatus {
         status: "healthy".to_string(),
         latency_ms: Some(0),
     };
-    
+
     let db_status = ComponentStatus {
         status: if db_healthy { "healthy" } else { "unhealthy" }.to_string(),
         latency_ms: Some(db_latency),
     };
-    
+
     let overall_status = if db_healthy { "healthy" } else { "degraded" };
-    
+
     Json(HealthResponse {
         status: overall_status.to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -95,7 +93,9 @@ pub struct CreateAgentRequest {
     pub spawn_shadow: bool,
 }
 
-fn default_max_depth() -> u8 { 3 }
+fn default_max_depth() -> u8 {
+    3
+}
 
 /// Agent response
 #[derive(Debug, Serialize)]
@@ -137,8 +137,9 @@ pub async fn create_agent(
     // Persist agent with tenant isolation
     let prefix = format!("user:{}:agent:", claims.sub);
     let store = AgentStore::with_prefix(state.db(), &prefix);
-    
-    store.save(&agent)
+
+    store
+        .save(&agent)
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to save agent: {}", e)))?;
 
@@ -165,7 +166,9 @@ pub struct ExecuteRequest {
     pub max_debate_rounds: u32,
 }
 
-fn default_max_rounds() -> u32 { 3 }
+fn default_max_rounds() -> u32 {
+    3
+}
 
 /// Execute agent response
 #[derive(Debug, Serialize)]
@@ -194,11 +197,12 @@ pub async fn execute_agent(
     // Check ownership/existence
     let prefix = format!("user:{}:agent:", claims.sub);
     let store = AgentStore::with_prefix(state.db(), &prefix);
-    
-    let exists = store.exists(agent_id)
+
+    let exists = store
+        .exists(agent_id)
         .await
         .map_err(|e| ApiError::Internal(format!("Storage error: {}", e)))?;
-        
+
     if !exists {
         return Err(ApiError::NotFound("Agent not found".to_string()));
     }
@@ -217,11 +221,12 @@ pub async fn execute_agent(
     // Enqueue job with explicit type checks
     // Enqueue job via dynamic backend
     let pool = state.queue();
-    
+
     // For dynamic dispatch, we access the backend. It's Arc<dyn QueueBackend>.
     let backend = &pool.backend;
-    
-    let job_id = backend.enqueue("agent_execution", payload, None)
+
+    let job_id = backend
+        .enqueue("agent_execution", payload, None)
         .await
         .map_err(|e| ApiError::Internal(format!("Queue error: {}", e)))?;
 
@@ -232,7 +237,7 @@ pub async fn execute_agent(
         agent_id,
         response: format!("Job queued: {}", job_id),
         verified: false,
-        confidence: 1.0, 
+        confidence: 1.0,
         context_hash: "pending".to_string(),
         latency_ms: start.elapsed().as_millis() as u64,
     }))
@@ -262,7 +267,7 @@ pub async fn get_metrics(
     }
 
     let snapshot = state.metrics().snapshot();
-    
+
     Ok(Json(MetricsResponse {
         llm_calls: snapshot.llm_calls,
         llm_errors: snapshot.llm_errors,

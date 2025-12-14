@@ -9,8 +9,8 @@
 //! Run with: cargo run -p vex-demo --bin interactive
 
 use std::io::{self, Write};
-use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
 use vex_adversarial::{ShadowAgent, ShadowConfig};
+use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest, VexConfig};
 use vex_temporal::{EpisodicMemory, HorizonConfig};
 
@@ -23,10 +23,12 @@ async fn main() {
 
     // Initialize
     let config = VexConfig::from_env();
-    let api_key = config.llm.deepseek_api_key
+    let api_key = config
+        .llm
+        .deepseek_api_key
         .as_deref()
-        .unwrap_or("sk-91ed2bd39a6e46f3be57e6e293dcaba5");
-    
+        .expect("DEEPSEEK_API_KEY environment variable must be set");
+
     let llm = DeepSeekProvider::chat(api_key);
     let mut memory = EpisodicMemory::new(HorizonConfig::for_depth(0));
     let mut merkle_leaves = Vec::new();
@@ -40,11 +42,14 @@ async fn main() {
         spawn_shadow: true,
     });
 
-    let _verifier = ShadowAgent::new(&coordinator, ShadowConfig {
-        challenge_intensity: 0.6,
-        fact_check: true,
-        logic_check: true,
-    });
+    let _verifier = ShadowAgent::new(
+        &coordinator,
+        ShadowConfig {
+            challenge_intensity: 0.6,
+            fact_check: true,
+            logic_check: true,
+        },
+    );
 
     println!("🤖 Assistant ready! Type your questions below.");
     println!("   Commands: /help, /memory, /verify, /quit\n");
@@ -82,10 +87,14 @@ async fn main() {
             }
             "/memory" => {
                 println!("\n📦 {}", memory.summarize());
-                if memory.len() > 0 {
+                if !memory.is_empty() {
                     println!("   Recent episodes:");
                     for (i, ep) in memory.episodes().take(3).enumerate() {
-                        println!("   {}. {}...", i + 1, &ep.content[..ep.content.len().min(40)]);
+                        println!(
+                            "   {}. {}...",
+                            i + 1,
+                            &ep.content[..ep.content.len().min(40)]
+                        );
                     }
                 }
                 println!();
@@ -112,10 +121,10 @@ async fn main() {
         print!("\n🤔 Thinking");
         io::stdout().flush().unwrap();
 
-        let response = match llm.complete(LlmRequest::with_role(
-            &coordinator.config.role,
-            input
-        )).await {
+        let response = match llm
+            .complete(LlmRequest::with_role(&coordinator.config.role, input))
+            .await
+        {
             Ok(resp) => {
                 print!(".");
                 resp.content
@@ -130,7 +139,10 @@ async fn main() {
         // Adversarial verification (quick check)
         let verify_request = LlmRequest::with_role(
             "You are a fact-checker. Rate this response 1-10 for accuracy. Just the number.",
-            &format!("Response to verify: {}", &response[..response.len().min(150)])
+            &format!(
+                "Response to verify: {}",
+                &response[..response.len().min(150)]
+            ),
         );
 
         let verification = match llm.complete(verify_request).await {
@@ -138,7 +150,7 @@ async fn main() {
                 print!(".");
                 resp.content
             }
-            Err(_) => "8".to_string()
+            Err(_) => "8".to_string(),
         };
 
         println!(" ✅\n");
@@ -148,15 +160,16 @@ async fn main() {
         for line in response.lines() {
             println!("   {}", line);
         }
-        
+
         // Show verification score
-        let score = verification.trim()
+        let score = verification
+            .trim()
             .chars()
             .find(|c| c.is_ascii_digit())
             .and_then(|c| c.to_digit(10))
             .unwrap_or(7);
         println!("\n   📊 Verification: {}/10", score);
-        
+
         if score < 6 {
             println!("   ⚠️  Low confidence - consider fact-checking");
         }
@@ -164,8 +177,12 @@ async fn main() {
 
         // Store in memory
         memory.remember(
-            &format!("Q: {} | A: {}...", input, &response[..response.len().min(50)]),
-            score as f64 / 10.0
+            &format!(
+                "Q: {} | A: {}...",
+                input,
+                &response[..response.len().min(50)]
+            ),
+            score as f64 / 10.0,
         );
 
         // Add to Merkle tree

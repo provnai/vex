@@ -72,11 +72,11 @@ impl JwtAuth {
     pub fn new(secret: &str) -> Self {
         let encoding_key = EncodingKey::from_secret(secret.as_bytes());
         let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-        
+
         let mut validation = Validation::default();
         validation.set_issuer(&["vex-api"]);
         validation.validate_exp = true;
-        
+
         Self {
             encoding_key,
             decoding_key,
@@ -86,20 +86,20 @@ impl JwtAuth {
 
     /// Create from environment variable (required in production)
     pub fn from_env() -> Result<Self, ApiError> {
-        let secret = std::env::var("VEX_JWT_SECRET")
-            .map_err(|_| {
-                ApiError::Internal(
-                    "VEX_JWT_SECRET environment variable is required. \
-                     Generate with: openssl rand -base64 32".to_string()
-                )
-            })?;
-        
+        let secret = std::env::var("VEX_JWT_SECRET").map_err(|_| {
+            ApiError::Internal(
+                "VEX_JWT_SECRET environment variable is required. \
+                     Generate with: openssl rand -base64 32"
+                    .to_string(),
+            )
+        })?;
+
         if secret.len() < 32 {
             return Err(ApiError::Internal(
-                "VEX_JWT_SECRET must be at least 32 characters for security".to_string()
+                "VEX_JWT_SECRET must be at least 32 characters for security".to_string(),
             ));
         }
-        
+
         Ok(Self::new(&secret))
     }
 
@@ -126,9 +126,9 @@ impl JwtAuth {
 
     /// Extract token from Authorization header
     pub fn extract_from_header(header: &str) -> Result<&str, ApiError> {
-        header
-            .strip_prefix("Bearer ")
-            .ok_or_else(|| ApiError::Unauthorized("Invalid Authorization header format".to_string()))
+        header.strip_prefix("Bearer ").ok_or_else(|| {
+            ApiError::Unauthorized("Invalid Authorization header format".to_string())
+        })
     }
 }
 
@@ -166,10 +166,10 @@ mod tests {
     fn test_jwt_encode_decode() {
         let auth = JwtAuth::new("test-secret-key-32-bytes-long!!");
         let claims = Claims::for_user("user123", "user", Duration::hours(1));
-        
+
         let token = auth.encode(&claims).unwrap();
         let decoded = auth.decode(&token).unwrap();
-        
+
         assert_eq!(decoded.sub, "user123");
         assert_eq!(decoded.role, "user");
         assert!(!decoded.is_expired());
@@ -180,16 +180,20 @@ mod tests {
         let auth = JwtAuth::new("test-secret-key-32-bytes-long!!");
         // Use -300s to ensure we exceed default 60s leeway
         let claims = Claims::for_user("user123", "user", Duration::seconds(-300));
-        
+
         let token = auth.encode(&claims).unwrap();
         let result = auth.decode(&token);
-        
+
         match &result {
             Ok(c) => println!("Decoded claims despite expiry: {:?}", c),
             Err(e) => println!("Error returned: {:?}", e),
         }
 
-        assert!(matches!(result, Err(ApiError::Unauthorized(_))), "Expected Unauthorized error, got: {:?}", result);
+        assert!(
+            matches!(result, Err(ApiError::Unauthorized(_))),
+            "Expected Unauthorized error, got: {:?}",
+            result
+        );
     }
 
     #[test]

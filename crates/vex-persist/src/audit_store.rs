@@ -1,12 +1,12 @@
 //! Audit log storage with Merkle verification
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
+use crate::backend::{StorageBackend, StorageError, StorageExt};
 use vex_core::{Hash, MerkleTree};
-use crate::backend::{StorageBackend, StorageExt, StorageError};
 
 /// Audit event types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -44,14 +44,18 @@ pub struct AuditEvent {
 
 impl AuditEvent {
     /// Create a new audit event
-    pub fn new(event_type: AuditEventType, agent_id: Option<Uuid>, data: serde_json::Value) -> Self {
+    pub fn new(
+        event_type: AuditEventType,
+        agent_id: Option<Uuid>,
+        data: serde_json::Value,
+    ) -> Self {
         let id = Uuid::new_v4();
         let timestamp = Utc::now();
-        
+
         // Compute hash of event content
         let content = format!("{:?}:{}:{:?}", event_type, timestamp.timestamp(), data);
         let hash = Hash::digest(content.as_bytes());
-        
+
         Self {
             id,
             event_type,
@@ -107,28 +111,34 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     }
 
     /// Log an audit event (automatically chained)
-    pub async fn log(&self, event_type: AuditEventType, agent_id: Option<Uuid>, data: serde_json::Value) -> Result<AuditEvent, StorageError> {
+    pub async fn log(
+        &self,
+        event_type: AuditEventType,
+        agent_id: Option<Uuid>,
+        data: serde_json::Value,
+    ) -> Result<AuditEvent, StorageError> {
         let mut last_hash = self.last_hash.write().await;
-        
+
         let event = match &*last_hash {
             Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone()),
             None => AuditEvent::new(event_type, agent_id, data),
         };
-        
+
         // Store event
         self.backend.set(&self.event_key(event.id), &event).await?;
-        
+
         // Update chain
-        let mut chain: Vec<Uuid> = self.backend
+        let mut chain: Vec<Uuid> = self
+            .backend
             .get(&self.chain_key())
             .await?
             .unwrap_or_default();
         chain.push(event.id);
         self.backend.set(&self.chain_key(), &chain).await?;
-        
+
         // Update last hash
         *last_hash = Some(event.hash.clone());
-        
+
         Ok(event)
     }
 
@@ -139,11 +149,12 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
 
     /// Get all events in chain order
     pub async fn get_chain(&self) -> Result<Vec<AuditEvent>, StorageError> {
-        let chain: Vec<Uuid> = self.backend
+        let chain: Vec<Uuid> = self
+            .backend
             .get(&self.chain_key())
             .await?
             .unwrap_or_default();
-        
+
         let mut events = Vec::new();
         for id in chain {
             if let Some(event) = self.get(id).await? {
@@ -166,7 +177,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     /// Verify chain integrity
     pub async fn verify_chain(&self) -> Result<bool, StorageError> {
         let events = self.get_chain().await?;
-        
+
         for (i, event) in events.iter().enumerate() {
             if i == 0 {
                 // First event should have no previous hash
@@ -182,7 +193,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                         // The chained() constructor combines (event_hash, previous_hash) to create new hash
                         // So we verify the link by checking if prev_hash was derived from prev_event
                         let expected = &prev_event.hash;
-                        
+
                         // For a proper chain, prev_hash should match prev_event's hash
                         // (or be derived from it - depends on chained() implementation)
                         if prev_hash != expected {
@@ -194,17 +205,23 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                         }
                     }
                     (None, _) => {
-                        tracing::warn!("Chain integrity failed: event {} has no previous_hash", event.id);
+                        tracing::warn!(
+                            "Chain integrity failed: event {} has no previous_hash",
+                            event.id
+                        );
                         return Ok(false);
                     }
                     (_, None) => {
-                        tracing::warn!("Chain integrity failed: previous event not found for {}", event.id);
+                        tracing::warn!(
+                            "Chain integrity failed: previous event not found for {}",
+                            event.id
+                        );
                         return Ok(false);
                     }
                 }
             }
         }
-        
+
         tracing::info!("Chain integrity verified: {} events", events.len());
         Ok(true)
     }
@@ -213,7 +230,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     pub async fn export(&self) -> Result<AuditExport, StorageError> {
         let events = self.get_chain().await?;
         let merkle_tree = self.build_merkle_tree().await?;
-        
+
         Ok(AuditExport {
             events,
             merkle_root: merkle_tree.root_hash().map(|h| h.to_string()),
@@ -243,17 +260,23 @@ mod tests {
         let store = AuditStore::new(backend);
 
         // Log events
-        let _e1 = store.log(
-            AuditEventType::AgentCreated,
-            Some(Uuid::new_v4()),
-            serde_json::json!({"name": "TestAgent"})
-        ).await.unwrap();
+        let _e1 = store
+            .log(
+                AuditEventType::AgentCreated,
+                Some(Uuid::new_v4()),
+                serde_json::json!({"name": "TestAgent"}),
+            )
+            .await
+            .unwrap();
 
-        let e2 = store.log(
-            AuditEventType::AgentExecuted,
-            Some(Uuid::new_v4()),
-            serde_json::json!({"prompt": "test"})
-        ).await.unwrap();
+        let e2 = store
+            .log(
+                AuditEventType::AgentExecuted,
+                Some(Uuid::new_v4()),
+                serde_json::json!({"prompt": "test"}),
+            )
+            .await
+            .unwrap();
 
         // Verify chain
         assert!(e2.previous_hash.is_some());

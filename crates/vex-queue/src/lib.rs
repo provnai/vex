@@ -8,12 +8,12 @@
 //! - Worker pool with concurrency control
 //! - Retry with exponential backoff
 
-pub mod job;
-pub mod worker;
 pub mod backend;
+pub mod job;
 pub mod memory;
+pub mod worker;
 
-pub use job::{Job, JobStatus, JobId, JobResult};
-pub use worker::{WorkerPool, WorkerConfig};
 pub use backend::QueueBackend;
+pub use job::{Job, JobId, JobResult, JobStatus};
 pub use memory::MemoryQueue;
+pub use worker::{WorkerConfig, WorkerPool};

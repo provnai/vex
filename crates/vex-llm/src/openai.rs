@@ -92,7 +92,7 @@ impl LlmProvider for OpenAIProvider {
 
     async fn is_available(&self) -> bool {
         self.client
-            .get(&format!("{}/v1/models", self.base_url))
+            .get(format!("{}/v1/models", self.base_url))
             .bearer_auth(&self.api_key)
             .send()
             .await

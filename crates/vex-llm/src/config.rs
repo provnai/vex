@@ -115,7 +115,9 @@ impl VexConfig {
     pub fn from_env() -> Self {
         Self {
             llm: LlmConfig::from_env(),
-            debug: env::var("VEX_DEBUG").map(|v| v == "1" || v == "true").unwrap_or(false),
+            debug: env::var("VEX_DEBUG")
+                .map(|v| v == "1" || v == "true")
+                .unwrap_or(false),
             max_agent_depth: env::var("VEX_MAX_DEPTH")
                 .ok()
                 .and_then(|v| v.parse().ok())

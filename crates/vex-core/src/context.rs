@@ -90,7 +90,7 @@ impl ContextPacket {
 
     /// Check if this packet has expired
     pub fn is_expired(&self) -> bool {
-        self.expires_at.map_or(false, |exp| Utc::now() > exp)
+        self.expires_at.is_some_and(|exp| Utc::now() > exp)
     }
 
     /// Get the age of this packet
@@ -144,7 +144,9 @@ mod tests {
 
     #[test]
     fn test_compress_packet() {
-        let packet = ContextPacket::new("This is a long piece of content that should be compressed when needed.");
+        let packet = ContextPacket::new(
+            "This is a long piece of content that should be compressed when needed.",
+        );
         let compressed = packet.compress(CompressionLevel::Summary);
         assert_eq!(compressed.compression, CompressionLevel::Summary);
         assert!(compressed.content.len() <= packet.content.len());

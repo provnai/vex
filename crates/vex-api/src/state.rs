@@ -1,12 +1,12 @@
 //! Application State
-//! 
+//!
 //! Centralizes access to DB, Queue, and Auth/Monitoring services.
 
+use crate::auth::JwtAuth;
 use std::sync::Arc;
 use vex_llm::{Metrics, RateLimiter};
 use vex_persist::StorageBackend;
 use vex_queue::{QueueBackend, WorkerPool};
-use crate::auth::JwtAuth;
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -27,7 +27,13 @@ impl AppState {
         db: Arc<dyn StorageBackend>,
         queue: Arc<WorkerPool<dyn QueueBackend>>,
     ) -> Self {
-        Self { jwt_auth, rate_limiter, metrics, db, queue }
+        Self {
+            jwt_auth,
+            rate_limiter,
+            metrics,
+            db,
+            queue,
+        }
     }
 
     /// Get JWT auth service

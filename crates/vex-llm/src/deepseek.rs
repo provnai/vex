@@ -88,7 +88,7 @@ impl LlmProvider for DeepSeekProvider {
     async fn is_available(&self) -> bool {
         // Simple check - try to reach the API
         self.client
-            .get(&format!("{}/v1/models", self.base_url))
+            .get(format!("{}/v1/models", self.base_url))
             .bearer_auth(&self.api_key)
             .send()
             .await

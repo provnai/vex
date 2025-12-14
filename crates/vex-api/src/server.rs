@@ -10,8 +10,8 @@ use tower_http::compression::CompressionLayer;
 use crate::auth::JwtAuth;
 use crate::error::ApiError;
 use crate::middleware::{
-    auth_middleware, cors_layer, rate_limit_middleware, request_id_middleware,
-    timeout_layer, tracing_middleware, body_limit_layer,
+    auth_middleware, body_limit_layer, cors_layer, rate_limit_middleware, request_id_middleware,
+    timeout_layer, tracing_middleware,
 };
 use crate::routes::api_router;
 use vex_llm::{Metrics, RateLimitConfig, RateLimiter};
@@ -35,7 +35,7 @@ impl TlsConfig {
             key_path: key_path.to_string(),
         }
     }
-    
+
     /// Create from environment variables VEX_TLS_CERT and VEX_TLS_KEY
     pub fn from_env() -> Option<Self> {
         let cert = std::env::var("VEX_TLS_CERT").ok()?;
@@ -106,29 +106,30 @@ pub struct VexServer {
 impl VexServer {
     /// Create a new server
     pub async fn new(config: ServerConfig) -> Result<Self, ApiError> {
-        use vex_queue::{QueueBackend, WorkerPool, WorkerConfig};
-        use vex_llm::{LlmProvider, DeepSeekProvider, MockProvider};
         use crate::jobs::agent::{AgentExecutionJob, AgentJobPayload};
+        use vex_llm::{DeepSeekProvider, LlmProvider, MockProvider};
+        use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
         let jwt_auth = JwtAuth::from_env()?;
         let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
         let metrics = Arc::new(Metrics::new());
 
         // Initialize Persistence (SQLite)
-        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
+        let db_url =
+            std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
         let db = vex_persist::sqlite::SqliteBackend::new(&db_url)
             .await
             .map_err(|e| ApiError::Internal(format!("DB Init failed: {}", e)))?;
-            
+
         // Initialize Queue (Persistent SQLite)
         let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
-        
+
         // Use dynamic dispatch for the worker pool backend
         let worker_pool = WorkerPool::new_with_arc(
-             Arc::new(queue_backend) as Arc<dyn QueueBackend>, 
-             WorkerConfig::default()
+            Arc::new(queue_backend) as Arc<dyn QueueBackend>,
+            WorkerConfig::default(),
         );
-        
+
         // Initialize Intelligence (LLM)
         let llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("DEEPSEEK_API_KEY") {
             tracing::info!("Initializing DeepSeek Provider");
@@ -140,18 +141,24 @@ impl VexServer {
 
         // Create shared result store for job results
         let result_store = crate::jobs::new_result_store();
-        
+
         // Register Agent Job
         let llm_clone = llm.clone();
         let result_store_clone = result_store.clone();
         worker_pool.register_job_factory("agent_execution", move |payload| {
-            let job_payload: AgentJobPayload = serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
-                agent_id: "unknown".to_string(),
-                prompt: "payload error".to_string(),
-                context_id: None,
-            });
+            let job_payload: AgentJobPayload =
+                serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
+                    agent_id: "unknown".to_string(),
+                    prompt: "payload error".to_string(),
+                    context_id: None,
+                });
             let job_id = uuid::Uuid::new_v4();
-            Box::new(AgentExecutionJob::new(job_id, job_payload, llm_clone.clone(), result_store_clone.clone()))
+            Box::new(AgentExecutionJob::new(
+                job_id,
+                job_payload,
+                llm_clone.clone(),
+                result_store_clone.clone(),
+            ))
         });
 
         let app_state = AppState::new(

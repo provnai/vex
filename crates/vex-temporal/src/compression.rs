@@ -30,7 +30,13 @@ impl DecayStrategy {
         match self {
             Self::Linear => 1.0 - ratio,
             Self::Exponential => (-3.0 * ratio).exp(),
-            Self::Step => if ratio < 0.5 { 1.0 } else { 0.3 },
+            Self::Step => {
+                if ratio < 0.5 {
+                    1.0
+                } else {
+                    0.3
+                }
+            }
             Self::None => 1.0,
         }
     }
@@ -105,19 +111,19 @@ impl TemporalCompressor {
     }
 
     /// Summarize content using an LLM for intelligent compression
-    /// 
+    ///
     /// # Arguments
     /// * `content` - The text to compress
     /// * `ratio` - Compression ratio (0.0 = no compression, 0.9 = 90% reduction)
     /// * `llm` - Any LlmProvider implementation
-    /// 
+    ///
     /// # Returns
     /// A summarized version of the content preserving key information
     pub async fn compress_with_llm<L: vex_llm::LlmProvider>(
-        &self, 
-        content: &str, 
+        &self,
+        content: &str,
         ratio: f64,
-        llm: &L
+        llm: &L,
     ) -> Result<String, vex_llm::LlmError> {
         // If no compression needed, return as-is
         if ratio <= 0.0 || content.len() < 50 {
@@ -156,19 +162,17 @@ impl TemporalCompressor {
         &self,
         content: &str,
         ratio: f64,
-        llm: Option<&L>
+        llm: Option<&L>,
     ) -> String {
         match llm {
-            Some(provider) => {
-                match self.compress_with_llm(content, ratio, provider).await {
-                    Ok(summary) => summary,
-                    Err(e) => {
-                        tracing::warn!("LLM compression failed, using truncation: {}", e);
-                        self.compress(content, ratio)
-                    }
+            Some(provider) => match self.compress_with_llm(content, ratio, provider).await {
+                Ok(summary) => summary,
+                Err(e) => {
+                    tracing::warn!("LLM compression failed, using truncation: {}", e);
+                    self.compress(content, ratio)
                 }
-            }
-            None => self.compress(content, ratio)
+            },
+            None => self.compress(content, ratio),
         }
     }
 }

@@ -33,11 +33,11 @@ impl TimeHorizon {
     /// Get compression level for this horizon
     pub fn compression_level(&self) -> f64 {
         match self {
-            Self::Immediate => 0.0,   // No compression
-            Self::ShortTerm => 0.2,   // Light
-            Self::MediumTerm => 0.5,  // Moderate
-            Self::LongTerm => 0.7,    // Heavy
-            Self::Permanent => 0.9,   // Maximum
+            Self::Immediate => 0.0,  // No compression
+            Self::ShortTerm => 0.2,  // Light
+            Self::MediumTerm => 0.5, // Moderate
+            Self::LongTerm => 0.7,   // Heavy
+            Self::Permanent => 0.9,  // Maximum
         }
     }
 
@@ -52,10 +52,10 @@ impl TimeHorizon {
     /// Get recommended horizon for agent depth
     pub fn for_depth(depth: u8) -> Self {
         match depth {
-            0 => Self::LongTerm,     // Root agents have long memory
-            1 => Self::MediumTerm,   // First-level children
-            2 => Self::ShortTerm,    // Second-level
-            _ => Self::Immediate,    // Deeper agents are ephemeral
+            0 => Self::LongTerm,   // Root agents have long memory
+            1 => Self::MediumTerm, // First-level children
+            2 => Self::ShortTerm,  // Second-level
+            _ => Self::Immediate,  // Deeper agents are ephemeral
         }
     }
 }

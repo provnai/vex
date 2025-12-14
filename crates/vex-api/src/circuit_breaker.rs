@@ -103,9 +103,9 @@ impl CircuitBreaker {
     /// Check if request is allowed
     pub async fn allow(&self) -> bool {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
-        
+
         let mut state = self.state.write().await;
-        
+
         match *state {
             CircuitState::Closed => true,
             CircuitState::Open => {
@@ -136,7 +136,7 @@ impl CircuitBreaker {
     /// Record a successful call
     pub async fn record_success(&self) {
         let mut state = self.state.write().await;
-        
+
         match *state {
             CircuitState::HalfOpen => {
                 let count = self.success_count.fetch_add(1, Ordering::Relaxed) + 1;
@@ -163,9 +163,9 @@ impl CircuitBreaker {
     pub async fn record_failure(&self) {
         self.total_failures.fetch_add(1, Ordering::Relaxed);
         *self.last_failure_time.write().await = Some(Instant::now());
-        
+
         let mut state = self.state.write().await;
-        
+
         match *state {
             CircuitState::Closed => {
                 let count = self.failure_count.fetch_add(1, Ordering::Relaxed) + 1;
@@ -181,8 +181,9 @@ impl CircuitBreaker {
             }
             CircuitState::HalfOpen => {
                 // Track failures during recovery testing
-                let half_open_failures = self.half_open_failure_count.fetch_add(1, Ordering::Relaxed) + 1;
-                
+                let half_open_failures =
+                    self.half_open_failure_count.fetch_add(1, Ordering::Relaxed) + 1;
+
                 if half_open_failures >= self.config.half_open_failure_threshold {
                     // Too many failures during recovery, re-open the circuit
                     *state = CircuitState::Open;
@@ -319,15 +320,15 @@ impl RetryPolicy {
 
                     // Add jitter (±10%)
                     let jitter = delay.as_millis() as f64 * 0.1;
-                    let jittered = delay.as_millis() as f64 
-                        + (rand::random::<f64>() * 2.0 - 1.0) * jitter;
-                    
+                    let jittered =
+                        delay.as_millis() as f64 + (rand::random::<f64>() * 2.0 - 1.0) * jitter;
+
                     tokio::time::sleep(Duration::from_millis(jittered as u64)).await;
 
                     // Exponential backoff
-                    delay = Duration::from_millis(
-                        (delay.as_millis() as f64 * self.multiplier) as u64
-                    ).min(self.max_delay);
+                    delay =
+                        Duration::from_millis((delay.as_millis() as f64 * self.multiplier) as u64)
+                            .min(self.max_delay);
                 }
             }
         }
@@ -384,16 +385,18 @@ mod tests {
         };
 
         let mut attempts = 0;
-        let result: Result<i32, &str> = policy.execute(|| {
-            attempts += 1;
-            async move {
-                if attempts < 3 {
-                    Err("failed")
-                } else {
-                    Ok(42)
+        let result: Result<i32, &str> = policy
+            .execute(|| {
+                attempts += 1;
+                async move {
+                    if attempts < 3 {
+                        Err("failed")
+                    } else {
+                        Ok(42)
+                    }
                 }
-            }
-        }).await;
+            })
+            .await;
 
         assert_eq!(result, Ok(42));
         assert_eq!(attempts, 3);

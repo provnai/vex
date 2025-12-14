@@ -1,5 +1,5 @@
 //! API Key storage and validation
-//! 
+//!
 //! Provides database-backed API key management with hashing and lookup.
 
 use async_trait::async_trait;
@@ -52,9 +52,14 @@ pub struct ApiKeyRecord {
 impl ApiKeyRecord {
     /// Create a new API key record (does not store it)
     /// Returns (record, plaintext_key) - the plaintext key is only available once!
-    pub fn new(user_id: &str, name: &str, scopes: Vec<String>, expires_in_days: Option<u32>) -> (Self, String) {
+    pub fn new(
+        user_id: &str,
+        name: &str,
+        scopes: Vec<String>,
+        expires_in_days: Option<u32>,
+    ) -> (Self, String) {
         let id = Uuid::new_v4();
-        
+
         // Generate a secure random key: vex_<uuid>_<random>
         let random_part: String = (0..32)
             .map(|_| {
@@ -64,15 +69,14 @@ impl ApiKeyRecord {
             })
             .collect();
         let plaintext_key = format!("vex_{}_{}", id.to_string().replace("-", ""), random_part);
-        
+
         // Hash the key for storage
         let key_hash = Self::hash_key(&plaintext_key);
         let key_prefix = plaintext_key.chars().take(12).collect();
-        
-        let expires_at = expires_in_days.map(|days| {
-            Utc::now() + chrono::Duration::days(days as i64)
-        });
-        
+
+        let expires_at =
+            expires_in_days.map(|days| Utc::now() + chrono::Duration::days(days as i64));
+
         let record = Self {
             id,
             key_hash,
@@ -85,17 +89,17 @@ impl ApiKeyRecord {
             last_used_at: None,
             revoked: false,
         };
-        
+
         (record, plaintext_key)
     }
-    
+
     /// Hash an API key for secure storage
     pub fn hash_key(key: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         hex::encode(hasher.finalize())
     }
-    
+
     /// Check if this key is valid (not expired or revoked)
     pub fn is_valid(&self) -> bool {
         if self.revoked {
@@ -108,7 +112,7 @@ impl ApiKeyRecord {
         }
         true
     }
-    
+
     /// Check if this key has a specific scope
     pub fn has_scope(&self, scope: &str) -> bool {
         self.scopes.iter().any(|s| s == scope || s == "*")
@@ -120,19 +124,19 @@ impl ApiKeyRecord {
 pub trait ApiKeyStore: Send + Sync {
     /// Store a new API key
     async fn create(&self, record: &ApiKeyRecord) -> Result<(), ApiKeyError>;
-    
+
     /// Find a key by its hash
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
-    
+
     /// Find all keys for a user
     async fn find_by_user(&self, user_id: &str) -> Result<Vec<ApiKeyRecord>, ApiKeyError>;
-    
+
     /// Update last_used_at timestamp
     async fn record_usage(&self, id: Uuid) -> Result<(), ApiKeyError>;
-    
+
     /// Revoke a key
     async fn revoke(&self, id: Uuid) -> Result<(), ApiKeyError>;
-    
+
     /// Delete a key
     async fn delete(&self, id: Uuid) -> Result<(), ApiKeyError>;
 }
@@ -156,17 +160,21 @@ impl ApiKeyStore for MemoryApiKeyStore {
         keys.insert(record.id, record.clone());
         Ok(())
     }
-    
+
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
         let keys = self.keys.read().await;
         Ok(keys.values().find(|r| r.key_hash == hash).cloned())
     }
-    
+
     async fn find_by_user(&self, user_id: &str) -> Result<Vec<ApiKeyRecord>, ApiKeyError> {
         let keys = self.keys.read().await;
-        Ok(keys.values().filter(|r| r.user_id == user_id).cloned().collect())
+        Ok(keys
+            .values()
+            .filter(|r| r.user_id == user_id)
+            .cloned()
+            .collect())
     }
-    
+
     async fn record_usage(&self, id: Uuid) -> Result<(), ApiKeyError> {
         let mut keys = self.keys.write().await;
         if let Some(record) = keys.get_mut(&id) {
@@ -176,7 +184,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
             Err(ApiKeyError::NotFound)
         }
     }
-    
+
     async fn revoke(&self, id: Uuid) -> Result<(), ApiKeyError> {
         let mut keys = self.keys.write().await;
         if let Some(record) = keys.get_mut(&id) {
@@ -186,7 +194,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
             Err(ApiKeyError::NotFound)
         }
     }
-    
+
     async fn delete(&self, id: Uuid) -> Result<(), ApiKeyError> {
         let mut keys = self.keys.write().await;
         keys.remove(&id).ok_or(ApiKeyError::NotFound)?;
@@ -203,12 +211,14 @@ pub async fn validate_api_key<S: ApiKeyStore>(
     if !plaintext_key.starts_with("vex_") || plaintext_key.len() < 40 {
         return Err(ApiKeyError::InvalidFormat);
     }
-    
+
     // Hash and lookup
     let hash = ApiKeyRecord::hash_key(plaintext_key);
-    let record = store.find_by_hash(&hash).await?
+    let record = store
+        .find_by_hash(&hash)
+        .await?
         .ok_or(ApiKeyError::NotFound)?;
-    
+
     // Check validity
     if record.revoked {
         return Err(ApiKeyError::Revoked);
@@ -218,10 +228,10 @@ pub async fn validate_api_key<S: ApiKeyStore>(
             return Err(ApiKeyError::Expired);
         }
     }
-    
+
     // Record usage (fire-and-forget)
     let _ = store.record_usage(record.id).await;
-    
+
     Ok(record)
 }
 
@@ -231,8 +241,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_key_creation() {
-        let (record, key) = ApiKeyRecord::new("user123", "My API Key", vec!["read".to_string()], None);
-        
+        let (record, key) =
+            ApiKeyRecord::new("user123", "My API Key", vec!["read".to_string()], None);
+
         assert!(key.starts_with("vex_"));
         assert!(key.len() > 40);
         assert_eq!(record.user_id, "user123");
@@ -252,16 +263,16 @@ mod tests {
     async fn test_memory_store_crud() {
         let store = MemoryApiKeyStore::new();
         let (record, key) = ApiKeyRecord::new("user1", "Test Key", vec![], None);
-        
+
         // Create
         store.create(&record).await.unwrap();
-        
+
         // Find by hash
         let hash = ApiKeyRecord::hash_key(&key);
         let found = store.find_by_hash(&hash).await.unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, record.id);
-        
+
         // Revoke
         store.revoke(record.id).await.unwrap();
         let revoked = store.find_by_hash(&hash).await.unwrap().unwrap();
@@ -273,18 +284,19 @@ mod tests {
         let store = MemoryApiKeyStore::new();
         let (record, key) = ApiKeyRecord::new("user1", "Test Key", vec!["admin".to_string()], None);
         store.create(&record).await.unwrap();
-        
+
         // Valid key should work
         let validated = validate_api_key(&store, &key).await.unwrap();
         assert_eq!(validated.id, record.id);
         assert!(validated.has_scope("admin"));
-        
+
         // Invalid format should fail
         let result = validate_api_key(&store, "invalid").await;
         assert!(matches!(result, Err(ApiKeyError::InvalidFormat)));
-        
+
         // Wrong key should fail
-        let result = validate_api_key(&store, "vex_00000000000000000000000000000000_wrongkey").await;
+        let result =
+            validate_api_key(&store, "vex_00000000000000000000000000000000_wrongkey").await;
         assert!(matches!(result, Err(ApiKeyError::NotFound)));
     }
 }

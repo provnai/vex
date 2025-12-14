@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run -p vex-demo --bin fraud-detector
 
-use vex_core::{Agent, AgentConfig, MerkleTree};
 use vex_adversarial::{Consensus, ConsensusProtocol, Vote};
+use vex_core::{Agent, AgentConfig, MerkleTree};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest, VexConfig};
 
 #[tokio::main]
@@ -20,12 +20,14 @@ async fn main() {
 
     // Load configuration from environment
     let config = VexConfig::from_env();
-    
-    // Get API key from env or fallback
-    let api_key = config.llm.deepseek_api_key
+
+    // Get API key from env
+    let api_key = config
+        .llm
+        .deepseek_api_key
         .as_deref()
-        .unwrap_or("sk-91ed2bd39a6e46f3be57e6e293dcaba5");
-    
+        .expect("DEEPSEEK_API_KEY environment variable must be set");
+
     let llm = DeepSeekProvider::chat(api_key);
 
     // Simulated suspicious transaction
@@ -42,7 +44,10 @@ async fn main() {
     println!("🔍 **Analyzing Transaction**\n");
     println!("   ID: {}", transaction.id);
     println!("   Amount: ${:.2}", transaction.amount);
-    println!("   From: {} → To: {}", transaction.sender, transaction.recipient);
+    println!(
+        "   From: {} → To: {}",
+        transaction.sender, transaction.recipient
+    );
     println!("   Location: {}", transaction.location);
     println!("   Time: {}", transaction.time);
     println!("   Pattern: {}", transaction.pattern);
@@ -115,15 +120,23 @@ async fn main() {
 
     // Red Team challenges
     println!("🔴 **STEP 2: Red Team (Fraud Indicators)**\n");
-    let red_response = llm.complete(LlmRequest::with_role(
-        "You are an adversarial fraud expert. Find every way this could be fraud.",
-        &format!("This transaction shows: {}. List 3 ways this could be fraud.", &analyst_response.content[..100.min(analyst_response.content.len())])
-    )).await.unwrap_or_else(|_| vex_llm::LlmResponse {
-        content: "1. Money laundering via new account 2. Account takeover attack 3. Insider threat".to_string(),
-        model: "fallback".to_string(),
-        tokens_used: None,
-        latency_ms: 0,
-    });
+    let red_response = llm
+        .complete(LlmRequest::with_role(
+            "You are an adversarial fraud expert. Find every way this could be fraud.",
+            &format!(
+                "This transaction shows: {}. List 3 ways this could be fraud.",
+                &analyst_response.content[..100.min(analyst_response.content.len())]
+            ),
+        ))
+        .await
+        .unwrap_or_else(|_| vex_llm::LlmResponse {
+            content:
+                "1. Money laundering via new account 2. Account takeover attack 3. Insider threat"
+                    .to_string(),
+            model: "fallback".to_string(),
+            tokens_used: None,
+            latency_ms: 0,
+        });
 
     println!("   ⚠️  Red Team Findings:");
     for line in red_response.content.lines().take(4) {
@@ -173,16 +186,29 @@ async fn main() {
     });
     consensus.evaluate();
 
-    let risk_level = if consensus.decision == Some(true) { "HIGH" } else { "MEDIUM" };
-    let recommendation = if consensus.decision == Some(true) { "BLOCK" } else { "REVIEW" };
+    let risk_level = if consensus.decision == Some(true) {
+        "HIGH"
+    } else {
+        "MEDIUM"
+    };
+    let recommendation = if consensus.decision == Some(true) {
+        "BLOCK"
+    } else {
+        "REVIEW"
+    };
 
     println!("   📊 Voting Results:");
     println!("      Analyst:  SUSPICIOUS (85%)");
     println!("      Red Team: FRAUD (90%)");
     println!("      Blue Team: LEGITIMATE (40%)");
     println!();
-    println!("   ⚡ Consensus: {} ({:.1}% confidence)", 
-        if consensus.reached { "REACHED" } else { "NOT REACHED" },
+    println!(
+        "   ⚡ Consensus: {} ({:.1}% confidence)",
+        if consensus.reached {
+            "REACHED"
+        } else {
+            "NOT REACHED"
+        },
         consensus.confidence * 100.0
     );
     println!("   🚨 Risk Level: {}", risk_level);
@@ -192,9 +218,18 @@ async fn main() {
     // Merkle audit trail
     println!("🔐 **STEP 5: Audit Trail (Merkle Verified)**\n");
     let leaves = vec![
-        (format!("analyst:{}", analyst.id), vex_core::Hash::digest(analyst_response.content.as_bytes())),
-        (format!("red:{}", red_team.id), vex_core::Hash::digest(red_response.content.as_bytes())),
-        (format!("blue:{}", blue_team.id), vex_core::Hash::digest(blue_response.content.as_bytes())),
+        (
+            format!("analyst:{}", analyst.id),
+            vex_core::Hash::digest(analyst_response.content.as_bytes()),
+        ),
+        (
+            format!("red:{}", red_team.id),
+            vex_core::Hash::digest(red_response.content.as_bytes()),
+        ),
+        (
+            format!("blue:{}", blue_team.id),
+            vex_core::Hash::digest(blue_response.content.as_bytes()),
+        ),
     ];
     let merkle_tree = MerkleTree::from_leaves(leaves);
 
@@ -208,9 +243,15 @@ async fn main() {
     // Summary
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
     println!("📈 **Investigation Summary**\n");
-    println!("   Transaction: {} - ${:.2}", transaction.id, transaction.amount);
+    println!(
+        "   Transaction: {} - ${:.2}",
+        transaction.id, transaction.amount
+    );
     println!("   Risk Assessment: {}", risk_level);
-    println!("   Decision: {} transaction pending manual review", recommendation);
+    println!(
+        "   Decision: {} transaction pending manual review",
+        recommendation
+    );
     println!("   Audit Trail: Cryptographically verified ✅");
     println!("   Compliance: SOX/AML ready ✅");
     println!();

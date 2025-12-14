@@ -6,19 +6,22 @@
 //!
 //! Run with: cargo test -p vex-llm --test llm_integration -- --ignored
 
-use vex_llm::{DeepSeekProvider, OpenAIProvider, LlmProvider, LlmRequest};
+use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest, OpenAIProvider};
 
 /// Test DeepSeek provider with real API
 #[tokio::test]
 #[ignore = "Requires DEEPSEEK_API_KEY"]
 async fn test_deepseek_real_request() {
-    let api_key = std::env::var("DEEPSEEK_API_KEY")
-        .expect("DEEPSEEK_API_KEY must be set for this test");
+    let api_key =
+        std::env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY must be set for this test");
 
     let provider = DeepSeekProvider::chat(&api_key);
 
     // Check availability
-    assert!(provider.is_available().await, "DeepSeek should be available");
+    assert!(
+        provider.is_available().await,
+        "DeepSeek should be available"
+    );
 
     // Make a simple request
     let request = LlmRequest {
@@ -33,7 +36,10 @@ async fn test_deepseek_real_request() {
 
     let response = response.unwrap();
     assert!(!response.content.is_empty(), "Response should have content");
-    assert!(response.content.contains("4"), "Response should contain '4'");
+    assert!(
+        response.content.contains("4"),
+        "Response should contain '4'"
+    );
     assert!(response.latency_ms > 0, "Should have latency recorded");
 
     println!("DeepSeek response: {}", response.content);
@@ -45,8 +51,8 @@ async fn test_deepseek_real_request() {
 #[tokio::test]
 #[ignore = "Requires OPENAI_API_KEY"]
 async fn test_openai_real_request() {
-    let api_key = std::env::var("OPENAI_API_KEY")
-        .expect("OPENAI_API_KEY must be set for this test");
+    let api_key =
+        std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set for this test");
 
     let provider = OpenAIProvider::gpt35(&api_key);
 
@@ -95,7 +101,7 @@ async fn test_mock_provider() {
 /// Test metrics are recorded
 #[tokio::test]
 async fn test_metrics_recording() {
-    use vex_llm::{MockProvider, global_metrics};
+    use vex_llm::{global_metrics, MockProvider};
 
     let mock = MockProvider::smart();
 

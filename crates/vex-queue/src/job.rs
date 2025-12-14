@@ -28,18 +28,20 @@ pub enum JobStatus {
 pub trait Job: Send + Sync + Debug {
     /// Job name/type
     fn name(&self) -> &str;
-    
+
     /// Execute the job
     async fn execute(&mut self) -> JobResult;
-    
+
     /// Max retries allowed
-    fn max_retries(&self) -> u32 { 3 }
-    
+    fn max_retries(&self) -> u32 {
+        3
+    }
+
     /// Backoff strategy
     fn backoff_strategy(&self) -> BackoffStrategy {
-        BackoffStrategy::Exponential { 
-            initial_secs: 1, 
-            multiplier: 2.0 
+        BackoffStrategy::Exponential {
+            initial_secs: 1,
+            multiplier: 2.0,
         }
     }
 }
@@ -66,7 +68,10 @@ impl BackoffStrategy {
     pub fn delay(&self, attempt: u32) -> std::time::Duration {
         match self {
             Self::Constant { secs } => std::time::Duration::from_secs(*secs),
-            Self::Exponential { initial_secs, multiplier } => {
+            Self::Exponential {
+                initial_secs,
+                multiplier,
+            } => {
                 let secs = (*initial_secs as f64 * multiplier.powi(attempt as i32)) as u64;
                 std::time::Duration::from_secs(secs)
             }

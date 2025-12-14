@@ -47,7 +47,7 @@ impl ShadowAgent {
                  Challenge intensity: {:.0}%",
                 config.challenge_intensity * 100.0
             ),
-            max_depth: 0, // Shadows don't spawn children
+            max_depth: 0,        // Shadows don't spawn children
             spawn_shadow: false, // Shadows don't have their own shadows
         };
 
@@ -74,7 +74,7 @@ impl ShadowAgent {
 
         // Detect potential issues using pattern-based heuristics
         let detected_issues = self.detect_issues(claim);
-        
+
         // Build targeted challenge based on detected issues
         let issue_guidance = if detected_issues.is_empty() {
             String::from("Look for hidden assumptions, unstated premises, and edge cases.")
@@ -107,35 +107,57 @@ impl ShadowAgent {
         let claim_lower = claim.to_lowercase();
 
         // Absolute/universal claims (often overstated)
-        if claim_lower.contains("always") || claim_lower.contains("never") 
-           || claim_lower.contains("all ") || claim_lower.contains("none ")
-           || claim_lower.contains("every ") || claim_lower.contains("no one") {
+        if claim_lower.contains("always")
+            || claim_lower.contains("never")
+            || claim_lower.contains("all ")
+            || claim_lower.contains("none ")
+            || claim_lower.contains("every ")
+            || claim_lower.contains("no one")
+        {
             issues.push("Universal claim detected - verify no exceptions exist".to_string());
         }
 
         // Vague quantifiers
-        if claim_lower.contains("many") || claim_lower.contains("some")
-           || claim_lower.contains("often") || claim_lower.contains("rarely") 
-           || claim_lower.contains("significant") {
+        if claim_lower.contains("many")
+            || claim_lower.contains("some")
+            || claim_lower.contains("often")
+            || claim_lower.contains("rarely")
+            || claim_lower.contains("significant")
+        {
             issues.push("Vague quantifier used - request specific data/numbers".to_string());
         }
 
         // Causal claims without evidence
-        if claim_lower.contains("because") || claim_lower.contains("therefore")
-           || claim_lower.contains("causes") || claim_lower.contains("leads to")
-           || claim_lower.contains("results in") {
+        if claim_lower.contains("because")
+            || claim_lower.contains("therefore")
+            || claim_lower.contains("causes")
+            || claim_lower.contains("leads to")
+            || claim_lower.contains("results in")
+        {
             issues.push("Causal claim detected - verify mechanism and evidence".to_string());
         }
 
         // Unattributed statistics
-        if claim_lower.contains("%") || claim_lower.contains("percent")
-           || claim_lower.contains("statistics") || claim_lower.contains("data shows") {
+        if claim_lower.contains("%")
+            || claim_lower.contains("percent")
+            || claim_lower.contains("statistics")
+            || claim_lower.contains("data shows")
+        {
             issues.push("Statistical claim - verify source and methodology".to_string());
         }
 
         // Emotional/loaded language
-        let emotional_words = ["obvious", "clearly", "undeniable", "proven", "fact", 
-                               "definitely", "absolutely", "certainly", "must"];
+        let emotional_words = [
+            "obvious",
+            "clearly",
+            "undeniable",
+            "proven",
+            "fact",
+            "definitely",
+            "absolutely",
+            "certainly",
+            "must",
+        ];
         for word in emotional_words {
             if claim_lower.contains(word) {
                 issues.push(format!("Loaded language ('{}') - examine for bias", word));
@@ -176,7 +198,7 @@ mod tests {
     fn test_detect_issues_universal_claims() {
         let blue = Agent::new(AgentConfig::default());
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
-        
+
         let issues = shadow.detect_issues("This method always works without fail.");
         assert!(issues.iter().any(|i| i.contains("Universal claim")));
     }
@@ -185,7 +207,7 @@ mod tests {
     fn test_detect_issues_statistics() {
         let blue = Agent::new(AgentConfig::default());
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
-        
+
         let issues = shadow.detect_issues("Studies show 90% of users prefer this approach.");
         assert!(issues.iter().any(|i| i.contains("Statistical claim")));
     }
@@ -194,7 +216,7 @@ mod tests {
     fn test_detect_issues_loaded_language() {
         let blue = Agent::new(AgentConfig::default());
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
-        
+
         let issues = shadow.detect_issues("It is obvious that the solution is correct.");
         assert!(issues.iter().any(|i| i.contains("Loaded language")));
     }
@@ -203,7 +225,7 @@ mod tests {
     fn test_detect_issues_clean_claim() {
         let blue = Agent::new(AgentConfig::default());
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
-        
+
         // A clean, specific claim with no detected patterns
         let issues = shadow.detect_issues("The API returns a 200 status code.");
         // May still detect some issues, but should be fewer

@@ -15,7 +15,7 @@ Complete guide to deploy VEX documentation to **provnai.dev** using GitHub Pages
 ## Step 1: Push Code to GitHub
 
 ```bash
-cd c:\Users\quint\Desktop\vex
+cd /path/to/vex
 
 # Add all new files
 git add -A

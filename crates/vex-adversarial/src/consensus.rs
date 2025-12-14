@@ -16,6 +16,24 @@ pub struct Vote {
     pub reasoning: Option<String>,
 }
 
+impl Vote {
+    /// Create a new vote
+    pub fn new(agent_id: &str, agrees: bool, confidence: f64) -> Self {
+        // Use a deterministic UUID based on agent_id string
+        let mut bytes = [0u8; 16];
+        let id_bytes = agent_id.as_bytes();
+        for (i, &b) in id_bytes.iter().take(16).enumerate() {
+            bytes[i] = b;
+        }
+        Self {
+            agent_id: Uuid::from_bytes(bytes),
+            agrees,
+            confidence,
+            reasoning: None,
+        }
+    }
+}
+
 /// Type of consensus protocol
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConsensusProtocol {
@@ -72,9 +90,7 @@ impl Consensus {
         let agree_ratio = agrees / total;
 
         let (reached, decision) = match self.protocol {
-            ConsensusProtocol::Majority => {
-                (agree_ratio > 0.5 || agree_ratio < 0.5, Some(agree_ratio > 0.5))
-            }
+            ConsensusProtocol::Majority => (agree_ratio != 0.5, Some(agree_ratio > 0.5)),
             ConsensusProtocol::SuperMajority => {
                 if agree_ratio > 0.66 {
                     (true, Some(true))
@@ -94,11 +110,15 @@ impl Consensus {
                 }
             }
             ConsensusProtocol::WeightedConfidence => {
-                let weighted_agree: f64 = self.votes.iter()
+                let weighted_agree: f64 = self
+                    .votes
+                    .iter()
                     .filter(|v| v.agrees)
                     .map(|v| v.confidence)
                     .sum();
-                let weighted_disagree: f64 = self.votes.iter()
+                let weighted_disagree: f64 = self
+                    .votes
+                    .iter()
                     .filter(|v| !v.agrees)
                     .map(|v| v.confidence)
                     .sum();

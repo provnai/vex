@@ -8,20 +8,21 @@
 //!
 //! Run with: cargo run -p vex-demo
 
+use vex_adversarial::{
+    Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
+};
 use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
-use vex_adversarial::{ShadowAgent, ShadowConfig, Debate, DebateRound, Consensus, ConsensusProtocol, Vote};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     // Load API key from environment or use empty string (which will trigger Mock provider fallback in logic)
     let api_key = std::env::var("DEEPSEEK_API_KEY").unwrap_or_default();
     let llm = DeepSeekProvider::chat(&api_key);
-    
+
     println!("🔌 LLM Provider: DeepSeek Chat");
     println!("   Checking availability...");
-    
+
     if !llm.is_available().await {
         println!("   ⚠️  DeepSeek API not available, using mock responses");
     } else {
@@ -39,12 +40,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let root_config = AgentConfig {
         name: "Coordinator".to_string(),
-        role: "You are a strategic coordinator. Synthesize information from sub-agents.".to_string(),
+        role: "You are a strategic coordinator. Synthesize information from sub-agents."
+            .to_string(),
         max_depth: 3,
         spawn_shadow: true,
     };
     let root = Agent::new(root_config);
-    println!("   └─ Root Agent: {} (Gen {})", root.config.name, root.generation);
+    println!(
+        "   └─ Root Agent: {} (Gen {})",
+        root.config.name, root.generation
+    );
 
     let researcher_config = AgentConfig {
         name: "Researcher".to_string(),
@@ -53,7 +58,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         spawn_shadow: true,
     };
     let researcher = root.spawn_child(researcher_config);
-    println!("      └─ Child: {} (Gen {})", researcher.config.name, researcher.generation);
+    println!(
+        "      └─ Child: {} (Gen {})",
+        researcher.config.name, researcher.generation
+    );
 
     let critic_config = AgentConfig {
         name: "Critic".to_string(),
@@ -62,7 +70,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         spawn_shadow: true,
     };
     let critic = root.spawn_child(critic_config);
-    println!("      └─ Child: {} (Gen {})", critic.config.name, critic.generation);
+    println!(
+        "      └─ Child: {} (Gen {})",
+        critic.config.name, critic.generation
+    );
     println!();
 
     // ═══════════════════════════════════════════════════════════════════
@@ -74,12 +85,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   📊 Researcher analyzing...");
     let researcher_request = LlmRequest::with_role(
         &researcher.config.role,
-        &format!("Analyze this topic in 3-4 bullet points: {}", query)
+        &format!("Analyze this topic in 3-4 bullet points: {}", query),
     );
     let researcher_response = match llm.complete(researcher_request).await {
         Ok(resp) => {
-            println!("   ✅ Response received ({} ms, {} tokens)", 
-                resp.latency_ms, 
+            println!(
+                "   ✅ Response received ({} ms, {} tokens)",
+                resp.latency_ms,
                 resp.tokens_used.unwrap_or(0)
             );
             resp.content
@@ -99,7 +111,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   🔍 Critic analyzing...");
     let critic_request = LlmRequest::with_role(
         &critic.config.role,
-        &format!("Critically analyze this claim and identify 2-3 potential issues: {}", &researcher_response[..researcher_response.len().min(200)])
+        &format!(
+            "Critically analyze this claim and identify 2-3 potential issues: {}",
+            &researcher_response[..researcher_response.len().min(200)]
+        ),
     );
     let critic_response = match llm.complete(critic_request).await {
         Ok(resp) => {
@@ -124,20 +139,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let shadow = ShadowAgent::new(&researcher, ShadowConfig::default());
     println!("   🔵 Blue Agent: {}", researcher.config.name);
-    println!("   🔴 Red Agent: {} (Shadow Challenger)", shadow.agent.config.name);
+    println!(
+        "   🔴 Red Agent: {} (Shadow Challenger)",
+        shadow.agent.config.name
+    );
     println!();
 
     // Red agent challenges
     let _challenge_prompt = shadow.challenge_prompt(&researcher_response);
     println!("   🔴 Red Agent challenging claim...");
-    
+
     let red_request = LlmRequest::with_role(
         "You are a skeptical reviewer. Find flaws in the argument.",
-        &format!("Challenge this analysis in 2 sentences: {}", &researcher_response[..researcher_response.len().min(150)])
+        &format!(
+            "Challenge this analysis in 2 sentences: {}",
+            &researcher_response[..researcher_response.len().min(150)]
+        ),
     );
     let red_challenge = match llm.complete(red_request).await {
         Ok(resp) => resp.content,
-        Err(_) => "The analysis lacks specific timelines and doesn't address post-quantum solutions.".to_string()
+        Err(_) => {
+            "The analysis lacks specific timelines and doesn't address post-quantum solutions."
+                .to_string()
+        }
     };
 
     // Create debate record
@@ -151,7 +175,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n   📢 Debate Round 1:");
     println!("      🔵 Blue: [Research findings presented]");
-    println!("      🔴 Red: \"{}\"", &red_challenge[..red_challenge.len().min(80)]);
+    println!(
+        "      🔴 Red: \"{}\"",
+        &red_challenge[..red_challenge.len().min(80)]
+    );
     println!();
 
     // Consensus voting
@@ -217,7 +244,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
              Critique: {}",
             &researcher_response[..researcher_response.len().min(200)],
             &critic_response[..critic_response.len().min(200)]
-        )
+        ),
     );
 
     println!("   📝 Coordinator synthesizing...");
@@ -226,18 +253,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   ✅ Final response generated\n");
             resp.content
         }
-        Err(_) => {
-            "Quantum computing poses real but manageable risks to cryptography. \
+        Err(_) => "Quantum computing poses real but manageable risks to cryptography. \
              While current systems will need upgrades, post-quantum solutions are in development. \
-             Organizations should begin planning for migration now.".to_string()
-        }
+             Organizations should begin planning for migration now."
+            .to_string(),
     };
 
     println!("   ╭─────────────────────────────────────────────────────────────╮");
     println!("   │ FINAL VERIFIED RESPONSE                                     │");
     println!("   ├─────────────────────────────────────────────────────────────┤");
     for line in final_response.lines() {
-        println!("   │ {}│", format!("{:63}", line));
+        println!("   │ {:63}│", line);
     }
     println!("   ╰─────────────────────────────────────────────────────────────╯");
     println!();

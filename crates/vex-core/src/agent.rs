@@ -77,7 +77,7 @@ impl Agent {
     pub fn new(config: AgentConfig) -> Self {
         // Create genome before moving config into struct
         let genome = Genome::new(&config.role);
-        
+
         Self {
             id: Uuid::new_v4(),
             config,
@@ -99,7 +99,7 @@ impl Agent {
         // Child inherits parent's genome (will be evolved by orchestrator if enabled)
         let mut child_genome = self.genome.clone();
         child_genome.prompt = config.role.clone();
-        
+
         Self {
             id: Uuid::new_v4(),
             config,
@@ -153,7 +153,7 @@ mod tests {
     fn test_spawn_child() {
         let parent = Agent::new(AgentConfig::default());
         let child = parent.spawn_child(AgentConfig::default());
-        
+
         assert!(!child.is_root());
         assert_eq!(child.generation, 1);
         assert_eq!(child.depth, 1);

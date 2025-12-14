@@ -66,7 +66,10 @@ pub struct EpisodicMemory {
 impl EpisodicMemory {
     /// Create new episodic memory with config
     pub fn new(config: HorizonConfig) -> Self {
-        let max_age = config.horizon.duration().unwrap_or(chrono::Duration::weeks(52));
+        let max_age = config
+            .horizon
+            .duration()
+            .unwrap_or(chrono::Duration::weeks(52));
         Self {
             config,
             compressor: TemporalCompressor::new(
@@ -95,21 +98,25 @@ impl EpisodicMemory {
 
     /// Get episodes by tag
     pub fn by_tag(&self, tag: &str) -> Vec<&Episode> {
-        self.episodes.iter()
+        self.episodes
+            .iter()
             .filter(|e| e.tags.contains(&tag.to_string()))
             .collect()
     }
 
     /// Get recent episodes (within horizon)
     pub fn recent(&self) -> Vec<&Episode> {
-        self.episodes.iter()
+        self.episodes
+            .iter()
             .filter(|e| self.config.horizon.contains(e.created_at))
             .collect()
     }
 
     /// Get episodes sorted by current importance
     pub fn by_importance(&self) -> Vec<(&Episode, f64)> {
-        let mut episodes: Vec<_> = self.episodes.iter()
+        let mut episodes: Vec<_> = self
+            .episodes
+            .iter()
             .map(|e| {
                 let importance = if e.pinned {
                     1.0
@@ -145,14 +152,15 @@ impl EpisodicMemory {
         }
 
         // Evict by age first
-        self.episodes.retain(|e| {
-            e.pinned || !self.compressor.should_evict(e.created_at)
-        });
+        self.episodes
+            .retain(|e| e.pinned || !self.compressor.should_evict(e.created_at));
 
         // Then evict by count
         while self.episodes.len() > self.config.max_entries {
             // Find least important non-pinned episode
-            let maybe_idx = self.episodes.iter()
+            let maybe_idx = self
+                .episodes
+                .iter()
                 .enumerate()
                 .filter(|(_, e)| !e.pinned)
                 .min_by(|(_, a), (_, b)| {
@@ -206,7 +214,11 @@ impl EpisodicMemory {
 
             let ratio = self.compressor.compression_ratio(episode.created_at);
             if ratio > 0.1 {
-                match self.compressor.compress_with_llm(&episode.content, ratio, llm).await {
+                match self
+                    .compressor
+                    .compress_with_llm(&episode.content, ratio, llm)
+                    .await
+                {
                     Ok(compressed) => {
                         tracing::debug!(
                             episode_id = %episode.id,
@@ -232,19 +244,26 @@ impl EpisodicMemory {
 
     /// Summarize all episodes into a single context string using LLM
     /// Useful for providing memory context to agents
-    pub async fn summarize_all_with_llm<L: vex_llm::LlmProvider>(&self, llm: &L) -> Result<String, vex_llm::LlmError> {
+    pub async fn summarize_all_with_llm<L: vex_llm::LlmProvider>(
+        &self,
+        llm: &L,
+    ) -> Result<String, vex_llm::LlmError> {
         if self.episodes.is_empty() {
             return Ok(String::from("No memories recorded."));
         }
 
         // Combine all episodes into a single text
-        let all_content: String = self.episodes
+        let all_content: String = self
+            .episodes
             .iter()
-            .map(|e| format!("[{}] (importance: {:.1}): {}", 
-                e.created_at.format("%Y-%m-%d %H:%M"), 
-                e.base_importance,
-                e.content
-            ))
+            .map(|e| {
+                format!(
+                    "[{}] (importance: {:.1}): {}",
+                    e.created_at.format("%Y-%m-%d %H:%M"),
+                    e.base_importance,
+                    e.content
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 
@@ -286,7 +305,7 @@ mod tests {
     #[test]
     fn test_episodic_memory() {
         let mut memory = EpisodicMemory::default();
-        
+
         memory.remember("First event", 0.8);
         memory.remember("Second event", 0.5);
         memory.add(Episode::pinned("Important system info"));
@@ -298,7 +317,7 @@ mod tests {
     #[test]
     fn test_by_importance() {
         let mut memory = EpisodicMemory::default();
-        
+
         memory.remember("Low importance", 0.2);
         memory.remember("High importance", 0.9);
 

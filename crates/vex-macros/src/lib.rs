@@ -1,10 +1,10 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, DeriveInput, ItemFn};
 
 /// Auto-implements the `Job` trait for a struct.
-/// 
+///
 /// Usage:
 /// ```ignore
 /// #[derive(VexJob)]
@@ -14,7 +14,7 @@ use syn::{parse_macro_input, DeriveInput, ItemFn};
 pub fn derive_vex_job(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
-    
+
     // Use struct name as job name (simplified - no attribute parsing)
     let job_name = name.to_string().to_lowercase();
     let max_retries = 3u32;
@@ -35,9 +35,9 @@ pub fn derive_vex_job(input: TokenStream) -> TokenStream {
             }
 
             fn backoff_strategy(&self) -> vex_queue::job::BackoffStrategy {
-                vex_queue::job::BackoffStrategy::Exponential { 
-                    initial_secs: 1, 
-                    multiplier: 2.0 
+                vex_queue::job::BackoffStrategy::Exponential {
+                    initial_secs: 1,
+                    multiplier: 2.0
                 }
             }
         }
@@ -47,13 +47,13 @@ pub fn derive_vex_job(input: TokenStream) -> TokenStream {
 }
 
 /// Generates a ToolDefinition constant for an LLM tool function.
-/// 
+///
 /// Usage:
 /// ```ignore
 /// #[vex_tool]
 /// fn web_search(query: String) -> String { ... }
 /// ```
-/// 
+///
 /// Generates a `WEB_SEARCH_TOOL` constant.
 #[proc_macro_attribute]
 pub fn vex_tool(_args: TokenStream, item: TokenStream) -> TokenStream {
@@ -61,7 +61,7 @@ pub fn vex_tool(_args: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = &input.sig.ident;
     let tool_name = fn_name.to_string();
     let tool_desc = "Auto-generated tool";
-    
+
     let const_name = format_ident!("{}_TOOL", tool_name.to_uppercase());
 
     let expanded = quote! {
@@ -78,7 +78,7 @@ pub fn vex_tool(_args: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Instruments an agent function with tracing.
-/// 
+///
 /// Usage:
 /// ```ignore
 /// #[instrument_agent]

@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo bench -p vex-core
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use vex_core::{Agent, AgentConfig};
 
 fn generate_agent_config(name: &str) -> AgentConfig {
@@ -27,7 +27,7 @@ fn bench_agent_creation(c: &mut Criterion) {
 /// Benchmark child spawning
 fn bench_child_spawning(c: &mut Criterion) {
     let root = Agent::new(generate_agent_config("Root"));
-    
+
     c.bench_function("child_spawning", |b| {
         b.iter(|| {
             let config = generate_agent_config("Child");
@@ -39,7 +39,7 @@ fn bench_child_spawning(c: &mut Criterion) {
 /// Benchmark batch agent creation at different scales
 fn bench_batch_agent_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_agent_creation");
-    
+
     for size in [10, 100, 1000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
@@ -50,7 +50,7 @@ fn bench_batch_agent_creation(c: &mut Criterion) {
             })
         });
     }
-    
+
     group.finish();
 }
 

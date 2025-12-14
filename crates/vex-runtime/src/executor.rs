@@ -4,8 +4,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use vex_adversarial::{
+    Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
+};
 use vex_core::{Agent, ContextPacket};
-use vex_adversarial::{ShadowAgent, ShadowConfig, Debate, DebateRound, Consensus, ConsensusProtocol, Vote};
 
 /// Configuration for agent execution
 #[derive(Debug, Clone)]
@@ -66,15 +68,18 @@ impl<L: LlmBackend> AgentExecutor<L> {
     }
 
     /// Execute an agent with a prompt and return the result
-    pub async fn execute(&self, agent: &mut Agent, prompt: &str) -> Result<ExecutionResult, String> {
+    pub async fn execute(
+        &self,
+        agent: &mut Agent,
+        prompt: &str,
+    ) -> Result<ExecutionResult, String> {
         // Step 1: Get initial response from Blue agent
-        let blue_response = self.llm
-            .complete(&agent.config.role, prompt)
-            .await?;
+        let blue_response = self.llm.complete(&agent.config.role, prompt).await?;
 
         // Step 2: If adversarial is enabled, run debate
         let (final_response, verified, confidence, debate) = if self.config.enable_adversarial {
-            self.run_adversarial_verification(agent, prompt, &blue_response).await?
+            self.run_adversarial_verification(agent, prompt, &blue_response)
+                .await?
         } else {
             (blue_response, false, 0.5, None)
         };
@@ -115,12 +120,13 @@ impl<L: LlmBackend> AgentExecutor<L> {
         for round_num in 1..=self.config.max_debate_rounds {
             // Red agent challenges
             let challenge_prompt = shadow.challenge_prompt(blue_response);
-            let red_challenge = self.llm
+            let red_challenge = self
+                .llm
                 .complete(&shadow.agent.config.role, &challenge_prompt)
                 .await?;
 
             // Blue agent rebuts (if there's something to rebut)
-            let rebuttal = if red_challenge.to_lowercase().contains("disagree") 
+            let rebuttal = if red_challenge.to_lowercase().contains("disagree")
                 || red_challenge.to_lowercase().contains("issue")
                 || red_challenge.to_lowercase().contains("concern")
             {
@@ -131,7 +137,11 @@ impl<L: LlmBackend> AgentExecutor<L> {
                      Please address these concerns or revise your response.",
                     blue_response, red_challenge
                 );
-                Some(self.llm.complete(&blue_agent.config.role, &rebuttal_prompt).await?)
+                Some(
+                    self.llm
+                        .complete(&blue_agent.config.role, &rebuttal_prompt)
+                        .await?,
+                )
             } else {
                 None
             };
@@ -144,7 +154,9 @@ impl<L: LlmBackend> AgentExecutor<L> {
             });
 
             // Check if we've reached consensus (Red agreed)
-            if debate.rounds.last()
+            if debate
+                .rounds
+                .last()
                 .map(|r| r.red_challenge.to_lowercase().contains("agree"))
                 .unwrap_or(false)
             {
@@ -163,7 +175,7 @@ impl<L: LlmBackend> AgentExecutor<L> {
                 || last_round.red_challenge.to_lowercase().contains("concern")
                 || last_round.red_challenge.to_lowercase().contains("disagree")
                 || last_round.red_challenge.to_lowercase().contains("flaw");
-            
+
             if red_found_issues {
                 // Red found issues - Blue's confidence depends on rebuttal quality
                 if last_round.blue_rebuttal.is_some() {
@@ -186,7 +198,9 @@ impl<L: LlmBackend> AgentExecutor<L> {
         });
 
         // Red votes based on final challenge
-        let red_agrees = debate.rounds.last()
+        let red_agrees = debate
+            .rounds
+            .last()
             .map(|r| !r.red_challenge.to_lowercase().contains("disagree"))
             .unwrap_or(true);
 
@@ -204,7 +218,10 @@ impl<L: LlmBackend> AgentExecutor<L> {
             blue_response.to_string()
         } else if let Some(last_round) = debate.rounds.last() {
             // Use rebuttal if available, otherwise original
-            last_round.blue_rebuttal.clone().unwrap_or_else(|| blue_response.to_string())
+            last_round
+                .blue_rebuttal
+                .clone()
+                .unwrap_or_else(|| blue_response.to_string())
         } else {
             blue_response.to_string()
         };

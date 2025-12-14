@@ -77,11 +77,7 @@ mod tests {
 
     #[test]
     fn test_debate_lifecycle() {
-        let mut debate = Debate::new(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            "The sky is blue",
-        );
+        let mut debate = Debate::new(Uuid::new_v4(), Uuid::new_v4(), "The sky is blue");
 
         assert!(!debate.is_concluded());
 

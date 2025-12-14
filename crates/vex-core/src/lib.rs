@@ -53,7 +53,8 @@ pub mod evolution;
 pub mod merkle;
 
 pub use agent::{Agent, AgentConfig, AgentHandle, AgentId};
-pub use context::{ContextPacket, CompressionLevel};
-pub use evolution::{Fitness, GeneticOperator, Genome, LlmParams, StandardOperator, tournament_select};
+pub use context::{CompressionLevel, ContextPacket};
+pub use evolution::{
+    tournament_select, Fitness, GeneticOperator, Genome, LlmParams, StandardOperator,
+};
 pub use merkle::{Hash, MerkleNode, MerkleTree};
-

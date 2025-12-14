@@ -26,8 +26,8 @@ impl Hash {
     /// Combine two hashes (for Merkle tree internal nodes)
     pub fn combine(left: &Hash, right: &Hash) -> Self {
         let mut hasher = Sha256::new();
-        hasher.update(&left.0);
-        hasher.update(&right.0);
+        hasher.update(left.0);
+        hasher.update(right.0);
         Self(hasher.finalize().into())
     }
 
@@ -53,10 +53,7 @@ impl fmt::Display for Hash {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MerkleNode {
     /// Leaf node containing actual data hash
-    Leaf {
-        hash: Hash,
-        data_id: String,
-    },
+    Leaf { hash: Hash, data_id: String },
     /// Internal node combining two child hashes
     Internal {
         hash: Hash,
@@ -105,7 +102,7 @@ impl MerkleTree {
 
         // Build tree bottom-up using move semantics (no cloning)
         while nodes.len() > 1 {
-            let mut next_level = Vec::with_capacity((nodes.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(nodes.len().div_ceil(2));
             let mut iter = nodes.into_iter();
 
             while let Some(left_node) = iter.next() {
@@ -182,7 +179,7 @@ mod tests {
         let h1 = Hash::digest(b"hello");
         let h2 = Hash::digest(b"world");
         let combined = Hash::combine(&h1, &h2);
-        
+
         // Combining same hashes should give same result
         let combined2 = Hash::combine(&h1, &h2);
         assert_eq!(combined, combined2);

@@ -1,12 +1,12 @@
 //! Context packet storage
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
+use crate::backend::{StorageBackend, StorageError, StorageExt};
 use vex_core::ContextPacket;
-use crate::backend::{StorageBackend, StorageExt, StorageError};
 
 /// Serializable context state
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,12 +58,15 @@ impl<B: StorageBackend + ?Sized> ContextStore<B> {
 
         // Also index by agent if available
         if let Some(agent_id) = packet.source_agent {
-            let mut agent_contexts: Vec<Uuid> = self.backend
+            let mut agent_contexts: Vec<Uuid> = self
+                .backend
                 .get(&self.agent_key(agent_id))
                 .await?
                 .unwrap_or_default();
             agent_contexts.push(id);
-            self.backend.set(&self.agent_key(agent_id), &agent_contexts).await?;
+            self.backend
+                .set(&self.agent_key(agent_id), &agent_contexts)
+                .await?;
         }
 
         Ok(id)
@@ -77,7 +80,8 @@ impl<B: StorageBackend + ?Sized> ContextStore<B> {
 
     /// Load all contexts for an agent
     pub async fn load_by_agent(&self, agent_id: Uuid) -> Result<Vec<ContextPacket>, StorageError> {
-        let context_ids: Vec<Uuid> = self.backend
+        let context_ids: Vec<Uuid> = self
+            .backend
             .get(&self.agent_key(agent_id))
             .await?
             .unwrap_or_default();

@@ -1,7 +1,7 @@
 //! SQLite backend implementation
 
 use async_trait::async_trait;
-use sqlx::sqlite::{SqlitePool, SqlitePoolOptions, SqliteConnectOptions};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::str::FromStr;
 use tracing::{info, warn};
 
@@ -91,7 +91,7 @@ impl SqliteBackend {
             options = options.pragma("foreign_keys", "ON");
         }
         options = options.pragma("busy_timeout", config.busy_timeout_secs.to_string());
-        
+
         if config.wal_mode {
             options = options.pragma("journal_mode", "WAL");
         }
@@ -118,13 +118,13 @@ impl SqliteBackend {
             wal = config.wal_mode,
             "Connected to SQLite"
         );
-        
+
         // Run migrations
         sqlx::migrate!("./migrations")
             .run(&pool)
             .await
             .map_err(|e| StorageError::Internal(format!("Migration failed: {}", e)))?;
-            
+
         Ok(Self { pool, encrypted })
     }
 
@@ -144,17 +144,17 @@ impl StorageBackend for SqliteBackend {
     fn name(&self) -> &str {
         "sqlite"
     }
-    
+
     async fn is_healthy(&self) -> bool {
         !self.pool.is_closed()
     }
-    
+
     async fn set_value(&self, key: &str, value: serde_json::Value) -> Result<(), StorageError> {
         let json = serde_json::to_string(&value)
             .map_err(|e| StorageError::Serialization(e.to_string()))?;
-        
+
         let now = chrono::Utc::now().timestamp();
-            
+
         sqlx::query(
             "INSERT OR REPLACE INTO kv_store (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)"
         )
@@ -165,23 +165,22 @@ impl StorageBackend for SqliteBackend {
         .execute(&self.pool)
         .await
         .map_err(|e| StorageError::Query(e.to_string()))?;
-        
+
         Ok(())
     }
-    
+
     async fn get_value(&self, key: &str) -> Result<Option<serde_json::Value>, StorageError> {
         use sqlx::Row;
-        let result = sqlx::query(
-            "SELECT value FROM kv_store WHERE key = ?"
-        )
-        .bind(key)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Query(e.to_string()))?;
-        
+        let result = sqlx::query("SELECT value FROM kv_store WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| StorageError::Query(e.to_string()))?;
+
         match result {
             Some(row) => {
-                let value_str: String = row.try_get("value")
+                let value_str: String = row
+                    .try_get("value")
                     .map_err(|e| StorageError::Query(e.to_string()))?;
                 let value = serde_json::from_str(&value_str)
                     .map_err(|e| StorageError::Serialization(e.to_string()))?;
@@ -190,45 +189,40 @@ impl StorageBackend for SqliteBackend {
             None => Ok(None),
         }
     }
-    
+
     async fn delete(&self, key: &str) -> Result<bool, StorageError> {
-        let result = sqlx::query(
-            "DELETE FROM kv_store WHERE key = ?"
-        )
-        .bind(key)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| StorageError::Query(e.to_string()))?;
-        
+        let result = sqlx::query("DELETE FROM kv_store WHERE key = ?")
+            .bind(key)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StorageError::Query(e.to_string()))?;
+
         Ok(result.rows_affected() > 0)
     }
-    
+
     async fn exists(&self, key: &str) -> Result<bool, StorageError> {
-        let result = sqlx::query(
-            "SELECT 1 FROM kv_store WHERE key = ?"
-        )
-        .bind(key)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Query(e.to_string()))?;
-        
+        let result = sqlx::query("SELECT 1 FROM kv_store WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| StorageError::Query(e.to_string()))?;
+
         Ok(result.is_some())
     }
-    
+
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>, StorageError> {
         use sqlx::Row;
         let pattern = format!("{}%", prefix);
-        let rows = sqlx::query(
-            "SELECT key FROM kv_store WHERE key LIKE ?"
-        )
-        .bind(pattern)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Query(e.to_string()))?;
-        
+        let rows = sqlx::query("SELECT key FROM kv_store WHERE key LIKE ?")
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| StorageError::Query(e.to_string()))?;
+
         let mut keys = Vec::new();
         for row in rows {
-            let key: String = row.try_get("key")
+            let key: String = row
+                .try_get("key")
                 .map_err(|e| StorageError::Query(e.to_string()))?;
             keys.push(key);
         }
@@ -251,23 +245,26 @@ mod tests {
     #[tokio::test]
     async fn test_sqlite_backend() {
         let backend = SqliteBackend::new("sqlite::memory:").await.unwrap();
-        
-        let data = TestData { name: "test_sql".to_string(), value: 99 };
-        
+
+        let data = TestData {
+            name: "test_sql".to_string(),
+            value: 99,
+        };
+
         // Set
         backend.set("sql:1", &data).await.unwrap();
-        
+
         // Exists
         assert!(backend.exists("sql:1").await.unwrap());
-        
+
         // Get
         let retrieved: Option<TestData> = backend.get("sql:1").await.unwrap();
         assert_eq!(retrieved, Some(data));
-        
+
         // List
         let keys = backend.list_keys("sql:").await.unwrap();
         assert_eq!(keys, vec!["sql:1"]);
-        
+
         // Delete
         assert!(backend.delete("sql:1").await.unwrap());
         assert!(!backend.exists("sql:1").await.unwrap());

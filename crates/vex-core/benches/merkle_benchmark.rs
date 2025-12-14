@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use vex_core::merkle::{Hash, MerkleTree};
 
 fn generate_leaves(n: usize) -> Vec<(String, Hash)> {
@@ -13,7 +13,7 @@ fn generate_leaves(n: usize) -> Vec<(String, Hash)> {
 
 fn bench_tree_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("MerkleTree::from_leaves");
-    
+
     for size in [10, 100, 1000, 10000].iter() {
         let leaves = generate_leaves(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), &leaves, |b, leaves| {
