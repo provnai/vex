@@ -10,8 +10,8 @@ keywords = ["ai", "agents", "persistence", "sqlite", "database"]
 categories = ["database", "asynchronous"]
 
 [dependencies]
-vex-core = { path = "../vex-core" }
-vex-queue = { path = "../vex-queue" }
+vex-core = { path = "../vex-core", version = "0.1.0" }
+vex-queue = { path = "../vex-queue", version = "0.1.0" }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -10,7 +10,7 @@ keywords = ["ai", "agents", "adversarial", "red-team", "security"]
 categories = ["algorithms", "asynchronous"]
 
 [dependencies]
-vex-core = { path = "../vex-core" }
+vex-core = { path = "../vex-core", version = "0.1.0" }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
