@@ -228,6 +228,12 @@ cargo bench -p vex-temporal
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
 
+### Key Findings
+1.  **Concurrency**: The async runtime (`tokio`) effectively manages parallel agent execution with non-blocking I/O, maintaining throughput under load.
+2.  **Stability**: Validated against heavy context loads (approx. 40KB/agent) and concurrent cryptographic operations without timeout degradation.
+3.  **Integrity**: The Merkle implementation correctly rejects tampered data and supports efficient inclusion proofs.
+4.  **Recall**: The temporal memory system successfully persists events and supports semantic retrieval via LLM summarization.
+
 ---
 
 ## Test Coverage

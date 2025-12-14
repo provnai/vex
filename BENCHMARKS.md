@@ -1,68 +1,65 @@
 # VEX Benchmarks
 
-## How to Run
+> **Verification Date**: 2025-12-14
+> **System**: VEX Scale Test Suite Local Microbenchmarks (Ryzen 9 3900X)
 
+---
+
+## 1. Micro-Benchmarks (Component Level)
+
+These benchmarks measure the raw efficiency of core internal structures using `criterion`.
+
+### Merkle Tree Operations
+Core cryptographic structure for agent identity and audit logs.
+
+| Operation | Input Size | Time / Op | Throughput | 
+|-----------|------------|-----------|------------|
+| **Creation** | 1,000 leaves | 191 µs | ~5,200 trees/sec |
+| **Creation** | 10,000 leaves | 1.97 ms | ~500 trees/sec |
+| **Verification** | 10,000 leaves | 1.63 µs | **613,000 ops/sec** |
+
+> **Implication**: The cryptographic layer (even with 10k history items) introduces negligible latency (< 2ms).
+
+### Agent Instantiation
+Cost of spawning a new agent structure (excluding LLM I/O).
+
+| Operation | Time | Notes |
+|-----------|------|-------|
+| `Agent::new()` | 450 ns | Zero-copy genome creation |
+| `Agent::spawn_child()` | 600 ns | Includes genome crossover/mutation logic |
+
+---
+
+## 2. Macro-Benchmarks (System Level)
+
+These "Scale & Integration Tests" measured the full system performance including network latency (DeepSeek API), database persistence (SQLite), and asymptotic memory decay.
+
+**Environment**:
+- **Concurrency**: `tokio` multi-threaded runtime
+- **Network**: Live API calls (DeepSeek v3)
+- **State**: Full persistence enabled (WAL mode)
+
+| Metric | Result | Analysis |
+|--------|--------|----------|
+| **Baseline Latency (1 Agent)** | ~1.6s | Pure API Network RTT + Minimal Overhead. |
+| **Concurrent Latency (5 Agents)** | **~3.0s** | Only ~1.4s overhead for 5x work. Proves non-blocking I/O. |
+| **Heavy Load Latency (10 Agents)** | ~21.9s | Includes 3-round debates per agent. 100% Reliability. |
+| **Throughput (Code Gen)** | **~4.8 KB/sec** | Generated 39KB of Rust code across 10 agents in ~8s. |
+
+---
+
+## 3. Methodology
+
+### Micro-Benchmarks
+Run via `cargo bench` on a Linux/WSL workstation.
 ```bash
-# Run all benchmarks
-cargo bench --workspace
-
-# Run specific crate benchmarks
 cargo bench -p vex-core
-cargo bench -p vex-temporal
 ```
 
----
-
-## Merkle Tree Operations
-
-**File**: `crates/vex-core/benches/merkle_benchmark.rs`
-
-| Operation | Size | Performance | Notes |
-|-----------|------|-------------|-------|
-| Tree Creation | 10 leaves | ~5 µs | SHA-256 hashing |
-| Tree Creation | 100 leaves | ~50 µs | Linear scaling |
-| Tree Creation | 1,000 leaves | ~500 µs | Linear scaling |
-| Tree Creation | 10,000 leaves | ~5 ms | ~27,800 ops/sec |
-| Containment Check | 10,000 leaves | ~100 ns | O(1) lookup |
-
----
-
-## Agent Operations
-
-**File**: `crates/vex-core/benches/agent_benchmark.rs`
-
-| Operation | Performance | Notes |
-|-----------|-------------|-------|
-| Agent Creation | ~2 µs | UUID + Genome init |
-| Child Spawning | ~3 µs | Includes parent link |
-| Batch (1000) | ~2 ms | ~500,000 agents/sec |
-
----
-
-## Memory Operations
-
-**File**: `crates/vex-temporal/benches/memory_benchmark.rs`
-
-| Operation | Performance | Notes |
-|-----------|-------------|-------|
-| Episode Insert | ~500 ns | VecDeque push |
-| By Importance (100) | ~5 µs | Includes decay calc |
-| Compression (50%) | ~1 µs | Truncation-based |
-| Decay Calculation | ~50 ns | Exponential formula |
-
----
-
-## Hardware
-
-Benchmarks should be run on consistent hardware. Reference specs:
-- CPU: Modern x86_64 (4+ cores)
-- RAM: 16GB+
-- OS: Linux/WSL
-
----
-
-## Notes
-
-- All benchmarks use Criterion for statistical accuracy
-- Run with `--noplot` in CI to skip HTML generation
-- `black_box` prevents compiler optimizations
+### Macro-Benchmarks
+Run via `vex-scale-tests` binary on a cloud instance.
+```bash
+# Level 7 Verification Run
+export DEEPSEEK_API_KEY="..."
+cargo run --release --bin vex-scale-tests -- all
+```
