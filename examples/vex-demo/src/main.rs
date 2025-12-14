@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Red agent challenges
-    let challenge_prompt = shadow.challenge_prompt(&researcher_response);
+    let _challenge_prompt = shadow.challenge_prompt(&researcher_response);
     println!("   🔴 Red Agent challenging claim...");
     
     let red_request = LlmRequest::with_role(

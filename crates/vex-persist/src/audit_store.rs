@@ -1,6 +1,5 @@
 //! Audit log storage with Merkle verification
 
-use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
@@ -244,7 +243,7 @@ mod tests {
         let store = AuditStore::new(backend);
 
         // Log events
-        let e1 = store.log(
+        let _e1 = store.log(
             AuditEventType::AgentCreated,
             Some(Uuid::new_v4()),
             serde_json::json!({"name": "TestAgent"})

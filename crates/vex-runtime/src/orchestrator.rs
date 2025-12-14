@@ -61,7 +61,8 @@ pub struct Orchestrator<L: LlmBackend> {
     agents: RwLock<HashMap<Uuid, Agent>>,
     /// Executor
     executor: AgentExecutor<L>,
-    /// LLM backend
+    /// LLM backend (stored for future use)
+    #[allow(dead_code)]
     llm: Arc<L>,
 }
 
@@ -223,7 +224,7 @@ mod tests {
 
     #[async_trait]
     impl LlmBackend for MockLlm {
-        async fn complete(&self, system: &str, prompt: &str) -> Result<String, String> {
+        async fn complete(&self, system: &str, _prompt: &str) -> Result<String, String> {
             if system.contains("researcher") {
                 Ok("Research finding: This is a detailed analysis of the topic.".to_string())
             } else if system.contains("critic") {

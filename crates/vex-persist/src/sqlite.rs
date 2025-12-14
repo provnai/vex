@@ -1,12 +1,11 @@
 //! SQLite backend implementation
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions, SqliteConnectOptions};
 use std::str::FromStr;
 use tracing::{info, warn};
 
-use crate::backend::{StorageBackend, StorageExt, StorageError};
+use crate::backend::{StorageBackend, StorageError};
 
 /// SQLite configuration options
 #[derive(Debug, Clone)]
@@ -240,6 +239,7 @@ impl StorageBackend for SqliteBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::StorageExt;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]

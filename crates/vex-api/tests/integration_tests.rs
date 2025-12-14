@@ -4,7 +4,6 @@ use axum::{
     response::Response,
 };
 use tower::ServiceExt; // for `oneshot`
-use tower::Service; // for `call`
 use vex_api::{
     routes::api_router, 
     state::AppState, 

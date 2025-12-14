@@ -131,6 +131,7 @@ impl From<vex_persist::StorageError> for ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use axum::body::Body;
     use http_body_util::BodyExt;
 

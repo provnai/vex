@@ -8,7 +8,7 @@
 //! Run with: cargo run -p vex-demo --bin fraud-detector
 
 use vex_core::{Agent, AgentConfig, MerkleTree};
-use vex_adversarial::{ShadowAgent, ShadowConfig, Consensus, ConsensusProtocol, Vote};
+use vex_adversarial::{Consensus, ConsensusProtocol, Vote};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest, VexConfig};
 
 #[tokio::main]

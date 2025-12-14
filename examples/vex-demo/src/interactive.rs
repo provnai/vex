@@ -10,9 +10,9 @@
 
 use std::io::{self, Write};
 use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
-use vex_adversarial::{ShadowAgent, ShadowConfig, Debate, DebateRound, Consensus, ConsensusProtocol, Vote};
+use vex_adversarial::{ShadowAgent, ShadowConfig};
 use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest, VexConfig};
-use vex_temporal::{EpisodicMemory, Episode, HorizonConfig};
+use vex_temporal::{EpisodicMemory, HorizonConfig};
 
 #[tokio::main]
 async fn main() {
@@ -40,7 +40,7 @@ async fn main() {
         spawn_shadow: true,
     });
 
-    let verifier = ShadowAgent::new(&coordinator, ShadowConfig {
+    let _verifier = ShadowAgent::new(&coordinator, ShadowConfig {
         challenge_intensity: 0.6,
         fact_check: true,
         logic_check: true,

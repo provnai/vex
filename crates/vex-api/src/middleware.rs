@@ -2,11 +2,10 @@
 
 use axum::{
     extract::{Request, State},
-    http::{header, StatusCode},
+    http::header,
     middleware::Next,
     response::Response,
 };
-use std::sync::Arc;
 use std::time::Instant;
 
 use crate::auth::{Claims, JwtAuth};
@@ -155,6 +154,7 @@ pub fn cors_layer() -> tower_http::cors::CorsLayer {
 }
 
 /// Timeout layer helper
+#[allow(deprecated)]
 pub fn timeout_layer(duration: std::time::Duration) -> tower_http::timeout::TimeoutLayer {
     tower_http::timeout::TimeoutLayer::new(duration)
 }
@@ -166,8 +166,6 @@ pub fn body_limit_layer(limit: usize) -> tower_http::limit::RequestBodyLimitLaye
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_request_id() {
         let id1 = uuid::Uuid::new_v4().to_string();

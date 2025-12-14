@@ -8,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
-use std::sync::Arc;
-
-use crate::StorageBackend;
 
 /// API key errors
 #[derive(Debug, Error)]

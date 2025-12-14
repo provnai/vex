@@ -2,10 +2,9 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use vex_core::{Agent, AgentConfig, ContextPacket};
+use vex_core::{Agent, ContextPacket};
 use vex_adversarial::{ShadowAgent, ShadowConfig, Debate, DebateRound, Consensus, ConsensusProtocol, Vote};
 
 /// Configuration for agent execution
@@ -103,7 +102,7 @@ impl<L: LlmBackend> AgentExecutor<L> {
     async fn run_adversarial_verification(
         &self,
         blue_agent: &Agent,
-        original_prompt: &str,
+        _original_prompt: &str,
         blue_response: &str,
     ) -> Result<(String, bool, f64, Option<Debate>), String> {
         // Create shadow agent
@@ -222,6 +221,7 @@ impl<L: LlmBackend> AgentExecutor<L> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vex_core::AgentConfig;
 
     struct MockLlm;
 

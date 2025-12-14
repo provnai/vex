@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use chrono::{Utc, DateTime};
+use chrono::Utc;
 use vex_queue::{QueueBackend, backend::QueueError, job::{JobEntry, JobStatus}};
 
 /// Durable queue backend using SQLite
