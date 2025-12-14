@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo bench -p vex-temporal
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_memory_insertion(c: &mut Criterion) {
     use vex_temporal::{EpisodicMemory, HorizonConfig};
