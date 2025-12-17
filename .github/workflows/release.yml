@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+jobs:
+  publish:
+    name: Publish to Crates.io
+    runs-on: ubuntu-latest
+    # steps use an explicit ordering because of workspace dependencies
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 1. Macros (Proc macros usually standalone)
+      - name: Publish vex-macros
+        run: cargo publish -p vex-macros
+      - run: sleep 20 # Wait for index propagation
+
+      # 2. Core (Foundational types)
+      - name: Publish vex-core
+        run: cargo publish -p vex-core
+      - run: sleep 20
+
+      # 3. Base Utilities
+      - name: Publish vex-temporal
+        run: cargo publish -p vex-temporal
+      - run: sleep 20
+
+      # 4. Persistence & LLM (Mid-layer)
+      - name: Publish vex-persist
+        run: cargo publish -p vex-persist
+      - run: sleep 20
+      
+      - name: Publish vex-llm
+        run: cargo publish -p vex-llm
+      - run: sleep 20
+
+      # 5. Logic Layers
+      - name: Publish vex-adversarial
+        run: cargo publish -p vex-adversarial
+      - run: sleep 20
+
+      - name: Publish vex-queue
+        run: cargo publish -p vex-queue
+      - run: sleep 20
+
+      # 6. Higher Level
+      - name: Publish vex-runtime
+        run: cargo publish -p vex-runtime
+      - run: sleep 20
+
+      # 7. Gateway (Top Level)
+      - name: Publish vex-api
+        run: cargo publish -p vex-api

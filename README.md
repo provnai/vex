@@ -3,6 +3,7 @@
 > **V**erified **E**volutionary **X**enogenesis — A Rust framework for adversarial, temporal, cryptographically-verified hierarchical AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/vex-core.svg)](https://crates.io/crates/vex-core)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![CI](https://github.com/provnai/vex/workflows/CI/badge.svg)](https://github.com/provnai/vex/actions)
 [![Docs](https://img.shields.io/badge/docs-provnai.dev-4285F4.svg)](https://provnai.dev)
@@ -33,7 +34,7 @@ graph TB
     end
     
     subgraph "Intelligence Layer"
-        LLM["vex-llm<br/>DeepSeek / Mistral / OpenAI / Ollama"]
+    LLM["vex-llm<br/>DeepSeek / Mistral / OpenAI / Ollama"]
         ADV["vex-adversarial<br/>Red/Blue Debate Engine"]
     end
     
@@ -124,8 +125,15 @@ Enterprise-grade HTTP gateway with:
 - **Rate Limiting**: Per-user tier-based limits (Free/Pro/Enterprise)
 - **Resilience**: 3-state circuit breaker (Closed → Open → HalfOpen)
 - **Observability**: Prometheus metrics endpoint
-- **Security**: Input sanitization with 17 prompt injection patterns blocked
-- **Security Headers**: X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy
+- **Security**: Input sanitization with 50+ prompt injection patterns blocked
+- **Security Headers**: HSTS, X-Content-Type-Options, CSP, Referrer-Policy
+
+### 6. Defense-in-Depth Security (New) 🔒
+
+- **Secure Memory**: Automatic zeroization of sensitive secrets (keys/tokens) (using `zeroize`).
+- **Argon2id Hashing**: State-of-the-art password/key hashing with salt.
+- **Guardrails**: Advanced prompt injection detection (DAN, Policy Puppetry, ChatML injections).
+- **Hardened Builds**: Integer overflow checks enabled in release profile.
 
 ---
 
@@ -140,7 +148,7 @@ Enterprise-grade HTTP gateway with:
 | `vex-api` | Axum server, JWT auth, middleware stack, circuit breaker |
 | `vex-runtime` | Orchestrator, AgentExecutor, hierarchical execution |
 | `vex-queue` | WorkerPool, Job trait, exponential backoff |
-| `vex-llm` | LlmProvider trait, DeepSeek, Mistral, OpenAI, Ollama, Mock, ToolDefinition |
+| `vex-llm` | LlmProvider trait, DeepSeek, Mistral, OpenAI, Ollama, Mock |
 | `vex-macros` | Procedural macros (`#[derive(VexJob)]`, `#[vex_tool]`, `#[instrument_agent]`) |
 | `vex-demo` | Example applications (research agent, fraud detection, chat) |
 
@@ -173,12 +181,6 @@ export DEEPSEEK_API_KEY="sk-..."
 
 # Run research agent demo
 cargo run -p vex-demo
-
-# Run fraud detection demo
-cargo run -p vex-demo --bin fraud-detector
-
-# Run interactive chat
-cargo run -p vex-demo --bin interactive
 ```
 
 ### Start API Server
@@ -207,6 +209,8 @@ docker-compose up -d
 | `OPENAI_API_KEY` | OpenAI API key | — |
 | `OLLAMA_URL` | Ollama base URL | `http://localhost:11434` |
 | `VEX_JWT_SECRET` | JWT signing secret (min 32 chars) | **Required** |
+| `VEX_CORS_ORIGINS` | Allowed CORS origins (comma-sep) | `https://localhost` |
+| `VEX_ENABLE_HSTS` | Enable Strict Transport Security | `0` (Disabled) |
 | `VEX_DEFAULT_PROVIDER` | Default LLM provider | `deepseek` |
 | `VEX_DEFAULT_MODEL` | Default model name | `deepseek-chat` |
 

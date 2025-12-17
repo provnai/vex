@@ -23,6 +23,8 @@ tracing = { workspace = true }
 sha2 = "0.10"
 rand = "0.8"
 hex = "0.4"
+argon2 = "0.5"
+subtle = "2.5"
 
 # Optional database backends
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "chrono"], optional = true }

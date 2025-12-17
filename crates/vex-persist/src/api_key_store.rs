@@ -2,10 +2,12 @@
 //!
 //! Provides database-backed API key management with hashing and lookup.
 
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -29,9 +31,9 @@ pub enum ApiKeyError {
 pub struct ApiKeyRecord {
     /// Unique key ID (not the actual key)
     pub id: Uuid,
-    /// Hash of the API key (never store plaintext)
+    /// Argon2id hash of the API key (includes salt, never store plaintext)
     pub key_hash: String,
-    /// First 8 characters of key for identification (safe to show)
+    /// First 12 characters of key for identification (safe to show)
     pub key_prefix: String,
     /// User ID this key belongs to
     pub user_id: String,
@@ -93,11 +95,38 @@ impl ApiKeyRecord {
         (record, plaintext_key)
     }
 
-    /// Hash an API key for secure storage
+    /// Hash an API key for secure storage using Argon2id with random salt
+    /// Returns the PHC-formatted hash string (includes salt)
     pub fn hash_key(key: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(key.as_bytes());
-        hex::encode(hasher.finalize())
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        argon2
+            .hash_password(key.as_bytes(), &salt)
+            .expect("Argon2 hashing should not fail")
+            .to_string()
+    }
+
+    /// Verify a plaintext key against a stored Argon2id hash
+    /// Uses constant-time comparison to prevent timing attacks
+    pub fn verify_key(plaintext_key: &str, stored_hash: &str) -> bool {
+        match PasswordHash::new(stored_hash) {
+            Ok(parsed_hash) => {
+                Argon2::default()
+                    .verify_password(plaintext_key.as_bytes(), &parsed_hash)
+                    .is_ok()
+            }
+            Err(_) => {
+                // Legacy SHA-256 hash fallback (for migration)
+                // Use constant-time comparison
+                let legacy_hash = {
+                    use sha2::{Digest, Sha256};
+                    let mut hasher = Sha256::new();
+                    hasher.update(plaintext_key.as_bytes());
+                    hex::encode(hasher.finalize())
+                };
+                legacy_hash.as_bytes().ct_eq(stored_hash.as_bytes()).into()
+            }
+        }
     }
 
     /// Check if this key is valid (not expired or revoked)
@@ -125,8 +154,11 @@ pub trait ApiKeyStore: Send + Sync {
     /// Store a new API key
     async fn create(&self, record: &ApiKeyRecord) -> Result<(), ApiKeyError>;
 
-    /// Find a key by its hash
+    /// Find a key by its hash (for legacy SHA-256 compatibility)
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
+
+    /// Find and verify a key using Argon2 (iterate and verify each)
+    async fn find_and_verify_key(&self, plaintext_key: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
 
     /// Find all keys for a user
     async fn find_by_user(&self, user_id: &str) -> Result<Vec<ApiKeyRecord>, ApiKeyError>;
@@ -162,8 +194,19 @@ impl ApiKeyStore for MemoryApiKeyStore {
     }
 
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
+        // For legacy SHA-256 hashes, direct comparison is still possible
         let keys = self.keys.read().await;
         Ok(keys.values().find(|r| r.key_hash == hash).cloned())
+    }
+
+    async fn find_and_verify_key(&self, plaintext_key: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
+        let keys = self.keys.read().await;
+        for record in keys.values() {
+            if ApiKeyRecord::verify_key(plaintext_key, &record.key_hash) {
+                return Ok(Some(record.clone()));
+            }
+        }
+        Ok(None)
     }
 
     async fn find_by_user(&self, user_id: &str) -> Result<Vec<ApiKeyRecord>, ApiKeyError> {
@@ -212,10 +255,9 @@ pub async fn validate_api_key<S: ApiKeyStore>(
         return Err(ApiKeyError::InvalidFormat);
     }
 
-    // Hash and lookup
-    let hash = ApiKeyRecord::hash_key(plaintext_key);
+    // Find and verify using Argon2 (handles both new and legacy hashes)
     let record = store
-        .find_by_hash(&hash)
+        .find_and_verify_key(plaintext_key)
         .await?
         .ok_or(ApiKeyError::NotFound)?;
 
@@ -252,11 +294,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_api_key_hash_consistency() {
-        let key = "vex_test123_abcdefgh";
-        let hash1 = ApiKeyRecord::hash_key(key);
-        let hash2 = ApiKeyRecord::hash_key(key);
-        assert_eq!(hash1, hash2);
+    async fn test_api_key_hash_verification() {
+        // With Argon2id, hashes are different each time (due to random salt)
+        // Instead, we test that verify_key correctly validates
+        let key = "vex_test123456789_abcdefghijklmnopqrst";
+        let hash = ApiKeyRecord::hash_key(key);
+        
+        // Same key should verify against its hash
+        assert!(ApiKeyRecord::verify_key(key, &hash));
+        
+        // Different key should not verify
+        assert!(!ApiKeyRecord::verify_key("vex_wrong_key_12345678901234567890", &hash));
     }
 
     #[tokio::test]
@@ -267,15 +315,14 @@ mod tests {
         // Create
         store.create(&record).await.unwrap();
 
-        // Find by hash
-        let hash = ApiKeyRecord::hash_key(&key);
-        let found = store.find_by_hash(&hash).await.unwrap();
+        // Find and verify key (uses Argon2 verification)
+        let found = store.find_and_verify_key(&key).await.unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, record.id);
 
         // Revoke
         store.revoke(record.id).await.unwrap();
-        let revoked = store.find_by_hash(&hash).await.unwrap().unwrap();
+        let revoked = store.find_and_verify_key(&key).await.unwrap().unwrap();
         assert!(revoked.revoked);
     }
 

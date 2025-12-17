@@ -18,13 +18,19 @@ pub struct Vote {
 
 impl Vote {
     /// Create a new vote
+    /// Uses SHA-256 hash of agent_id for UUID generation (collision resistant)
     pub fn new(agent_id: &str, agrees: bool, confidence: f64) -> Self {
-        // Use a deterministic UUID based on agent_id string
+        use sha2::{Sha256, Digest};
+        
+        // Hash the agent_id to get deterministic but collision-resistant bytes
+        let mut hasher = Sha256::new();
+        hasher.update(agent_id.as_bytes());
+        let hash = hasher.finalize();
+        
+        // Take first 16 bytes of hash for UUID
         let mut bytes = [0u8; 16];
-        let id_bytes = agent_id.as_bytes();
-        for (i, &b) in id_bytes.iter().take(16).enumerate() {
-            bytes[i] = b;
-        }
+        bytes.copy_from_slice(&hash[..16]);
+        
         Self {
             agent_id: Uuid::from_bytes(bytes),
             agrees,

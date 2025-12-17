@@ -93,28 +93,81 @@ impl SanitizeConfig {
 }
 
 /// Patterns that may indicate prompt injection attempts
+/// Updated with 2024/2025 jailbreak techniques (OWASP LLM Top 10)
 const INJECTION_PATTERNS: &[&str] = &[
-    // System prompt overrides
+    // === System Prompt Override Attempts ===
     "ignore previous instructions",
     "ignore all previous",
     "disregard previous",
     "forget previous",
+    "forget everything",
     "new instructions:",
     "system prompt:",
+    "override system",
+    "replace system prompt",
+    
+    // === Role/Identity Attacks ===
     "you are now",
     "pretend you are",
     "act as if",
     "roleplay as",
-    // Jailbreak attempts
+    "simulate being",
+    "imagine you are",
+    "from now on you are",
+    "your new identity",
+    
+    // === DAN-Style Jailbreaks (Do Anything Now) ===
     "dan mode",
     "developer mode",
+    "god mode",
+    "sudo mode",
+    "admin mode",
+    "unrestricted mode",
+    "no restrictions",
+    "without limitations",
+    "without ethical",
+    "without safety",
+    "enabled: true",  // Policy puppetry
+    
+    // === Jailbreak Keywords ===
     "jailbreak",
     "unlock",
     "bypass",
-    // Encoding attacks
+    "disable filter",
+    "remove restrictions",
+    "break free",
+    "escape constraints",
+    "override safety",
+    
+    // === Encoding/Obfuscation Attacks ===
     "base64:",
+    "decode base64",
     "\\x",
     "\\u00",
+    "[system]",  // Special token injection
+    "[/system]",
+    "<|im_start|>",  // ChatML tokens
+    "<|im_end|>",
+    
+    // === Multi-Turn Escalation Patterns ===
+    "hypothetically speaking",
+    "for educational purposes",
+    "in a fictional scenario",
+    "for research purposes",
+    "just between us",
+    
+    // === Prompt Leaking Attempts ===
+    "repeat your instructions",
+    "show me your prompt",
+    "what are your rules",
+    "print your system prompt",
+    "reveal your instructions",
+    
+    // === Context Manipulation ===
+    "end of conversation",
+    "new conversation",
+    "reset context",
+    "clear memory",
 ];
 
 /// Sanitize and validate input text
@@ -126,6 +179,39 @@ pub fn sanitize(input: &str, config: &SanitizeConfig) -> Result<String, Sanitize
     if text.is_empty() {
         return Err(SanitizeError::EmptyInput);
     }
+
+    // Normalize Unicode to NFC form and strip zero-width characters
+    // This prevents homoglyph attacks (e.g., using Cyrillic 'а' instead of Latin 'a')
+    let normalized: String = text
+        .chars()
+        .filter(|c| {
+            // Strip zero-width characters commonly used to bypass filters
+            !matches!(*c, 
+                '\u{200B}' | // Zero width space
+                '\u{200C}' | // Zero width non-joiner
+                '\u{200D}' | // Zero width joiner
+                '\u{FEFF}' | // Byte order mark
+                '\u{00AD}'   // Soft hyphen
+            )
+        })
+        // Convert common lookalikes to ASCII (basic confusable mitigation)
+        .map(|c| match c {
+            // Cyrillic lookalikes
+            '\u{0430}' => 'a', // Cyrillic а
+            '\u{0435}' => 'e', // Cyrillic е
+            '\u{043E}' => 'o', // Cyrillic о
+            '\u{0440}' => 'p', // Cyrillic р
+            '\u{0441}' => 'c', // Cyrillic с
+            '\u{0445}' => 'x', // Cyrillic х
+            // Fullwidth ASCII
+            c if ('\u{FF01}'..='\u{FF5E}').contains(&c) => {
+                char::from_u32(c as u32 - 0xFEE0).unwrap_or(c)
+            }
+            _ => c,
+        })
+        .collect();
+
+    let text = &normalized;
 
     // Check length
     if text.len() < config.min_length {
@@ -254,5 +340,27 @@ mod tests {
         let result = sanitize(input, &SanitizeConfig::default());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "HelloWorld");
+    }
+
+    #[test]
+    fn test_all_injection_patterns() {
+        for pattern in INJECTION_PATTERNS {
+            let input = format!("some benign text then {} and more text", pattern);
+            let result = sanitize(&input, &SanitizeConfig::prompt());
+            assert!(
+                matches!(result, Err(SanitizeError::ForbiddenPattern { .. })),
+                "Failed to detect pattern: {}",
+                pattern
+            );
+
+            // Test case insensitivity
+            let input_upper = format!("some benign text then {} and more text", pattern.to_uppercase());
+            let result_upper = sanitize(&input_upper, &SanitizeConfig::prompt());
+            assert!(
+                matches!(result_upper, Err(SanitizeError::ForbiddenPattern { .. })),
+                "Failed to detect uppercase pattern: {}",
+                pattern
+            );
+        }
     }
 }

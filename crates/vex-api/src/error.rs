@@ -140,6 +140,9 @@ impl From<vex_llm::LlmError> for ApiError {
             vex_llm::LlmError::NotAvailable => {
                 ApiError::ServiceUnavailable("LLM provider not available".to_string())
             }
+            vex_llm::LlmError::InputTooLarge(size, max) => {
+                ApiError::BadRequest(format!("Input too large: {} bytes (max {})", size, max))
+            }
         }
     }
 }

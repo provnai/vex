@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -25,6 +26,8 @@ pub struct OrchestratorConfig {
     pub mutation_rate: f64,
     /// Executor configuration
     pub executor_config: ExecutorConfig,
+    /// Maximum age for tracked agents before cleanup (prevents memory leaks)
+    pub max_agent_age: Duration,
 }
 
 impl Default for OrchestratorConfig {
@@ -35,6 +38,7 @@ impl Default for OrchestratorConfig {
             enable_evolution: true,
             mutation_rate: 0.1,
             executor_config: ExecutorConfig::default(),
+            max_agent_age: Duration::from_secs(3600), // 1 hour default
         }
     }
 }
@@ -56,12 +60,19 @@ pub struct OrchestrationResult {
     pub confidence: f64,
 }
 
+/// Tracked agent with creation timestamp for TTL-based cleanup
+#[derive(Clone)]
+struct TrackedAgent {
+    agent: Agent,
+    created_at: Instant,
+}
+
 /// Orchestrator manages hierarchical agent execution
 pub struct Orchestrator<L: LlmBackend> {
     /// Configuration
     pub config: OrchestratorConfig,
-    /// All agents (id -> agent)
-    agents: RwLock<HashMap<Uuid, Agent>>,
+    /// All agents (id -> tracked agent with timestamp)
+    agents: RwLock<HashMap<Uuid, TrackedAgent>>,
     /// Executor
     executor: AgentExecutor<L>,
     /// LLM backend (stored for future use)
@@ -81,6 +92,24 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         }
     }
 
+    /// Cleanup expired agents to prevent memory leaks
+    /// Returns the number of agents removed
+    pub async fn cleanup_expired(&self) -> usize {
+        let mut agents = self.agents.write().await;
+        let before = agents.len();
+        agents.retain(|_, tracked| tracked.created_at.elapsed() < self.config.max_agent_age);
+        let removed = before - agents.len();
+        if removed > 0 {
+            tracing::info!(removed = removed, remaining = agents.len(), "Cleaned up expired agents");
+        }
+        removed
+    }
+
+    /// Get current agent count
+    pub async fn agent_count(&self) -> usize {
+        self.agents.read().await.len()
+    }
+
     /// Process a query with full hierarchical agent network
     pub async fn process(&self, query: &str) -> Result<OrchestrationResult, String> {
         let mut agents = self.agents.write().await;
@@ -95,7 +124,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         };
         let root = Agent::new(root_config);
         let root_id = root.id;
-        agents.insert(root_id, root);
+        agents.insert(root_id, TrackedAgent { agent: root, created_at: Instant::now() });
 
         // Spawn child agents for research
         let child_configs = vec![
@@ -116,7 +145,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         // Execute child agents in parallel
         let mut child_results = Vec::new();
         for config in child_configs.into_iter().take(self.config.agents_per_level) {
-            let root = agents.get(&root_id).unwrap();
+            let root = &agents.get(&root_id).unwrap().agent;
             let mut child = root.spawn_child(config);
             let child_id = child.id;
 
@@ -124,7 +153,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
             let result = self.executor.execute(&mut child, query).await?;
             child_results.push((child_id, result.clone()));
             all_results.insert(child_id, result);
-            agents.insert(child_id, child);
+            agents.insert(child_id, TrackedAgent { agent: child, created_at: Instant::now() });
         }
 
         // Synthesize child results at root level
@@ -139,8 +168,8 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
             child_results.get(1).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
         );
 
-        let root = agents.get_mut(&root_id).unwrap();
-        let root_result = self.executor.execute(root, &synthesis_prompt).await?;
+        let tracked_root = agents.get_mut(&root_id).unwrap();
+        let root_result = self.executor.execute(&mut tracked_root.agent, &synthesis_prompt).await?;
         all_results.insert(root_id, root_result.clone());
 
         // Build Merkle tree from all context packets
@@ -175,7 +204,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
     /// Evolve agents based on fitness - persists evolved genome to fittest agent
     fn evolve_agents(
         &self,
-        agents: &mut HashMap<Uuid, Agent>,
+        agents: &mut HashMap<Uuid, TrackedAgent>,
         results: &HashMap<Uuid, ExecutionResult>,
     ) {
         let operator = StandardOperator;
@@ -183,9 +212,9 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         // Build population with fitness scores from actual agent genomes
         let population: Vec<(Genome, Fitness)> = agents
             .values()
-            .map(|a| {
-                let fitness = results.get(&a.id).map(|r| r.confidence).unwrap_or(0.5);
-                (a.genome.clone(), Fitness::new(fitness))
+            .map(|tracked| {
+                let fitness = results.get(&tracked.agent.id).map(|r| r.confidence).unwrap_or(0.5);
+                (tracked.agent.genome.clone(), Fitness::new(fitness))
             })
             .collect();
 
@@ -203,11 +232,11 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         // This ensures the best-performing agent gets improved traits for next generation
         if let Some((best_id, _best_fitness)) = results
             .iter()
-            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap())
+            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap_or(std::cmp::Ordering::Equal))
         {
-            if let Some(agent) = agents.get_mut(best_id) {
-                let old_traits = agent.genome.traits.clone();
-                agent.apply_evolved_genome(offspring.clone());
+            if let Some(tracked) = agents.get_mut(best_id) {
+                let old_traits = tracked.agent.genome.traits.clone();
+                tracked.agent.apply_evolved_genome(offspring.clone());
 
                 tracing::info!(
                     agent_id = %best_id,
@@ -221,7 +250,7 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
 
     /// Get agent by ID
     pub async fn get_agent(&self, id: Uuid) -> Option<Agent> {
-        self.agents.read().await.get(&id).cloned()
+        self.agents.read().await.get(&id).map(|t| t.agent.clone())
     }
 }
 

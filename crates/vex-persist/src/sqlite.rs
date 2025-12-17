@@ -119,6 +119,39 @@ impl SqliteBackend {
             "Connected to SQLite"
         );
 
+        // Verify SQLCipher is actually active if encryption was requested
+        if encrypted {
+            use sqlx::Row;
+            let _result = sqlx::query("SELECT sqlite3_version()")
+                .fetch_one(&pool)
+                .await
+                .map_err(|e| StorageError::Connection(format!("SQLCipher verification failed: {}", e)))?;
+            
+            // Try to verify cipher_version pragma - if it fails, SQLCipher is not available
+            let cipher_check = sqlx::query("PRAGMA cipher_version")
+                .fetch_optional(&pool)
+                .await;
+            
+            match cipher_check {
+                Ok(Some(row)) => {
+                    let version: Option<String> = row.try_get(0).ok();
+                    if version.is_none() || version.as_ref().map(|v| v.is_empty()).unwrap_or(true) {
+                        return Err(StorageError::Internal(
+                            "SQLCipher encryption requested but cipher_version returned empty. \
+                             SQLite may not be compiled with SQLCipher support.".to_string()
+                        ));
+                    }
+                    info!(cipher_version = ?version, "SQLCipher encryption verified");
+                }
+                Ok(None) | Err(_) => {
+                    return Err(StorageError::Internal(
+                        "SQLCipher encryption requested but not available. \
+                         Database will NOT be encrypted! Aborting for security.".to_string()
+                    ));
+                }
+            }
+        }
+
         // Run migrations
         sqlx::migrate!("./migrations")
             .run(&pool)

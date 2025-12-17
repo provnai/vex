@@ -131,9 +131,36 @@ pub async fn request_id_middleware(mut request: Request, next: Next) -> Response
 pub struct RequestId(pub String);
 
 /// CORS configuration helper
+/// Reads allowed origins from VEX_CORS_ORIGINS env var (comma-separated)
+/// Falls back to restrictive default if not set
 pub fn cors_layer() -> tower_http::cors::CorsLayer {
-    tower_http::cors::CorsLayer::new()
-        .allow_origin(tower_http::cors::Any)
+    use tower_http::cors::{AllowOrigin, CorsLayer};
+
+    let origins = std::env::var("VEX_CORS_ORIGINS").ok();
+
+    let allow_origin = match origins {
+        Some(origins_str) if !origins_str.is_empty() => {
+            let origins: Vec<axum::http::HeaderValue> = origins_str
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            if origins.is_empty() {
+                tracing::warn!("VEX_CORS_ORIGINS is set but contains no valid origins, using restrictive default");
+                AllowOrigin::exact("https://localhost".parse().unwrap())
+            } else {
+                tracing::info!("CORS configured for {} origin(s)", origins.len());
+                AllowOrigin::list(origins)
+            }
+        }
+        _ => {
+            // No CORS_ORIGINS set - use restrictive default for security
+            tracing::warn!("VEX_CORS_ORIGINS not set, using restrictive CORS (localhost only)");
+            AllowOrigin::exact("https://localhost".parse().unwrap())
+        }
+    };
+
+    CorsLayer::new()
+        .allow_origin(allow_origin)
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -180,11 +207,13 @@ pub async fn security_headers_middleware(request: Request, next: Next) -> Respon
             .unwrap(),
     );
 
-    // HSTS (only enable in production with HTTPS)
-    // headers.insert(
-    //     "Strict-Transport-Security",
-    //     "max-age=31536000; includeSubDomains".parse().unwrap(),
-    // );
+    // HSTS - Enable in production by setting VEX_ENABLE_HSTS=1
+    if std::env::var("VEX_ENABLE_HSTS").is_ok() {
+        headers.insert(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains".parse().unwrap(),
+        );
+    }
 
     // Referrer policy
     headers.insert(

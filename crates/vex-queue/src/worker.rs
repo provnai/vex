@@ -68,7 +68,7 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
         self.registry
             .factories
             .write()
-            .unwrap()
+            .expect("Job registry RwLock poisoned")
             .insert(name.to_string(), factory);
     }
 
@@ -80,7 +80,7 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
         self.registry
             .factories
             .write()
-            .unwrap()
+            .expect("Job registry RwLock poisoned")
             .insert(name.to_string(), Box::new(factory));
     }
 
@@ -96,13 +96,15 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
             if semaphore.available_permits() > 0 {
                 match self.backend.dequeue().await {
                     Ok(Some(entry)) => {
-                        let permit = semaphore.clone().acquire_owned().await.unwrap();
+                        let permit = semaphore.clone().acquire_owned().await
+                            .expect("Worker semaphore closed unexpectedly");
                         let backend = self.backend.clone();
                         let registry = self.registry.clone();
 
                         tokio::spawn(async move {
                             let job_opt = {
-                                let factories = registry.factories.read().unwrap();
+                                let factories = registry.factories.read()
+                                    .expect("Job registry RwLock poisoned");
                                 factories
                                     .get(&entry.job_type)
                                     .map(|f| f(entry.payload.clone()))

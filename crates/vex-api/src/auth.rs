@@ -4,6 +4,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::error::ApiError;
 
@@ -85,14 +86,18 @@ impl JwtAuth {
     }
 
     /// Create from environment variable (required in production)
+    /// Uses Zeroizing to securely clear the secret from memory after key creation
     pub fn from_env() -> Result<Self, ApiError> {
-        let secret = std::env::var("VEX_JWT_SECRET").map_err(|_| {
-            ApiError::Internal(
-                "VEX_JWT_SECRET environment variable is required. \
+        // Wrap secret in Zeroizing to ensure it's cleared from memory when dropped
+        let secret: Zeroizing<String> = Zeroizing::new(
+            std::env::var("VEX_JWT_SECRET").map_err(|_| {
+                ApiError::Internal(
+                    "VEX_JWT_SECRET environment variable is required. \
                      Generate with: openssl rand -base64 32"
-                    .to_string(),
-            )
-        })?;
+                        .to_string(),
+                )
+            })?
+        );
 
         if secret.len() < 32 {
             return Err(ApiError::Internal(
@@ -100,6 +105,7 @@ impl JwtAuth {
             ));
         }
 
+        // Keys are created, then secret is automatically zeroed when Zeroizing drops
         Ok(Self::new(&secret))
     }
 
@@ -135,26 +141,62 @@ impl JwtAuth {
 /// API key for simplified authentication
 #[derive(Debug, Clone)]
 pub struct ApiKey {
-    pub key: String,
+    pub key_id: uuid::Uuid,
+    pub user_id: String,
     pub name: String,
-    pub roles: Vec<String>,
+    pub scopes: Vec<String>,
     pub rate_limit: Option<u32>,
 }
 
 impl ApiKey {
-    /// Validate an API key (placeholder - connect to your key store)
-    pub async fn validate(key: &str) -> Result<Self, ApiError> {
-        // In production, this would check against a database
-        if key.starts_with("vex_") && key.len() > 20 {
-            Ok(ApiKey {
-                key: key.to_string(),
-                name: "default".to_string(),
-                roles: vec!["user".to_string()],
-                rate_limit: Some(100),
-            })
+    /// Validate an API key against a database-backed key store
+    /// Uses Argon2id verification with constant-time comparison
+    pub async fn validate<S: vex_persist::ApiKeyStore>(
+        key: &str,
+        store: &S,
+    ) -> Result<Self, ApiError> {
+        // Use the proper database-backed validation
+        let record = vex_persist::validate_api_key(store, key)
+            .await
+            .map_err(|e| match e {
+                vex_persist::ApiKeyError::NotFound => {
+                    ApiError::Unauthorized("Invalid API key".to_string())
+                }
+                vex_persist::ApiKeyError::Expired => {
+                    ApiError::Unauthorized("API key expired".to_string())
+                }
+                vex_persist::ApiKeyError::Revoked => {
+                    ApiError::Unauthorized("API key revoked".to_string())
+                }
+                vex_persist::ApiKeyError::InvalidFormat => {
+                    ApiError::Unauthorized("Invalid API key format".to_string())
+                }
+                vex_persist::ApiKeyError::Storage(msg) => {
+                    ApiError::Internal(format!("Key validation error: {}", msg))
+                }
+            })?;
+
+        // Determine rate limit based on scopes
+        let rate_limit = if record.scopes.contains(&"enterprise".to_string()) {
+            Some(10000)
+        } else if record.scopes.contains(&"pro".to_string()) {
+            Some(1000)
         } else {
-            Err(ApiError::Unauthorized("Invalid API key".to_string()))
-        }
+            Some(100) // Free tier default
+        };
+
+        Ok(ApiKey {
+            key_id: record.id,
+            user_id: record.user_id,
+            name: record.name,
+            scopes: record.scopes,
+            rate_limit,
+        })
+    }
+
+    /// Check if this API key has a specific scope
+    pub fn has_scope(&self, scope: &str) -> bool {
+        self.scopes.iter().any(|s| s == scope || s == "*")
     }
 }
 

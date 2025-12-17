@@ -40,20 +40,33 @@ pub struct AuditEvent {
     pub hash: Hash,
     /// Hash of previous event (chain)
     pub previous_hash: Option<Hash>,
+    /// Monotonic sequence number for ordering verification
+    pub sequence_number: u64,
 }
 
 impl AuditEvent {
-    /// Create a new audit event
+    /// Fields that should be redacted from audit log data for security
+    const SENSITIVE_FIELDS: &'static [&'static str] = &[
+        "password", "secret", "token", "api_key", "apikey", "key",
+        "authorization", "auth", "credential", "private_key", "privatekey"
+    ];
+
+    /// Create a new audit event with sanitized data
+    /// Note: sequence_number should be provided by the AuditStore for proper ordering
     pub fn new(
         event_type: AuditEventType,
         agent_id: Option<Uuid>,
         data: serde_json::Value,
+        sequence_number: u64,
     ) -> Self {
         let id = Uuid::new_v4();
         let timestamp = Utc::now();
 
-        // Compute hash of event content
-        let content = format!("{:?}:{}:{:?}", event_type, timestamp.timestamp(), data);
+        // Sanitize sensitive fields from data
+        let data = Self::sanitize_data(data);
+
+        // Compute hash including sequence number for tamper detection
+        let content = format!("{:?}:{}:{}:{:?}", event_type, timestamp.timestamp(), sequence_number, data);
         let hash = Hash::digest(content.as_bytes());
 
         Self {
@@ -64,6 +77,28 @@ impl AuditEvent {
             data,
             hash,
             previous_hash: None,
+            sequence_number,
+        }
+    }
+
+    /// Sanitize sensitive fields from audit data
+    fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::Object(mut map) => {
+                for key in map.keys().cloned().collect::<Vec<_>>() {
+                    let lower_key = key.to_lowercase();
+                    if Self::SENSITIVE_FIELDS.iter().any(|f| lower_key.contains(f)) {
+                        map.insert(key, serde_json::Value::String("[REDACTED]".to_string()));
+                    } else if let Some(v) = map.remove(&key) {
+                        map.insert(key, Self::sanitize_data(v));
+                    }
+                }
+                serde_json::Value::Object(map)
+            }
+            serde_json::Value::Array(arr) => {
+                serde_json::Value::Array(arr.into_iter().map(Self::sanitize_data).collect())
+            }
+            other => other,
         }
     }
 
@@ -73,11 +108,12 @@ impl AuditEvent {
         agent_id: Option<Uuid>,
         data: serde_json::Value,
         previous_hash: Hash,
+        sequence_number: u64,
     ) -> Self {
-        let mut event = Self::new(event_type, agent_id, data);
+        let mut event = Self::new(event_type, agent_id, data, sequence_number);
         event.previous_hash = Some(previous_hash.clone());
-        // Rehash including previous
-        let content = format!("{}:{}", event.hash, previous_hash);
+        // Rehash including previous hash and sequence
+        let content = format!("{}:{}:{}", event.hash, previous_hash, sequence_number);
         event.hash = Hash::digest(content.as_bytes());
         event
     }
@@ -90,6 +126,8 @@ pub struct AuditStore<B: StorageBackend + ?Sized> {
     prefix: String,
     /// Last event hash (for chaining)
     last_hash: tokio::sync::RwLock<Option<Hash>>,
+    /// Monotonic sequence counter for ordering verification
+    sequence_counter: std::sync::atomic::AtomicU64,
 }
 
 impl<B: StorageBackend + ?Sized> AuditStore<B> {
@@ -99,6 +137,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             backend,
             prefix: "audit:".to_string(),
             last_hash: tokio::sync::RwLock::new(None),
+            sequence_counter: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -110,7 +149,12 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         format!("{}chain", self.prefix)
     }
 
-    /// Log an audit event (automatically chained)
+    /// Get next sequence number atomically
+    fn next_sequence(&self) -> u64 {
+        self.sequence_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Log an audit event (automatically chained with sequence number)
     pub async fn log(
         &self,
         event_type: AuditEventType,
@@ -118,10 +162,11 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         data: serde_json::Value,
     ) -> Result<AuditEvent, StorageError> {
         let mut last_hash = self.last_hash.write().await;
+        let seq = self.next_sequence();
 
         let event = match &*last_hash {
-            Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone()),
-            None => AuditEvent::new(event_type, agent_id, data),
+            Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone(), seq),
+            None => AuditEvent::new(event_type, agent_id, data, seq),
         };
 
         // Store event

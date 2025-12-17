@@ -57,9 +57,25 @@ pub struct ContextPacket {
     pub importance: f64,
 }
 
+/// Maximum allowed context content size in bytes (50KB)
+pub const MAX_CONTENT_SIZE: usize = 50 * 1024;
+
 impl ContextPacket {
     /// Create a new context packet with the given content
+    /// Content is truncated if it exceeds MAX_CONTENT_SIZE
     pub fn new(content: &str) -> Self {
+        // Truncate content if too large to prevent memory exhaustion
+        let content = if content.len() > MAX_CONTENT_SIZE {
+            tracing::warn!(
+                size = content.len(),
+                max = MAX_CONTENT_SIZE,
+                "Context content truncated"
+            );
+            &content[..MAX_CONTENT_SIZE]
+        } else {
+            content
+        };
+        
         let hash = Self::compute_hash(content);
         Self {
             id: Uuid::new_v4(),

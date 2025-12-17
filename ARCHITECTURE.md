@@ -135,12 +135,28 @@ Five behavioral traits that map to LLM parameters:
 
 ## Security Model
 
-1. **Authentication**: JWT tokens with role-based claims
-2. **Rate Limiting**: Per-user tier-based limits
-3. **Input Sanitization**: Prompt injection detection (17 patterns)
-4. **Circuit Breaker**: 3-state FSM prevents cascade failures
-5. **Audit Trail**: Hash-chained events with Merkle proofs
-6. **Tenant Isolation**: User-prefixed storage keys
+1.  **Authentication**:
+    *   JWT tokens with role-based claims (`vex-api`)
+    *   Secure secret handling with `zeroize` memory clearing
+    *   API keys hashed with **Argon2id** (salted)
+
+2.  **Input Sanitization**:
+    *   **50+ Prompt Injection Patterns** blocked (DAN, Policy Puppetry, etc.)
+    *   Unicode normalization (homoglyph attack prevention)
+    *   JSON depth limiting (DoS prevention)
+
+3.  **Resilience**:
+    *   3-state **Circuit Breaker** (Closed → Open → HalfOpen)
+    *   **Rate Limiting**: Per-user tier-based limits
+    *   **Integer Overflow Checks**: Enabled in release profile
+
+4.  **Audit Trail**:
+    *   Cryptographic hash chaining (SHA-256)
+    *   Sensitive field redaction (logs sanitized of secrets)
+
+5.  **Network**:
+    *   **HSTS** allowed (Strict-Transport-Security)
+    *   Strict **CORS** configuration via environment
 
 ---
 

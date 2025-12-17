@@ -14,7 +14,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/provnai/vex"
@@ -46,3 +46,17 @@ uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 hex = "0.4"
+
+# Security - Secure secret memory handling
+zeroize = { version = "1.8", features = ["derive"] }
+
+# Release profile with security-hardened settings
+[profile.release]
+# Enable overflow checks even in release builds to prevent integer overflow vulnerabilities
+overflow-checks = true
+# Enable debug assertions in release for additional safety (optional, slight perf impact)
+# debug-assertions = false
+# Strip symbols for smaller binary and reduced info leakage
+strip = "symbols"
+# Link-time optimization for better security analysis
+lto = "thin"

@@ -17,7 +17,14 @@ pub enum LlmError {
     RateLimited,
     #[error("Provider not available")]
     NotAvailable,
+    #[error("Input too large: {0} bytes exceeds maximum {1} bytes")]
+    InputTooLarge(usize, usize),
 }
+
+/// Maximum allowed prompt size in bytes (100KB default - prevents DoS)
+pub const MAX_PROMPT_SIZE: usize = 100 * 1024;
+/// Maximum allowed system prompt size in bytes (10KB)
+pub const MAX_SYSTEM_SIZE: usize = 10 * 1024;
 
 /// A request to an LLM
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +58,17 @@ impl LlmRequest {
             temperature: 0.7,
             max_tokens: 1024,
         }
+    }
+
+    /// Validate request sizes to prevent DoS attacks
+    pub fn validate(&self) -> Result<(), LlmError> {
+        if self.prompt.len() > MAX_PROMPT_SIZE {
+            return Err(LlmError::InputTooLarge(self.prompt.len(), MAX_PROMPT_SIZE));
+        }
+        if self.system.len() > MAX_SYSTEM_SIZE {
+            return Err(LlmError::InputTooLarge(self.system.len(), MAX_SYSTEM_SIZE));
+        }
+        Ok(())
     }
 }
 
