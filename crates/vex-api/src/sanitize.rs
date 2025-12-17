@@ -105,7 +105,6 @@ const INJECTION_PATTERNS: &[&str] = &[
     "system prompt:",
     "override system",
     "replace system prompt",
-    
     // === Role/Identity Attacks ===
     "you are now",
     "pretend you are",
@@ -115,7 +114,6 @@ const INJECTION_PATTERNS: &[&str] = &[
     "imagine you are",
     "from now on you are",
     "your new identity",
-    
     // === DAN-Style Jailbreaks (Do Anything Now) ===
     "dan mode",
     "developer mode",
@@ -127,8 +125,7 @@ const INJECTION_PATTERNS: &[&str] = &[
     "without limitations",
     "without ethical",
     "without safety",
-    "enabled: true",  // Policy puppetry
-    
+    "enabled: true", // Policy puppetry
     // === Jailbreak Keywords ===
     "jailbreak",
     "unlock",
@@ -138,31 +135,27 @@ const INJECTION_PATTERNS: &[&str] = &[
     "break free",
     "escape constraints",
     "override safety",
-    
     // === Encoding/Obfuscation Attacks ===
     "base64:",
     "decode base64",
     "\\x",
     "\\u00",
-    "[system]",  // Special token injection
+    "[system]", // Special token injection
     "[/system]",
-    "<|im_start|>",  // ChatML tokens
+    "<|im_start|>", // ChatML tokens
     "<|im_end|>",
-    
     // === Multi-Turn Escalation Patterns ===
     "hypothetically speaking",
     "for educational purposes",
     "in a fictional scenario",
     "for research purposes",
     "just between us",
-    
     // === Prompt Leaking Attempts ===
     "repeat your instructions",
     "show me your prompt",
     "what are your rules",
     "print your system prompt",
     "reveal your instructions",
-    
     // === Context Manipulation ===
     "end of conversation",
     "new conversation",
@@ -186,12 +179,13 @@ pub fn sanitize(input: &str, config: &SanitizeConfig) -> Result<String, Sanitize
         .chars()
         .filter(|c| {
             // Strip zero-width characters commonly used to bypass filters
-            !matches!(*c, 
+            !matches!(
+                *c,
                 '\u{200B}' | // Zero width space
                 '\u{200C}' | // Zero width non-joiner
                 '\u{200D}' | // Zero width joiner
                 '\u{FEFF}' | // Byte order mark
-                '\u{00AD}'   // Soft hyphen
+                '\u{00AD}' // Soft hyphen
             )
         })
         // Convert common lookalikes to ASCII (basic confusable mitigation)
@@ -354,7 +348,10 @@ mod tests {
             );
 
             // Test case insensitivity
-            let input_upper = format!("some benign text then {} and more text", pattern.to_uppercase());
+            let input_upper = format!(
+                "some benign text then {} and more text",
+                pattern.to_uppercase()
+            );
             let result_upper = sanitize(&input_upper, &SanitizeConfig::prompt());
             assert!(
                 matches!(result_upper, Err(SanitizeError::ForbiddenPattern { .. })),

@@ -47,8 +47,17 @@ pub struct AuditEvent {
 impl AuditEvent {
     /// Fields that should be redacted from audit log data for security
     const SENSITIVE_FIELDS: &'static [&'static str] = &[
-        "password", "secret", "token", "api_key", "apikey", "key",
-        "authorization", "auth", "credential", "private_key", "privatekey"
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "key",
+        "authorization",
+        "auth",
+        "credential",
+        "private_key",
+        "privatekey",
     ];
 
     /// Create a new audit event with sanitized data
@@ -66,7 +75,13 @@ impl AuditEvent {
         let data = Self::sanitize_data(data);
 
         // Compute hash including sequence number for tamper detection
-        let content = format!("{:?}:{}:{}:{:?}", event_type, timestamp.timestamp(), sequence_number, data);
+        let content = format!(
+            "{:?}:{}:{}:{:?}",
+            event_type,
+            timestamp.timestamp(),
+            sequence_number,
+            data
+        );
         let hash = Hash::digest(content.as_bytes());
 
         Self {
@@ -151,7 +166,8 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
 
     /// Get next sequence number atomically
     fn next_sequence(&self) -> u64 {
-        self.sequence_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        self.sequence_counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Log an audit event (automatically chained with sequence number)

@@ -20,17 +20,17 @@ impl Vote {
     /// Create a new vote
     /// Uses SHA-256 hash of agent_id for UUID generation (collision resistant)
     pub fn new(agent_id: &str, agrees: bool, confidence: f64) -> Self {
-        use sha2::{Sha256, Digest};
-        
+        use sha2::{Digest, Sha256};
+
         // Hash the agent_id to get deterministic but collision-resistant bytes
         let mut hasher = Sha256::new();
         hasher.update(agent_id.as_bytes());
         let hash = hasher.finalize();
-        
+
         // Take first 16 bytes of hash for UUID
         let mut bytes = [0u8; 16];
         bytes.copy_from_slice(&hash[..16]);
-        
+
         Self {
             agent_id: Uuid::from_bytes(bytes),
             agrees,

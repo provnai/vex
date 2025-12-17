@@ -2,8 +2,8 @@
 //!
 //! Provides database-backed API key management with hashing and lookup.
 
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -110,11 +110,9 @@ impl ApiKeyRecord {
     /// Uses constant-time comparison to prevent timing attacks
     pub fn verify_key(plaintext_key: &str, stored_hash: &str) -> bool {
         match PasswordHash::new(stored_hash) {
-            Ok(parsed_hash) => {
-                Argon2::default()
-                    .verify_password(plaintext_key.as_bytes(), &parsed_hash)
-                    .is_ok()
-            }
+            Ok(parsed_hash) => Argon2::default()
+                .verify_password(plaintext_key.as_bytes(), &parsed_hash)
+                .is_ok(),
             Err(_) => {
                 // Legacy SHA-256 hash fallback (for migration)
                 // Use constant-time comparison
@@ -158,7 +156,10 @@ pub trait ApiKeyStore: Send + Sync {
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
 
     /// Find and verify a key using Argon2 (iterate and verify each)
-    async fn find_and_verify_key(&self, plaintext_key: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
+    async fn find_and_verify_key(
+        &self,
+        plaintext_key: &str,
+    ) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
 
     /// Find all keys for a user
     async fn find_by_user(&self, user_id: &str) -> Result<Vec<ApiKeyRecord>, ApiKeyError>;
@@ -199,7 +200,10 @@ impl ApiKeyStore for MemoryApiKeyStore {
         Ok(keys.values().find(|r| r.key_hash == hash).cloned())
     }
 
-    async fn find_and_verify_key(&self, plaintext_key: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
+    async fn find_and_verify_key(
+        &self,
+        plaintext_key: &str,
+    ) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
         let keys = self.keys.read().await;
         for record in keys.values() {
             if ApiKeyRecord::verify_key(plaintext_key, &record.key_hash) {
@@ -299,12 +303,15 @@ mod tests {
         // Instead, we test that verify_key correctly validates
         let key = "vex_test123456789_abcdefghijklmnopqrst";
         let hash = ApiKeyRecord::hash_key(key);
-        
+
         // Same key should verify against its hash
         assert!(ApiKeyRecord::verify_key(key, &hash));
-        
+
         // Different key should not verify
-        assert!(!ApiKeyRecord::verify_key("vex_wrong_key_12345678901234567890", &hash));
+        assert!(!ApiKeyRecord::verify_key(
+            "vex_wrong_key_12345678901234567890",
+            &hash
+        ));
     }
 
     #[tokio::test]

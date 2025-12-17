@@ -166,7 +166,9 @@ impl EpisodicMemory {
                 .min_by(|(_, a), (_, b)| {
                     let imp_a = self.compressor.importance(a.created_at, a.base_importance);
                     let imp_b = self.compressor.importance(b.created_at, b.base_importance);
-                    imp_a.partial_cmp(&imp_b).unwrap_or(std::cmp::Ordering::Equal)
+                    imp_a
+                        .partial_cmp(&imp_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .map(|(i, _)| i);
 

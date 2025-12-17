@@ -89,15 +89,14 @@ impl JwtAuth {
     /// Uses Zeroizing to securely clear the secret from memory after key creation
     pub fn from_env() -> Result<Self, ApiError> {
         // Wrap secret in Zeroizing to ensure it's cleared from memory when dropped
-        let secret: Zeroizing<String> = Zeroizing::new(
-            std::env::var("VEX_JWT_SECRET").map_err(|_| {
+        let secret: Zeroizing<String> =
+            Zeroizing::new(std::env::var("VEX_JWT_SECRET").map_err(|_| {
                 ApiError::Internal(
                     "VEX_JWT_SECRET environment variable is required. \
                      Generate with: openssl rand -base64 32"
                         .to_string(),
                 )
-            })?
-        );
+            })?);
 
         if secret.len() < 32 {
             return Err(ApiError::Internal(

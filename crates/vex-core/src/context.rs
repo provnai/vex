@@ -75,7 +75,7 @@ impl ContextPacket {
         } else {
             content
         };
-        
+
         let hash = Self::compute_hash(content);
         Self {
             id: Uuid::new_v4(),

@@ -100,7 +100,11 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         agents.retain(|_, tracked| tracked.created_at.elapsed() < self.config.max_agent_age);
         let removed = before - agents.len();
         if removed > 0 {
-            tracing::info!(removed = removed, remaining = agents.len(), "Cleaned up expired agents");
+            tracing::info!(
+                removed = removed,
+                remaining = agents.len(),
+                "Cleaned up expired agents"
+            );
         }
         removed
     }
@@ -124,7 +128,13 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         };
         let root = Agent::new(root_config);
         let root_id = root.id;
-        agents.insert(root_id, TrackedAgent { agent: root, created_at: Instant::now() });
+        agents.insert(
+            root_id,
+            TrackedAgent {
+                agent: root,
+                created_at: Instant::now(),
+            },
+        );
 
         // Spawn child agents for research
         let child_configs = vec![
@@ -153,7 +163,13 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
             let result = self.executor.execute(&mut child, query).await?;
             child_results.push((child_id, result.clone()));
             all_results.insert(child_id, result);
-            agents.insert(child_id, TrackedAgent { agent: child, created_at: Instant::now() });
+            agents.insert(
+                child_id,
+                TrackedAgent {
+                    agent: child,
+                    created_at: Instant::now(),
+                },
+            );
         }
 
         // Synthesize child results at root level
@@ -169,7 +185,10 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         );
 
         let tracked_root = agents.get_mut(&root_id).unwrap();
-        let root_result = self.executor.execute(&mut tracked_root.agent, &synthesis_prompt).await?;
+        let root_result = self
+            .executor
+            .execute(&mut tracked_root.agent, &synthesis_prompt)
+            .await?;
         all_results.insert(root_id, root_result.clone());
 
         // Build Merkle tree from all context packets
@@ -213,7 +232,10 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         let population: Vec<(Genome, Fitness)> = agents
             .values()
             .map(|tracked| {
-                let fitness = results.get(&tracked.agent.id).map(|r| r.confidence).unwrap_or(0.5);
+                let fitness = results
+                    .get(&tracked.agent.id)
+                    .map(|r| r.confidence)
+                    .unwrap_or(0.5);
                 (tracked.agent.genome.clone(), Fitness::new(fitness))
             })
             .collect();
@@ -230,10 +252,11 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
 
         // Find the fittest agent and apply the evolved genome to it
         // This ensures the best-performing agent gets improved traits for next generation
-        if let Some((best_id, _best_fitness)) = results
-            .iter()
-            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        if let Some((best_id, _best_fitness)) = results.iter().max_by(|a, b| {
+            a.1.confidence
+                .partial_cmp(&b.1.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
             if let Some(tracked) = agents.get_mut(best_id) {
                 let old_traits = tracked.agent.genome.traits.clone();
                 tracked.agent.apply_evolved_genome(offspring.clone());
