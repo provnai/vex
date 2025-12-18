@@ -98,13 +98,20 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
     // 1. Verify individual event hashes and the chain
     let mut last_hash: Option<Hash> = None;
     for (i, event) in events.iter().enumerate() {
-        // Re-calculate the "individual" hash (ignoring the chain for a moment)
+        // Re-calculate the "individual" hash including all ISO 42001 fields
+        // (CRITICAL-3 fix: must match AuditEvent::compute_hash formula exactly)
         let base_content = format!(
-            "{:?}:{}:{}:{:?}",
+            "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
             event.event_type,
             event.timestamp.timestamp(),
             event.sequence_number,
-            event.data
+            event.data,
+            event.actor,
+            event.rationale,
+            event.policy_version,
+            event.data_provenance_hash.as_ref().map(|h| h.to_hex()),
+            event.human_review_required,
+            event.approval_signatures.len(),
         );
         let base_hash = Hash::digest(base_content.as_bytes());
 

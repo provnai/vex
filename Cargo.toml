@@ -11,6 +11,7 @@ members = [
     "crates/vex-queue",
     "crates/vex-macros",
     "crates/vex-cli",
+    "crates/vex-anchor",
     "examples/vex-demo",
 ]
 

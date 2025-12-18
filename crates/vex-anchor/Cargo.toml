@@ -1,0 +1,32 @@
+[package]
+name = "vex-anchor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Public anchoring layer for VEX audit logs - Git, OpenTimestamps, and blockchain support"
+
+[dependencies]
+vex-core = { path = "../vex-core" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+# Constant-time comparison for timing attack prevention (LOW-1 fix)
+subtle = "2.5"
+
+[dev-dependencies]
+tempfile = "3"
+tokio-test = "0.4"
+
+[features]
+default = ["file", "git"]
+file = []
+git = []
+# Future blockchain backends (optional heavy deps):
+# eip4844 = ["alloy"]
+# celestia = ["celestia-rpc"]
+# opentimestamps = ["ots-client"]

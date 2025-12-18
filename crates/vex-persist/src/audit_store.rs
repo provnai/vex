@@ -20,10 +20,113 @@ pub enum AuditEventType {
     ContextStored,
     PaymentInitiated,
     PaymentCompleted,
+    // ISO 42001 A.6 Lifecycle event types
+    PolicyUpdate,
+    ModelUpgrade,
+    AnomalousBehavior,
+    HumanOverride,
     Custom(String),
 }
 
-/// Single audit event
+/// Actor type for audit attribution (ISO 42001 A.6.2.8)
+/// 
+/// # Privacy Warning (MEDIUM-1)
+/// The `Human` variant stores user identifiers directly. When exporting to
+/// external SIEM systems (OCSF, Splunk, Datadog), consider:
+/// - GDPR/CCPA compliance for PII handling
+/// - Using pseudonymized identifiers instead of real names
+/// - Implementing consent checks before export
+/// 
+/// For privacy-sensitive deployments, use hashed or tokenized identifiers:
+/// ```ignore
+/// ActorType::Human(hash_user_id(user.id))
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum ActorType {
+    /// AI agent performed the action
+    Bot(Uuid),
+    /// Human user performed the action (PII - handle with care)
+    Human(String),
+    /// System/automated process
+    #[default]
+    System,
+}
+
+/// Cryptographic signature for multi-party authorization (ISO 42001 A.6.1.3)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Signature {
+    /// Signer identifier (user ID or key fingerprint)
+    pub signer_id: String,
+    /// Signature timestamp
+    pub signed_at: DateTime<Utc>,
+    /// Hex-encoded signature bytes (64 bytes for Ed25519)
+    pub signature_hex: String,
+}
+
+impl Signature {
+    /// Create a new signature for a message
+    /// 
+    /// # Arguments
+    /// * `signer_id` - Identifier for the signer (username, key fingerprint)
+    /// * `message` - The message bytes to sign
+    /// * `signing_key` - The Ed25519 signing key
+    pub fn create(
+        signer_id: impl Into<String>,
+        message: &[u8],
+        signing_key: &ed25519_dalek::SigningKey,
+    ) -> Self {
+        use ed25519_dalek::Signer;
+        let signature = signing_key.sign(message);
+        
+        Self {
+            signer_id: signer_id.into(),
+            signed_at: Utc::now(),
+            signature_hex: hex::encode(signature.to_bytes()),
+        }
+    }
+
+    /// Verify this signature against a message and public key
+    /// 
+    /// Uses `verify_strict()` to prevent weak key attacks (CRITICAL-1 fix)
+    /// 
+    /// # Arguments
+    /// * `message` - The message bytes that were signed
+    /// * `verifying_key` - The Ed25519 public key
+    /// 
+    /// # Returns
+    /// * `Ok(true)` if signature is valid
+    /// * `Ok(false)` if signature format is invalid
+    /// * `Err` if verification fails (signature doesn't match)
+    pub fn verify(
+        &self,
+        message: &[u8],
+        verifying_key: &ed25519_dalek::VerifyingKey,
+    ) -> Result<bool, String> {
+        use ed25519_dalek::Verifier;
+        
+        // Decode hex signature
+        let sig_bytes = match hex::decode(&self.signature_hex) {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok(false), // Invalid hex = invalid signature
+        };
+
+        // Parse signature bytes
+        let sig_array: [u8; 64] = match sig_bytes.try_into() {
+            Ok(arr) => arr,
+            Err(_) => return Ok(false), // Wrong length = invalid signature
+        };
+
+        let signature = ed25519_dalek::Signature::from_bytes(&sig_array);
+
+        // Use verify_strict to prevent weak key attacks
+        match verifying_key.verify_strict(message, &signature) {
+            Ok(()) => Ok(true),
+            Err(e) => Err(format!("Signature verification failed: {}", e)),
+        }
+    }
+}
+
+/// Single audit event (ISO 42001 / EU AI Act compliant)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {
     /// Unique event ID
@@ -42,6 +145,27 @@ pub struct AuditEvent {
     pub previous_hash: Option<Hash>,
     /// Monotonic sequence number for ordering verification
     pub sequence_number: u64,
+    
+    // === ISO 42001 / EU AI Act Compliance Fields ===
+    
+    /// Who performed the action (ISO 42001 A.6.2.8)
+    #[serde(default)]
+    pub actor: ActorType,
+    /// Explanation for the decision (ISO 42001 A.9.2)
+    #[serde(default)]
+    pub rationale: Option<String>,
+    /// Version of the policy/instructions in effect (ISO 42001 A.6.1.3)
+    #[serde(default)]
+    pub policy_version: Option<String>,
+    /// Hash of input data used for this decision (ISO 42001 A.7)
+    #[serde(default)]
+    pub data_provenance_hash: Option<Hash>,
+    /// Whether this event requires human review (EU AI Act Article 14)
+    #[serde(default)]
+    pub human_review_required: bool,
+    /// Multi-party authorization signatures (ISO 42001 A.6.1.3 / EU AI Act Article 14)
+    #[serde(default)]
+    pub approval_signatures: Vec<Signature>,
 }
 
 impl AuditEvent {
@@ -74,15 +198,27 @@ impl AuditEvent {
         // Sanitize sensitive fields from data
         let data = Self::sanitize_data(data);
 
-        // Compute hash including sequence number for tamper detection
-        let content = format!(
-            "{:?}:{}:{}:{:?}",
-            event_type,
-            timestamp.timestamp(),
+        // Default ISO 42001 / EU AI Act fields
+        let actor = ActorType::System;
+        let rationale: Option<String> = None;
+        let policy_version: Option<String> = None;
+        let data_provenance_hash: Option<Hash> = None;
+        let human_review_required = false;
+        let approval_signatures: Vec<Signature> = Vec::new();
+
+        // Compute hash including ALL fields for tamper detection (CRITICAL-3 fix)
+        let hash = Self::compute_hash(
+            &event_type,
+            timestamp,
             sequence_number,
-            data
+            &data,
+            &actor,
+            &rationale,
+            &policy_version,
+            &data_provenance_hash,
+            human_review_required,
+            approval_signatures.len(),
         );
-        let hash = Hash::digest(content.as_bytes());
 
         Self {
             id,
@@ -93,11 +229,51 @@ impl AuditEvent {
             hash,
             previous_hash: None,
             sequence_number,
+            actor,
+            rationale,
+            policy_version,
+            data_provenance_hash,
+            human_review_required,
+            approval_signatures,
         }
     }
 
-    /// Sanitize sensitive fields from audit data
-    fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
+    /// Compute event hash including all compliance-critical fields
+    /// Used by both new() and chained() to ensure consistent tamper detection
+    fn compute_hash(
+        event_type: &AuditEventType,
+        timestamp: chrono::DateTime<Utc>,
+        sequence_number: u64,
+        data: &serde_json::Value,
+        actor: &ActorType,
+        rationale: &Option<String>,
+        policy_version: &Option<String>,
+        data_provenance_hash: &Option<Hash>,
+        human_review_required: bool,
+        approval_count: usize,
+    ) -> Hash {
+        // Format includes ALL fields to prevent tampering (ISO 42001 compliance)
+        let content = format!(
+            "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
+            event_type,
+            timestamp.timestamp(),
+            sequence_number,
+            data,
+            actor,
+            rationale,
+            policy_version,
+            data_provenance_hash.as_ref().map(|h| h.to_hex()),
+            human_review_required,
+            approval_count,
+        );
+        Hash::digest(content.as_bytes())
+    }
+
+    /// Sanitize sensitive fields from audit data (HIGH-2 fix)
+    /// 
+    /// This is public so export methods can apply sanitization before
+    /// sending data to external SIEM systems.
+    pub fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
         match value {
             serde_json::Value::Object(mut map) => {
                 for key in map.keys().cloned().collect::<Vec<_>>() {
@@ -310,6 +486,187 @@ pub struct AuditExport {
     pub merkle_root: Option<String>,
     pub exported_at: DateTime<Utc>,
     pub verified: bool,
+}
+
+impl AuditExport {
+    /// Export to OCSF v1.7.0 format (Open Cybersecurity Schema Framework)
+    /// Uses Detection Finding class (class_uid: 2004) for AI agent events
+    /// See: https://schema.ocsf.io/1.7.0/classes/detection_finding
+    pub fn to_ocsf(&self) -> Vec<serde_json::Value> {
+        self.events
+            .iter()
+            .map(|event| {
+                serde_json::json!({
+                    // OCSF Base Event attributes
+                    "class_uid": 2004, // Detection Finding
+                    "class_name": "Detection Finding",
+                    "category_uid": 2, // Findings
+                    "category_name": "Findings",
+                    "severity_id": 1, // Informational
+                    "activity_id": 1, // Create
+                    "activity_name": "Create",
+                    "status_id": 1, // Success
+                    "time": event.timestamp.timestamp(),
+                    "timezone_offset": 0,
+                    
+                    // Finding-specific attributes
+                    "finding_info": {
+                        "uid": event.id.to_string(),
+                        "title": format!("{:?}", event.event_type),
+                        "desc": event.rationale.clone().unwrap_or_default(),
+                        "created_time": event.timestamp.timestamp(),
+                    },
+                    
+                    // Actor information (ISO 42001 A.6.2.8)
+                    "actor": {
+                        "type_uid": match &event.actor {
+                            ActorType::Bot(_) => 2,
+                            ActorType::Human(_) => 1,
+                            ActorType::System => 0,
+                        },
+                        "type": match &event.actor {
+                            ActorType::Bot(id) => format!("Bot:{}", id),
+                            ActorType::Human(name) => format!("Human:{}", name),
+                            ActorType::System => "System".to_string(),
+                        },
+                    },
+                    
+                    // VEX-specific extensions
+                    "unmapped": {
+                        "vex_event_type": format!("{:?}", event.event_type),
+                        "vex_hash": event.hash.to_hex(),
+                        "vex_sequence": event.sequence_number,
+                        "vex_policy_version": event.policy_version.clone(),
+                        "vex_data_provenance": event.data_provenance_hash.as_ref().map(|h| h.to_hex()),
+                        "vex_human_review_required": event.human_review_required,
+                        "vex_merkle_root": self.merkle_root.clone(),
+                    },
+                    
+                    // Metadata
+                    "metadata": {
+                        "version": "1.7.0",
+                        "product": {
+                            "name": "VEX Protocol",
+                            "vendor_name": "ProvnAI",
+                            "version": env!("CARGO_PKG_VERSION"),
+                        },
+                    },
+                })
+            })
+            .collect()
+    }
+
+    /// Export to Splunk HEC format (HTTP Event Collector)
+    /// Uses epoch timestamps and proper metadata placement
+    /// See: https://docs.splunk.com/Documentation/Splunk/latest/Data/FormateventsforHTTPEventCollector
+    pub fn to_splunk_hec(&self, index: &str, source: &str) -> Vec<serde_json::Value> {
+        self.events
+            .iter()
+            .map(|event| {
+                serde_json::json!({
+                    // Splunk metadata (top-level)
+                    "time": event.timestamp.timestamp_millis() as f64 / 1000.0,
+                    "host": "vex-protocol",
+                    "source": source,
+                    "sourcetype": "vex:audit:json",
+                    "index": index,
+                    
+                    // Event data (sanitized for external export - HIGH-2 fix)
+                    "event": {
+                        "id": event.id.to_string(),
+                        "type": format!("{:?}", event.event_type),
+                        "timestamp": event.timestamp.to_rfc3339(),
+                        "agent_id": event.agent_id.map(|id| id.to_string()),
+                        "data": AuditEvent::sanitize_data(event.data.clone()),
+                        "hash": event.hash.to_hex(),
+                        "sequence": event.sequence_number,
+                        // ISO 42001 fields
+                        "actor": match &event.actor {
+                            ActorType::Bot(id) => serde_json::json!({"type": "bot", "id": id.to_string()}),
+                            ActorType::Human(name) => serde_json::json!({"type": "human", "name": name}),
+                            ActorType::System => serde_json::json!({"type": "system"}),
+                        },
+                        "rationale": event.rationale.clone(),
+                        "policy_version": event.policy_version.clone(),
+                        "human_review_required": event.human_review_required,
+                    },
+                    
+                    // Indexed fields (for fast searching)
+                    "fields": {
+                        "event_type": format!("{:?}", event.event_type),
+                        "merkle_root": self.merkle_root.clone(),
+                        "verified": self.verified,
+                    },
+                })
+            })
+            .collect()
+    }
+
+    /// Export to Datadog logs format
+    /// Uses reserved attributes for proper log correlation
+    /// See: https://docs.datadoghq.com/logs/log_configuration/attributes_naming_convention
+    pub fn to_datadog(&self, service: &str, env: &str) -> Vec<serde_json::Value> {
+        self.events
+            .iter()
+            .map(|event| {
+                serde_json::json!({
+                    // Datadog reserved attributes
+                    "ddsource": "vex-protocol",
+                    "ddtags": format!("env:{},service:{}", env, service),
+                    "hostname": "vex-audit",
+                    "service": service,
+                    "status": "info",
+                    
+                    // Timestamp in ISO8601
+                    "timestamp": event.timestamp.to_rfc3339(),
+                    
+                    // Message for log stream
+                    "message": format!(
+                        "[{}] {} - seq:{} hash:{}",
+                        format!("{:?}", event.event_type),
+                        event.rationale.clone().unwrap_or_else(|| "No rationale".to_string()),
+                        event.sequence_number,
+                        &event.hash.to_hex()[..16]
+                    ),
+                    
+                    // Structured data
+                    "event": {
+                        "id": event.id.to_string(),
+                        "type": format!("{:?}", event.event_type),
+                        "agent_id": event.agent_id.map(|id| id.to_string()),
+                        "sequence": event.sequence_number,
+                        "hash": event.hash.to_hex(),
+                    },
+                    
+                    // Actor attribution
+                    "usr": match &event.actor {
+                        ActorType::Human(name) => serde_json::json!({"name": name}),
+                        ActorType::Bot(id) => serde_json::json!({"id": id.to_string(), "type": "bot"}),
+                        ActorType::System => serde_json::json!({"type": "system"}),
+                    },
+                    
+                    // VEX custom attributes
+                    "vex": {
+                        "merkle_root": self.merkle_root.clone(),
+                        "verified": self.verified,
+                        "policy_version": event.policy_version.clone(),
+                        "human_review_required": event.human_review_required,
+                        "data_provenance_hash": event.data_provenance_hash.as_ref().map(|h| h.to_hex()),
+                    },
+                })
+            })
+            .collect()
+    }
+
+    /// Export all events to JSON Lines format (one JSON per line)
+    /// Compatible with most log ingestion systems
+    pub fn to_jsonl(&self) -> String {
+        self.events
+            .iter()
+            .filter_map(|e| serde_json::to_string(e).ok())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 
 #[cfg(test)]

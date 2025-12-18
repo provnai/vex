@@ -74,6 +74,93 @@ impl MerkleNode {
     }
 }
 
+/// Direction indicator for Merkle proof steps
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ProofDirection {
+    /// Sibling hash is on the left
+    Left,
+    /// Sibling hash is on the right
+    Right,
+}
+
+/// A single step in a Merkle inclusion proof
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofStep {
+    /// The sibling hash at this level
+    pub sibling_hash: Hash,
+    /// Whether the sibling is on the left or right
+    pub direction: ProofDirection,
+}
+
+/// A Merkle inclusion proof (RFC 6962 compatible)
+/// Allows proving that a leaf is part of a tree without revealing other leaves
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleProof {
+    /// The leaf hash being proven
+    pub leaf_hash: Hash,
+    /// The leaf's data ID
+    pub leaf_id: String,
+    /// The path from leaf to root (bottom to top)
+    pub path: Vec<ProofStep>,
+    /// The expected root hash
+    pub root_hash: Hash,
+}
+
+impl MerkleProof {
+    /// Verify this proof against a root hash
+    pub fn verify(&self, expected_root: &Hash) -> bool {
+        if &self.root_hash != expected_root {
+            return false;
+        }
+
+        let mut current_hash = self.leaf_hash.clone();
+
+        for step in &self.path {
+            current_hash = match step.direction {
+                ProofDirection::Left => Hash::combine(&step.sibling_hash, &current_hash),
+                ProofDirection::Right => Hash::combine(&current_hash, &step.sibling_hash),
+            };
+        }
+
+        &current_hash == expected_root
+    }
+
+    /// Export proof as a compact JSON string for transmission
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Default maximum size for proof JSON (1 MB)
+    /// This limits the number of proof steps to prevent DoS
+    pub const MAX_PROOF_JSON_SIZE: usize = 1024 * 1024;
+
+    /// Import proof from JSON string with size limit (MEDIUM-2 fix)
+    /// 
+    /// # Arguments
+    /// * `json` - The JSON string to parse
+    /// * `max_size` - Maximum allowed size in bytes (prevents DoS)
+    /// 
+    /// # Errors
+    /// Returns error if JSON exceeds max_size or is invalid
+    pub fn from_json_with_limit(json: &str, max_size: usize) -> Result<Self, String> {
+        if json.len() > max_size {
+            return Err(format!(
+                "Proof JSON too large: {} bytes exceeds limit of {} bytes",
+                json.len(),
+                max_size
+            ));
+        }
+        serde_json::from_str(json).map_err(|e| e.to_string())
+    }
+
+    /// Import proof from JSON string with default 1MB limit
+    /// 
+    /// For custom limits, use `from_json_with_limit()`.
+    pub fn from_json(json: &str) -> Result<Self, String> {
+        Self::from_json_with_limit(json, Self::MAX_PROOF_JSON_SIZE)
+    }
+}
+
 /// A Merkle tree for verifying context packet integrity
 #[derive(Debug, Clone)]
 pub struct MerkleTree {
@@ -164,6 +251,71 @@ impl MerkleTree {
             }
         }
     }
+
+    /// Generate an inclusion proof for a leaf by its hash
+    /// Returns None if the hash is not found in the tree
+    pub fn get_proof_by_hash(&self, target_hash: &Hash) -> Option<MerkleProof> {
+        let root = self.root.as_ref()?;
+        let root_hash = root.hash().clone();
+        
+        let mut path = Vec::new();
+        let (leaf_hash, leaf_id) = Self::find_path_to_hash(root, target_hash, &mut path)?;
+        
+        Some(MerkleProof {
+            leaf_hash,
+            leaf_id,
+            path,
+            root_hash,
+        })
+    }
+
+    /// Helper: Find path from root to target hash, collecting sibling hashes
+    fn find_path_to_hash(
+        node: &MerkleNode,
+        target: &Hash,
+        path: &mut Vec<ProofStep>,
+    ) -> Option<(Hash, String)> {
+        match node {
+            MerkleNode::Leaf { hash, data_id } => {
+                if hash == target {
+                    Some((hash.clone(), data_id.clone()))
+                } else {
+                    None
+                }
+            }
+            MerkleNode::Internal { left, right, .. } => {
+                // Try left subtree first
+                if let Some(result) = Self::find_path_to_hash(left, target, path) {
+                    // Target is in left subtree, sibling is on the right
+                    path.push(ProofStep {
+                        sibling_hash: right.hash().clone(),
+                        direction: ProofDirection::Right,
+                    });
+                    return Some(result);
+                }
+                
+                // Try right subtree
+                if let Some(result) = Self::find_path_to_hash(right, target, path) {
+                    // Target is in right subtree, sibling is on the left
+                    path.push(ProofStep {
+                        sibling_hash: left.hash().clone(),
+                        direction: ProofDirection::Left,
+                    });
+                    return Some(result);
+                }
+                
+                None
+            }
+        }
+    }
+
+    /// Verify a proof against this tree's root
+    pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
+        match self.root_hash() {
+            Some(root) => proof.verify(root),
+            None => false,
+        }
+    }
 }
 
 impl Default for MerkleTree {
@@ -204,5 +356,94 @@ mod tests {
         for (_, hash) in &leaves {
             assert!(tree.contains(hash));
         }
+    }
+
+    #[test]
+    fn test_merkle_proof_generation() {
+        let leaves = vec![
+            ("event_1".to_string(), Hash::digest(b"data_1")),
+            ("event_2".to_string(), Hash::digest(b"data_2")),
+            ("event_3".to_string(), Hash::digest(b"data_3")),
+            ("event_4".to_string(), Hash::digest(b"data_4")),
+        ];
+
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        let root = tree.root_hash().unwrap();
+
+        // Generate and verify proof for each leaf
+        for (id, hash) in &leaves {
+            let proof = tree.get_proof_by_hash(hash).expect("Should find leaf");
+            assert_eq!(&proof.leaf_id, id);
+            assert_eq!(&proof.leaf_hash, hash);
+            assert!(proof.verify(root), "Proof should verify against root");
+        }
+    }
+
+    #[test]
+    fn test_merkle_proof_serialization() {
+        let leaves = vec![
+            ("a".to_string(), Hash::digest(b"data_a")),
+            ("b".to_string(), Hash::digest(b"data_b")),
+        ];
+
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        let proof = tree.get_proof_by_hash(&leaves[0].1).unwrap();
+
+        // Serialize to JSON
+        let json = proof.to_json().expect("Should serialize");
+        assert!(json.contains("leaf_hash"));
+        assert!(json.contains("path"));
+
+        // Deserialize and verify
+        let restored = MerkleProof::from_json(&json).expect("Should deserialize");
+        assert_eq!(proof.leaf_id, restored.leaf_id);
+        assert!(restored.verify(tree.root_hash().unwrap()));
+    }
+
+    #[test]
+    fn test_merkle_proof_not_found() {
+        let leaves = vec![
+            ("a".to_string(), Hash::digest(b"data_a")),
+        ];
+        let tree = MerkleTree::from_leaves(leaves);
+
+        let fake_hash = Hash::digest(b"not_in_tree");
+        assert!(tree.get_proof_by_hash(&fake_hash).is_none());
+    }
+
+    #[test]
+    fn test_merkle_proof_odd_leaves() {
+        // Odd number of leaves - tests edge case in tree construction
+        let leaves = vec![
+            ("a".to_string(), Hash::digest(b"data_a")),
+            ("b".to_string(), Hash::digest(b"data_b")),
+            ("c".to_string(), Hash::digest(b"data_c")),
+        ];
+
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        let root = tree.root_hash().unwrap();
+
+        // All proofs should still work
+        for (_, hash) in &leaves {
+            let proof = tree.get_proof_by_hash(hash).expect("Should find leaf");
+            assert!(proof.verify(root), "Proof should verify for odd tree");
+        }
+    }
+
+    #[test]
+    fn test_merkle_proof_tamper_detection() {
+        let leaves = vec![
+            ("a".to_string(), Hash::digest(b"data_a")),
+            ("b".to_string(), Hash::digest(b"data_b")),
+        ];
+
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        let mut proof = tree.get_proof_by_hash(&leaves[0].1).unwrap();
+
+        // Tamper with the leaf hash
+        proof.leaf_hash = Hash::digest(b"tampered");
+        
+        // Should fail verification
+        assert!(!proof.verify(tree.root_hash().unwrap()), "Tampered proof should fail");
     }
 }

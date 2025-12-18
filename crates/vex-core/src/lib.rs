@@ -64,5 +64,5 @@ pub use evolution::{
 pub use evolution_memory::{EvolutionMemory, TraitAdjustment};
 pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicEvaluator};
 pub use genome_experiment::GenomeExperiment;
-pub use merkle::{Hash, MerkleNode, MerkleTree};
+pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
