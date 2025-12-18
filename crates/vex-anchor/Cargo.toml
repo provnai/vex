@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Public anchoring layer for VEX audit logs - Git, OpenTimestamps, and blockchain support"
+readme = "README.md"
 
 [dependencies]
 vex-core = { path = "../vex-core" }
