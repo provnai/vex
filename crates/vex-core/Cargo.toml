@@ -24,11 +24,11 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
-metrics = "0.22"
+metrics = "0.24"
 hex = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "merkle_benchmark"
