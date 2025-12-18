@@ -56,6 +56,16 @@ jobs:
         run: cargo publish -p vex-runtime
       - run: sleep 20
 
-      # 7. Gateway (Top Level)
+      # 7. Anchoring (depends on vex-core)
+      - name: Publish vex-anchor
+        run: cargo publish -p vex-anchor
+      - run: sleep 20
+
+      # 8. Gateway (Top Level)
       - name: Publish vex-api
         run: cargo publish -p vex-api
+      - run: sleep 20
+
+      # 9. CLI (depends on vex-core, vex-persist)
+      - name: Publish vex-cli
+        run: cargo publish -p vex-cli
