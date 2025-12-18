@@ -12,6 +12,7 @@ pub mod api_key_store;
 pub mod audit_store;
 pub mod backend;
 pub mod context_store;
+pub mod evolution_store;
 pub mod queue;
 pub mod sqlite;
 
@@ -20,3 +21,4 @@ pub use api_key_store::{validate_api_key, ApiKeyError, ApiKeyRecord, ApiKeyStore
 pub use audit_store::AuditStore;
 pub use backend::{StorageBackend, StorageError, StorageExt};
 pub use context_store::ContextStore;
+pub use evolution_store::{EvolutionStore, EvolutionStoreError, SqliteEvolutionStore};

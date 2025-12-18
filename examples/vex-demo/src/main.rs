@@ -51,6 +51,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         root.config.name, root.generation
     );
 
+    let orchestrator = Orchestrator::new(llm.clone(), OrchestratorConfig {
+        max_depth: 3,
+        executor_config: ExecutorConfig::default(),
+        enable_self_correction: true,
+    }, None);
     let researcher_config = AgentConfig {
         name: "Researcher".to_string(),
         role: "You are a thorough researcher. Analyze and provide detailed findings.".to_string(),

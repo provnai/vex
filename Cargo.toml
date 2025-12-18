@@ -10,15 +10,16 @@ members = [
     "crates/vex-api",
     "crates/vex-queue",
     "crates/vex-macros",
+    "crates/vex-cli",
     "examples/vex-demo",
 ]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/provnai/vex"
-description = "Verified Evolutionary Xenogenesis - Adversarial, temporal, cryptographically-verified AI agents"
+description = "The trust layer for AI agents - verification, memory, and cryptographic proofs"
 
 [workspace.dependencies]
 # Async runtime

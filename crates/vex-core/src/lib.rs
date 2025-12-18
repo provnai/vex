@@ -50,11 +50,20 @@
 pub mod agent;
 pub mod context;
 pub mod evolution;
+pub mod evolution_memory;
+pub mod fitness;
+pub mod genome_experiment;
 pub mod merkle;
+pub mod rule;
 
 pub use agent::{Agent, AgentConfig, AgentHandle, AgentId};
 pub use context::{CompressionLevel, ContextPacket};
 pub use evolution::{
     tournament_select, Fitness, GeneticOperator, Genome, LlmParams, StandardOperator,
 };
+pub use evolution_memory::{EvolutionMemory, TraitAdjustment};
+pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicEvaluator};
+pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleTree};
+pub use rule::OptimizationRule;
+

@@ -44,8 +44,10 @@
 
 pub mod consensus;
 pub mod debate;
+pub mod reflection;
 pub mod shadow;
 
 pub use consensus::{Consensus, ConsensusProtocol, Vote};
 pub use debate::{Debate, DebateRound};
+pub use reflection::{ReflectionAgent, ReflectionConfig, ReflectionResult};
 pub use shadow::{ShadowAgent, ShadowConfig};

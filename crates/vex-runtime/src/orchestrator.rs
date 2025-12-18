@@ -28,6 +28,12 @@ pub struct OrchestratorConfig {
     pub executor_config: ExecutorConfig,
     /// Maximum age for tracked agents before cleanup (prevents memory leaks)
     pub max_agent_age: Duration,
+    /// Enable self-correcting genome evolution
+    pub enable_self_correction: bool,
+    /// Minimum fitness improvement to accept change
+    pub improvement_threshold: f64,
+    /// Number of tasks before reflection
+    pub reflect_every_n_tasks: usize,
 }
 
 impl Default for OrchestratorConfig {
@@ -39,6 +45,9 @@ impl Default for OrchestratorConfig {
             mutation_rate: 0.1,
             executor_config: ExecutorConfig::default(),
             max_agent_age: Duration::from_secs(3600), // 1 hour default
+            enable_self_correction: false,
+            improvement_threshold: 0.02,
+            reflect_every_n_tasks: 5,
         }
     }
 }
@@ -68,7 +77,7 @@ struct TrackedAgent {
 }
 
 /// Orchestrator manages hierarchical agent execution
-pub struct Orchestrator<L: LlmBackend> {
+pub struct Orchestrator<L: LlmBackend + vex_llm::LlmProvider> {
     /// Configuration
     pub config: OrchestratorConfig,
     /// All agents (id -> tracked agent with timestamp)
@@ -78,17 +87,40 @@ pub struct Orchestrator<L: LlmBackend> {
     /// LLM backend (stored for future use)
     #[allow(dead_code)]
     llm: Arc<L>,
+    /// Evolution memory for self-correction (optional)
+    evolution_memory: Option<RwLock<vex_core::EvolutionMemory>>,
+    /// Reflection agent for LLM-based suggestions (optional)
+    reflection_agent: Option<vex_adversarial::ReflectionAgent<L>>,
+    /// Persistence layer for cross-session learning (optional)
+    persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
 }
 
-impl<L: LlmBackend + 'static> Orchestrator<L> {
+impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     /// Create a new orchestrator
-    pub fn new(llm: Arc<L>, config: OrchestratorConfig) -> Self {
+    pub fn new(
+        llm: Arc<L>, 
+        config: OrchestratorConfig,
+        persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
+    ) -> Self {
         let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone());
+        let evolution_memory = if config.enable_self_correction {
+            Some(RwLock::new(vex_core::EvolutionMemory::new()))
+        } else {
+            None
+        };
+        let reflection_agent = if config.enable_self_correction {
+            Some(vex_adversarial::ReflectionAgent::new(llm.clone()))
+        } else {
+            None
+        };
         Self {
             config,
             agents: RwLock::new(HashMap::new()),
             executor,
             llm,
+            evolution_memory,
+            reflection_agent,
+            persistence_layer,
         }
     }
 
@@ -204,7 +236,11 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
 
         // Evolution step (if enabled)
         if self.config.enable_evolution {
-            self.evolve_agents(&mut agents, &all_results);
+            if self.config.enable_self_correction {
+                self.evolve_agents_self_correcting(&mut agents, &all_results).await;
+            } else {
+                self.evolve_agents(&mut agents, &all_results);
+            }
         }
 
         Ok(OrchestrationResult {
@@ -271,9 +307,215 @@ impl<L: LlmBackend + 'static> Orchestrator<L> {
         }
     }
 
-    /// Get agent by ID
-    pub async fn get_agent(&self, id: Uuid) -> Option<Agent> {
-        self.agents.read().await.get(&id).map(|t| t.agent.clone())
+    /// Self-correcting evolution using temporal memory and statistical learning
+    /// 
+    /// This enhances basic evolution with:
+    /// - Temporal memory of past experiments  
+    /// - Statistical correlation learning (Pearson)
+    /// - Intelligent trait adjustment suggestions
+    /// 
+    /// # Modular Design
+    /// Users can override this for custom strategies.
+    async fn evolve_agents_self_correcting(
+        &self,
+        agents: &mut HashMap<Uuid, TrackedAgent>,
+        results: &HashMap<Uuid, ExecutionResult>,
+    ) {
+        // Require evolution memory
+        let memory = match &self.evolution_memory {
+            Some(mem) => mem,
+            None => {
+                tracing::warn!("Self-correction enabled but memory not initialized");
+                return self.evolve_agents(agents, results);
+            }
+        };
+
+        // Record experiments to memory and collect for persistence
+        let experiments_to_save: Vec<vex_core::GenomeExperiment> = {
+            let mut memory_guard = memory.write().await;
+            let mut experiments = Vec::new();
+            
+            for (id, result) in results {
+                if let Some(tracked) = agents.get(id) {
+                    let mut fitness_scores = std::collections::HashMap::new();
+                    fitness_scores.insert("confidence".to_string(), result.confidence);
+                    
+                    let experiment = vex_core::GenomeExperiment::new(
+                        &tracked.agent.genome,
+                        fitness_scores,
+                        result.confidence,
+                        &format!("Depth {}", tracked.agent.depth),
+                    );
+                    memory_guard.record(experiment.clone());
+                    experiments.push(experiment);
+                }
+            }
+            experiments
+        }; // Release lock here
+
+        // Save to persistence (async, no lock held)
+        if let Some(store) = &self.persistence_layer {
+            for experiment in experiments_to_save {
+                if let Err(e) = store.save_experiment(&experiment).await {
+                    tracing::warn!("Failed to persist evolution experiment: {}", e);
+                }
+            }
+        }
+
+        // Find best performer
+        let best = results.iter()
+            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap_or(std::cmp::Ordering::Equal));
+
+        if let Some((best_id, best_result)) = best {
+            if let Some(tracked) = agents.get_mut(best_id) {
+                // Get suggestions using dual-mode learning (statistical + LLM)
+                let suggestions = if let Some(ref reflection) = self.reflection_agent {
+                    // Use ReflectionAgent for LLM + statistical suggestions
+                    let memory_guard = memory.read().await;
+                    
+                    let reflection_result = reflection.reflect(
+                        &tracked.agent,
+                        &format!("Orchestrated task at depth {}", tracked.agent.depth),
+                        &best_result.response,
+                        best_result.confidence,
+                        &memory_guard,
+                    ).await;
+                    
+                    drop(memory_guard);
+                    
+                    // Convert to trait adjustments format
+                    reflection_result.adjustments.into_iter()
+                        .map(|(name, current, suggested)| {
+                            vex_core::TraitAdjustment {
+                                trait_name: name,
+                                current_value: current,
+                                suggested_value: suggested,
+                                correlation: 0.5, // From LLM, not pure statistical
+                                confidence: reflection_result.expected_improvement,
+                            }
+                        })
+                        .collect()
+                } else {
+                    // Fallback to statistical-only if ReflectionAgent not available
+                    let memory_guard = memory.read().await;
+                    let suggestions = memory_guard.suggest_adjustments(&tracked.agent.genome);
+                    drop(memory_guard);
+                    suggestions
+                };
+
+                if !suggestions.is_empty() {
+                    let old_traits = tracked.agent.genome.traits.clone();
+                    
+                    // Apply suggestions with high confidence
+                    for (i, name) in tracked.agent.genome.trait_names.iter().enumerate() {
+                        if let Some(sugg) = suggestions.iter().find(|s| &s.trait_name == name) {
+                            if sugg.confidence >= 0.3 {
+                                tracked.agent.genome.traits[i] = sugg.suggested_value;
+                            }
+                        }
+                    }
+
+                    if old_traits != tracked.agent.genome.traits {
+                        let source = if self.reflection_agent.is_some() {
+                            "LLM + Statistical"
+                        } else {
+                            "Statistical"
+                        };
+                        
+                        tracing::info!(
+                            agent_id = %best_id,
+                            old_traits = ?old_traits,
+                            new_traits = ?tracked.agent.genome.traits,
+                            suggestions = suggestions.len(),
+                            source = source,
+                            "Self-correcting genome applied"
+                        );
+                    }
+                } else {
+                    // Fallback to standard evolution
+                    self.evolve_agents(agents, results);
+                }
+            }
+        }
+
+        // Periodically check for memory consolidation
+        self.maybe_consolidate_memory().await;
+    }
+
+    /// Check if memory needs consolidation and perform it if necessary
+    async fn maybe_consolidate_memory(&self) {
+        let memory = match &self.evolution_memory {
+            Some(m) => m,
+            None => return,
+        };
+
+        let reflection = match &self.reflection_agent {
+            Some(r) => r,
+            None => return,
+        };
+
+        // Check buffer size (Read lock)
+        // Maintain a safety buffer of 20 recent experiments for statistical continuity
+        let (count, snapshot, batch_size) = {
+            let guard = memory.read().await;
+            if guard.len() >= 70 {
+                (guard.len(), guard.get_experiments_oldest(50), 50)
+            } else {
+                (0, Vec::new(), 0)
+            }
+        };
+
+        if count >= 70 {
+            tracing::info!("Consolidating evolution memory ({} items, batch execution)...", batch_size);
+            
+            // 1. Extract rules using LLM
+            let consolidation_result = reflection.consolidate_memory(&snapshot).await;
+            
+            let success = consolidation_result.is_ok();
+            
+            match consolidation_result {
+                Ok(rules) => {
+                    if !rules.is_empty() {
+                        // 2. Save rules to persistence
+                        if let Some(store) = &self.persistence_layer {
+                            for rule in &rules {
+                                if let Err(e) = store.save_rule(rule).await {
+                                    tracing::warn!("Failed to save optimization rule: {}", e);
+                                }
+                            }
+                        }
+                        
+                        tracing::info!(
+                            "Consolidated memory into {} rules. Draining batch.", 
+                            rules.len()
+                        );
+                    } else {
+                        tracing::info!("Consolidation completed with no patterns found. Draining batch.");
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!("Consolidation failed: {}", e);
+                }
+            }
+
+            // 3. Manage Memory (Write lock)
+            let mut guard = memory.write().await;
+            
+            // If success (even if no rules), remove the processed batch
+            if success {
+                guard.drain_oldest(batch_size);
+            }
+            
+            // Overflow Protection: Hard cap at 100 to prevent DoS
+            if guard.len() > 100 {
+                let excess = guard.len() - 100;
+                tracing::warn!(
+                    "Memory overflow ({} > 100). Evicting {} oldest items.", 
+                    guard.len(), excess
+                );
+                guard.drain_oldest(excess);
+            }
+        }
     }
 }
 
@@ -282,6 +524,7 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
 
+    #[derive(Debug)]
     struct MockLlm;
 
     #[async_trait]
@@ -292,18 +535,35 @@ mod tests {
             } else if system.contains("critic") {
                 Ok("Critical analysis: The main concern is validation of assumptions.".to_string())
             } else {
-                Ok(
-                    "Synthesized response combining all findings into a coherent answer."
-                        .to_string(),
-                )
+                Ok("Synthesized response combining all findings into a coherent answer.".to_string())
             }
+        }
+    }
+
+    #[async_trait]
+    impl vex_llm::LlmProvider for MockLlm {
+        fn name(&self) -> &str {
+            "MockLLM"
+        }
+
+        async fn is_available(&self) -> bool {
+            true
+        }
+
+        async fn complete(&self, request: vex_llm::LlmRequest) -> Result<vex_llm::LlmResponse, vex_llm::LlmError> {
+            Ok(vex_llm::LlmResponse {
+                content: "Mock response".to_string(),
+                model: "mock".to_string(),
+                tokens_used: Some(10),
+                latency_ms: 10,
+            })
         }
     }
 
     #[tokio::test]
     async fn test_orchestrator() {
         let llm = Arc::new(MockLlm);
-        let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default());
+        let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None);
 
         let result = orchestrator
             .process("What is the meaning of life?")

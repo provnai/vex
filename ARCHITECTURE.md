@@ -131,6 +131,39 @@ Five behavioral traits that map to LLM parameters:
 | LongTerm | 1 week | 100 |
 | Permanent | ∞ | 500 |
 
+### Self-Correcting Evolution (New)
+
+```
+┌─────────────────┐
+│ Agent Execution │
+└────────┬────────┘
+         │ Records experiment
+         ▼
+┌─────────────────┐     ┌──────────────────┐
+│ EvolutionMemory │────▶│ Pearson Correlat.│
+│ (Episodic)      │     │ (Statistical)    │
+└────────┬────────┘     └──────────────────┘
+         │ Batch (70+ items)
+         ▼
+┌─────────────────┐     ┌──────────────────┐
+│ ReflectionAgent │────▶│ OptimizationRules│
+│ (LLM Analysis)  │     │ (Semantic)       │
+└─────────────────┘     └──────────────────┘
+                               │
+                               ▼ Persistent
+                        ┌──────────────────┐
+                        │ SQLite           │
+                        │ optimization_rules│
+                        └──────────────────┘
+```
+
+| Component | Purpose |
+|-----------|---------|
+| EvolutionMemory | Stores experiments with importance decay |
+| ReflectionAgent | LLM + statistical analysis for suggestions |
+| OptimizationRule | Semantic lessons extracted from experiments |
+| EvolutionStore | Persistent storage for cross-session learning |
+
 ---
 
 ## Security Model
@@ -160,6 +193,91 @@ Five behavioral traits that map to LLM parameters:
 
 ---
 
+## Tool System (`vex-llm`)
+
+Cryptographically-verified tool execution with Merkle audit integration.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Tool Execution Flow                       │
+├─────────────────────────────────────────────────────────────┤
+│  ToolExecutor                                                │
+│  ├── Validate(args)      // Schema + length checks           │
+│  ├── Execute(timeout)    // With DoS protection              │
+│  ├── Hash(result)        // SHA-256 for Merkle chain         │
+│  └── Audit(log)          // To AuditStore                    │
+├─────────────────────────────────────────────────────────────┤
+│  ToolRegistry                                                │
+│  • O(1) lookup by name                                       │
+│  • Collision detection (no duplicates)                       │
+│  • OpenAI/Anthropic format export                            │
+├─────────────────────────────────────────────────────────────┤
+│  Built-in Tools                                              │
+│  calculator | datetime | uuid | hash | regex | json_path     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Capability System** (for future WASM sandboxing):
+
+| Capability | Description |
+|------------|-------------|
+| `PureComputation` | No I/O, safe for any sandbox |
+| `Network` | Requires HTTP access |
+| `FileSystem` | Requires file access |
+| `Cryptography` | Uses crypto operations |
+
+---
+
+## MCP Client (`vex-llm`)
+
+Model Context Protocol integration for external tool servers.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MCP Client Flow                           │
+├─────────────────────────────────────────────────────────────┤
+│  McpClient                                                   │
+│  ├── Connect(url)        // TLS enforced for remote          │
+│  ├── Authenticate        // OAuth 2.1 token                  │
+│  ├── ListTools()         // Discover available tools         │
+│  └── CallTool(name,args) // Execute with timeout             │
+├─────────────────────────────────────────────────────────────┤
+│  McpToolAdapter                                              │
+│  • Wraps MCP tool as VEX Tool                                │
+│  • Results Merkle-hashed for audit                           │
+│  • Capability: Network                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## A2A Protocol (`vex-api`)
+
+Agent-to-Agent protocol for cross-framework agent collaboration.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    A2A Endpoints                             │
+├─────────────────────────────────────────────────────────────┤
+│  GET  /.well-known/agent.json                                │
+│       └── AgentCard { name, skills, auth }                   │
+│                                                              │
+│  POST /a2a/tasks                                             │
+│       └── TaskRequest { skill, input, nonce }                │
+│       └── TaskResponse { status, result, merkle_hash }       │
+│                                                              │
+│  GET  /a2a/tasks/{id}                                        │
+│       └── TaskResponse { status, result, merkle_hash }       │
+├─────────────────────────────────────────────────────────────┤
+│  Security                                                    │
+│  • OAuth 2.0 / JWT authentication                            │
+│  • Nonce + timestamp replay protection                       │
+│  • Task responses include Merkle hash                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Directory Structure
 
 ```
@@ -172,7 +290,8 @@ vex/
 │   ├── vex-api/          # HTTP Server, Auth, Middleware
 │   ├── vex-runtime/      # Orchestrator, Executor
 │   ├── vex-queue/        # Worker Pool, Job Trait
-│   ├── vex-llm/          # Providers, Rate Limit, Metrics
+│   ├── vex-llm/          # Providers, Tools, Rate Limit
+│   ├── vex-cli/          # CLI: tools, verify, info
 │   └── vex-macros/       # Procedural Macros
 ├── examples/
 │   └── vex-demo/         # Demo Applications

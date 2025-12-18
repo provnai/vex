@@ -18,6 +18,16 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 reqwest = { version = "0.12", features = ["json"] }
+chrono = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+meval = "0.2"
+futures = "0.3"
+sha2 = { workspace = true }
+hex = { workspace = true }
+regex = "1"
+async-stream = "0.3"
+tokio-stream = "0.1"
+pin-project-lite = "0.2"
 
 [features]
 default = []

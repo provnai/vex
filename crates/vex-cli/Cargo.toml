@@ -1,0 +1,37 @@
+[package]
+name = "vex-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for VEX - verified AI agent tooling"
+
+[[bin]]
+name = "vex"
+path = "src/main.rs"
+
+[dependencies]
+# VEX crates
+vex-core = { path = "../vex-core", version = "0.1.0" }
+vex-llm = { path = "../vex-llm", version = "0.1.0" }
+vex-persist = { path = "../vex-persist", version = "0.1.0" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# CLI
+clap = { version = "4", features = ["derive", "env", "color"] }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Serialization
+serde_json = { workspace = true }
+
+# Terminal output
+colored = "2"
+comfy-table = "7"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

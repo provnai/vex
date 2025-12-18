@@ -9,7 +9,9 @@
 //! - OpenTelemetry-ready observability
 //! - JWT authentication
 //! - Graceful shutdown
+//! - A2A Protocol support
 
+pub mod a2a;
 pub mod auth;
 pub mod circuit_breaker;
 pub mod error;
@@ -24,3 +26,4 @@ pub mod telemetry;
 pub use auth::{Claims, JwtAuth};
 pub use error::{ApiError, ApiResult};
 pub use server::{ServerConfig, VexServer};
+pub use a2a::{AgentCard, TaskRequest, TaskResponse, TaskStatus};

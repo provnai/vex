@@ -12,6 +12,8 @@ categories = ["asynchronous", "concurrency"]
 [dependencies]
 vex-core = { path = "../vex-core", version = "0.1.0" }
 vex-adversarial = { path = "../vex-adversarial", version = "0.1.0" }
+vex-llm = { path = "../vex-llm", version = "0.1.0" }
+vex-persist = { path = "../vex-persist", version = "0.1.0" }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
@@ -19,3 +21,5 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
+[dev-dependencies]
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
