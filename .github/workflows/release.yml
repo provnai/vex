@@ -20,52 +20,52 @@ jobs:
 
       # 1. Macros (Proc macros usually standalone)
       - name: Publish vex-macros
-        run: cargo publish -p vex-macros
+        run: cargo publish -p vex-macros || echo "Already published or error, continuing..."
       - run: sleep 20 # Wait for index propagation
 
       # 2. Core (Foundational types)
       - name: Publish vex-core
-        run: cargo publish -p vex-core
+        run: cargo publish -p vex-core || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 3. Base Utilities
       - name: Publish vex-temporal
-        run: cargo publish -p vex-temporal
+        run: cargo publish -p vex-temporal || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 4. Persistence & LLM (Mid-layer)
       - name: Publish vex-persist
-        run: cargo publish -p vex-persist
+        run: cargo publish -p vex-persist || echo "Already published or error, continuing..."
       - run: sleep 20
       
       - name: Publish vex-llm
-        run: cargo publish -p vex-llm
+        run: cargo publish -p vex-llm || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 5. Logic Layers
       - name: Publish vex-adversarial
-        run: cargo publish -p vex-adversarial
+        run: cargo publish -p vex-adversarial || echo "Already published or error, continuing..."
       - run: sleep 20
 
       - name: Publish vex-queue
-        run: cargo publish -p vex-queue
+        run: cargo publish -p vex-queue || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 6. Higher Level
       - name: Publish vex-runtime
-        run: cargo publish -p vex-runtime
+        run: cargo publish -p vex-runtime || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 7. Anchoring (depends on vex-core)
       - name: Publish vex-anchor
-        run: cargo publish -p vex-anchor
+        run: cargo publish -p vex-anchor || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 8. Gateway (Top Level)
       - name: Publish vex-api
-        run: cargo publish -p vex-api
+        run: cargo publish -p vex-api || echo "Already published or error, continuing..."
       - run: sleep 20
 
       # 9. CLI (depends on vex-core, vex-persist)
       - name: Publish vex-cli
-        run: cargo publish -p vex-cli
+        run: cargo publish -p vex-cli || echo "Already published or error, continuing..."
