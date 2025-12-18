@@ -66,6 +66,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
         r#"
         CREATE TABLE evolution_experiments (
             id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL,
             traits TEXT NOT NULL,
             trait_names TEXT NOT NULL,
             fitness_scores TEXT NOT NULL,
@@ -75,6 +76,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
         );
         CREATE TABLE optimization_rules (
             id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL,
             rule_description TEXT NOT NULL,
             affected_traits TEXT NOT NULL,
             confidence REAL NOT NULL,
@@ -87,6 +89,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     let store = Arc::new(SqliteEvolutionStore::new(pool));
+    let tenant_id = "test-tenant-123";
 
     // 2. Setup Orchestrator
     let llm = Arc::new(MockLlm { responses: vec![] });
@@ -96,31 +99,19 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     let orchestrator = Orchestrator::new(llm, config, Some(store.clone()));
 
     // 3. Fill Memory manually (> 50)
-    // We need to access memory. Orchestrator doesn't expose it publicly easily?
-    // ReflectionAgent reads it.
-    // But we want to test `maybe_consolidate_memory`.
-    // Since `evolution_memory` field is private, we can't inject data directly unless we use `process` or `evolve`.
-    // But running `process` 50 times is slow.
-    // Inspect source: `Orchestrator` struct fields are private.
-    // EXCEPT `config` is public.
-    // We can't access `evolution_memory`.
-    // However, `evolve_agents_self_correcting` adds to memory.
-    // We can simulate evolution by calling `process`?
-    // 50 calls with mock LLM is fast.
-
     for _i in 0..75 {
-        let _ = orchestrator.process("test query").await;
+        let _ = orchestrator.process(tenant_id, "test query").await;
     }
 
     // 4. Verify Rules Persistence
     // The consolidation happens async at end of process.
     // Check store for rules.
-    let rules = store.load_rules().await?;
+    let rules = store.load_rules(tenant_id).await?;
 
     // We expect at least one consolidation event occurred
     assert!(
         !rules.is_empty(),
-        "Rules should be generated after 55 iterations"
+        "Rules should be generated after 75 iterations"
     );
     assert_eq!(rules[0].rule_description, "High exploration aids discovery");
 

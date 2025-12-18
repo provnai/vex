@@ -26,7 +26,7 @@ use std::time::Instant;
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 
-use crate::tool::ToolRegistry;
+use crate::tool::{Capability, ToolRegistry};
 use crate::tool_error::ToolError;
 use crate::tool_result::ToolResult;
 
@@ -59,6 +59,8 @@ pub struct ToolExecutor {
     audit_enabled: bool,
     /// Maximum parallel executions (0 = unlimited)
     max_parallel: usize,
+    /// Allowed capabilities for this executor (Security Sandbox)
+    allowed_capabilities: Vec<Capability>,
 }
 
 impl ToolExecutor {
@@ -68,6 +70,14 @@ impl ToolExecutor {
             registry,
             audit_enabled: true,
             max_parallel: 0, // Unlimited by default
+            allowed_capabilities: vec![
+                Capability::PureComputation,
+                Capability::Network,
+                Capability::FileSystem,
+                Capability::Subprocess,
+                Capability::Environment,
+                Capability::Cryptography,
+            ],
         }
     }
 
@@ -77,12 +87,26 @@ impl ToolExecutor {
             registry,
             audit_enabled: false,
             max_parallel: 0,
+            allowed_capabilities: vec![
+                Capability::PureComputation,
+                Capability::Network,
+                Capability::FileSystem,
+                Capability::Subprocess,
+                Capability::Environment,
+                Capability::Cryptography,
+            ],
         }
     }
 
     /// Set maximum parallel executions
     pub fn with_max_parallel(mut self, max: usize) -> Self {
         self.max_parallel = max;
+        self
+    }
+
+    /// Set allowed capabilities for the sandbox
+    pub fn with_allowed_capabilities(mut self, caps: Vec<Capability>) -> Self {
+        self.allowed_capabilities = caps;
         self
     }
 
@@ -114,6 +138,21 @@ impl ToolExecutor {
             ToolError::not_found(tool_name)
         })?;
 
+        // 1.5. Check capabilities (Sandbox)
+        for cap in tool.capabilities() {
+            if !self.allowed_capabilities.contains(&cap) {
+                warn!(
+                    tool = tool_name,
+                    capability = ?cap,
+                    "Tool requires missing capability"
+                );
+                return Err(ToolError::unavailable(
+                    tool_name,
+                    format!("Sandbox violation: tool requires {:?}", cap),
+                ));
+            }
+        }
+
         // 2. Check availability
         if !tool.is_available() {
             warn!(tool = tool_name, "Tool is unavailable");
@@ -123,11 +162,35 @@ impl ToolExecutor {
             ));
         }
 
-        // 3. Validate arguments
-        debug!(tool = tool_name, "Validating arguments");
+        // 3. Validate arguments against JSON Schema
+        debug!(tool = tool_name, "Validating arguments against schema");
+        let schema_str = tool.definition().parameters;
+        if !schema_str.is_empty() && schema_str != "{}" {
+            let schema_json: serde_json::Value = serde_json::from_str(schema_str).map_err(|e| {
+                ToolError::execution_failed(tool_name, format!("Invalid tool schema: {}", e))
+            })?;
+
+            let compiled = jsonschema::JSONSchema::compile(&schema_json).map_err(|e| {
+                ToolError::execution_failed(
+                    tool_name,
+                    format!("Failed to compile tool schema: {}", e),
+                )
+            })?;
+
+            if !compiled.is_valid(&args) {
+                warn!(tool = tool_name, "Schema validation failed");
+                return Err(ToolError::invalid_args(
+                    tool_name,
+                    "Arguments do not match tool schema",
+                ));
+            }
+        }
+
+        // 4. Custom validation
+        debug!(tool = tool_name, "Running custom validation");
         tool.validate(&args)?;
 
-        // 4. Execute with timeout
+        // 5. Execute with timeout
         let tool_timeout = tool.timeout();
         let start = Instant::now();
 
@@ -195,17 +258,25 @@ impl ToolExecutor {
     ) -> Vec<Result<ToolResult, ToolError>> {
         debug!(count = calls.len(), "Executing tools in parallel");
 
-        // If max_parallel is set, we should chunk the executions
-        // For now, execute all in parallel using join_all
-        let futures: Vec<_> = calls
-            .into_iter()
-            .map(|(name, args)| {
-                // Create an owned future that doesn't borrow the iterator
-                async move { self.execute(&name, args).await }
-            })
-            .collect();
+        if self.max_parallel > 0 {
+            use futures::stream::{self, StreamExt};
 
-        futures::future::join_all(futures).await
+            stream::iter(calls)
+                .map(|(name, args)| async move { self.execute(&name, args).await })
+                .buffered(self.max_parallel)
+                .collect()
+                .await
+        } else {
+            let futures: Vec<_> = calls
+                .into_iter()
+                .map(|(name, args)| {
+                    // Create an owned future that doesn't borrow the iterator
+                    async move { self.execute(&name, args).await }
+                })
+                .collect();
+
+            futures::future::join_all(futures).await
+        }
     }
 
     /// Get a reference to the tool registry

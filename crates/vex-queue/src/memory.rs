@@ -47,6 +47,7 @@ impl MemoryQueue {
 impl QueueBackend for MemoryQueue {
     async fn enqueue(
         &self,
+        tenant_id: &str,
         job_type: &str,
         payload: serde_json::Value,
         delay_secs: Option<u64>,
@@ -57,6 +58,7 @@ impl QueueBackend for MemoryQueue {
 
         let entry = JobEntry {
             id,
+            tenant_id: tenant_id.to_string(),
             job_type: job_type.to_string(),
             payload,
             status: JobStatus::Pending,
@@ -159,7 +161,7 @@ mod tests {
 
         // Enqueue
         let id = queue
-            .enqueue("test_job", payload.clone(), None)
+            .enqueue("test-tenant", "test_job", payload.clone(), None)
             .await
             .unwrap();
 
@@ -183,7 +185,10 @@ mod tests {
         let payload = json!({});
 
         // Enqueue with delay
-        let id = queue.enqueue("delayed", payload, Some(1)).await.unwrap();
+        let id = queue
+            .enqueue("test-tenant", "delayed", payload, Some(1))
+            .await
+            .unwrap();
 
         // Should be none immediately
         let job = queue.dequeue().await.unwrap();

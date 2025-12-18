@@ -16,16 +16,18 @@ impl Hash {
         Self(bytes)
     }
 
-    /// Hash arbitrary data
+    /// Hash arbitrary data (Leaf node domain separation: 0x00)
     pub fn digest(data: &[u8]) -> Self {
         let mut hasher = Sha256::new();
+        hasher.update([0x00]); // Leaf prefix
         hasher.update(data);
         Self(hasher.finalize().into())
     }
 
-    /// Combine two hashes (for Merkle tree internal nodes)
+    /// Combine two hashes (Internal node domain separation: 0x01)
     pub fn combine(left: &Hash, right: &Hash) -> Self {
         let mut hasher = Sha256::new();
+        hasher.update([0x01]); // Internal prefix
         hasher.update(left.0);
         hasher.update(right.0);
         Self(hasher.finalize().into())

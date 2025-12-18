@@ -45,7 +45,7 @@ struct Usage {
 }
 
 /// DeepSeek provider for inference
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeepSeekProvider {
     /// API key
     api_key: String,

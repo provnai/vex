@@ -16,9 +16,10 @@ pub enum QueueError {
 
 #[async_trait]
 pub trait QueueBackend: Send + Sync {
-    /// Enqueue a job payload
+    /// Enqueue a job payload for a specific tenant
     async fn enqueue(
         &self,
+        tenant_id: &str,
         job_type: &str,
         payload: serde_json::Value,
         delay_secs: Option<u64>,

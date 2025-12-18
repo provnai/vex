@@ -44,6 +44,7 @@ pub struct McpClient {
     /// Server URL
     server_url: String,
     /// Configuration
+    #[allow(dead_code)]
     config: McpConfig,
     /// Cached tools from server
     tools_cache: Arc<RwLock<Option<Vec<McpToolInfo>>>>,

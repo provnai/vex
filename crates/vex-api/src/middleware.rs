@@ -48,11 +48,18 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Result<Response, ApiError> {
     // Get client identifier (from claims or IP)
-    let client_id = request
-        .extensions()
-        .get::<Claims>()
-        .map(|c| c.sub.clone())
-        .unwrap_or_else(|| "anonymous".to_string());
+    let client_id = if let Some(claims) = request.extensions().get::<Claims>() {
+        claims.sub.clone()
+    } else {
+        // Fallback to IP address for anonymous users to prevent global DoS
+        request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.split(',').next())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "anonymous-fallback".to_string())
+    };
 
     // Check rate limit
     state

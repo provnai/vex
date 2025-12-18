@@ -16,10 +16,19 @@ path = "src/fraud_detector.rs"
 name = "interactive"
 path = "src/interactive.rs"
 
+[[bin]]
+name = "gen-audit-cli"
+path = "src/gen_audit_cli.rs"
+
 [dependencies]
 vex-core = { path = "../../crates/vex-core" }
 vex-adversarial = { path = "../../crates/vex-adversarial" }
 vex-llm = { path = "../../crates/vex-llm" }
 vex-temporal = { path = "../../crates/vex-temporal" }
+vex-runtime = { path = "../../crates/vex-runtime" }
+vex-persist = { path = "../../crates/vex-persist" }
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
+serde_json = "1"
+chrono = "0.4"
+uuid = "1"

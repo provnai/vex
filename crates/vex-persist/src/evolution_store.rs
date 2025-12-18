@@ -15,18 +15,29 @@ pub trait EvolutionStore: Send + Sync {
     /// Save an experiment to persistent storage
     async fn save_experiment(
         &self,
+        tenant_id: &str,
         experiment: &GenomeExperiment,
     ) -> Result<(), EvolutionStoreError>;
 
     /// Load recent experiments
-    async fn load_recent(&self, limit: usize)
-        -> Result<Vec<GenomeExperiment>, EvolutionStoreError>;
+    async fn load_recent(
+        &self,
+        tenant_id: &str,
+        limit: usize,
+    ) -> Result<Vec<GenomeExperiment>, EvolutionStoreError>;
 
     /// Save an optimization rule (semantic lesson)
-    async fn save_rule(&self, rule: &OptimizationRule) -> Result<(), EvolutionStoreError>;
+    async fn save_rule(
+        &self,
+        tenant_id: &str,
+        rule: &OptimizationRule,
+    ) -> Result<(), EvolutionStoreError>;
 
     /// Load available optimization rules
-    async fn load_rules(&self) -> Result<Vec<OptimizationRule>, EvolutionStoreError>;
+    async fn load_rules(
+        &self,
+        tenant_id: &str,
+    ) -> Result<Vec<OptimizationRule>, EvolutionStoreError>;
 }
 
 /// SQL implementation of EvolutionStore
@@ -47,6 +58,7 @@ impl SqliteEvolutionStore {
 impl EvolutionStore for SqliteEvolutionStore {
     async fn save_experiment(
         &self,
+        tenant_id: &str,
         experiment: &GenomeExperiment,
     ) -> Result<(), EvolutionStoreError> {
         let traits_json = serde_json::to_string(&experiment.traits)?;
@@ -58,11 +70,12 @@ impl EvolutionStore for SqliteEvolutionStore {
         sqlx::query(
             r#"
             INSERT INTO evolution_experiments (
-                id, traits, trait_names, fitness_scores, task_summary, overall_fitness, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                id, tenant_id, traits, trait_names, fitness_scores, task_summary, overall_fitness, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
             "#,
         )
         .bind(experiment.id.to_string())
+        .bind(tenant_id)
         .bind(traits_json)
         .bind(trait_names_json)
         .bind(fitness_json)
@@ -76,6 +89,7 @@ impl EvolutionStore for SqliteEvolutionStore {
 
     async fn load_recent(
         &self,
+        tenant_id: &str,
         limit: usize,
     ) -> Result<Vec<GenomeExperiment>, EvolutionStoreError> {
         use sqlx::Row;
@@ -85,10 +99,12 @@ impl EvolutionStore for SqliteEvolutionStore {
             SELECT 
                 id, traits, trait_names, fitness_scores, task_summary, overall_fitness, created_at
             FROM evolution_experiments
+            WHERE tenant_id = ?
             ORDER BY created_at DESC
             LIMIT ?
             "#,
         )
+        .bind(tenant_id)
         .bind(limit as i64)
         .fetch_all(&self.pool)
         .await?;
@@ -121,17 +137,22 @@ impl EvolutionStore for SqliteEvolutionStore {
         Ok(experiments)
     }
 
-    async fn save_rule(&self, rule: &OptimizationRule) -> Result<(), EvolutionStoreError> {
+    async fn save_rule(
+        &self,
+        tenant_id: &str,
+        rule: &OptimizationRule,
+    ) -> Result<(), EvolutionStoreError> {
         let traits_json = serde_json::to_string(&rule.affected_traits)?;
 
         sqlx::query(
             r#"
             INSERT INTO optimization_rules (
-                id, rule_description, affected_traits, confidence, source_count, created_at
-            ) VALUES (?, ?, ?, ?, ?, datetime('now'))
+                id, tenant_id, rule_description, affected_traits, confidence, source_count, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
             "#,
         )
         .bind(rule.id.to_string())
+        .bind(tenant_id)
         .bind(&rule.rule_description)
         .bind(traits_json)
         .bind(rule.confidence)
@@ -142,7 +163,10 @@ impl EvolutionStore for SqliteEvolutionStore {
         Ok(())
     }
 
-    async fn load_rules(&self) -> Result<Vec<OptimizationRule>, EvolutionStoreError> {
+    async fn load_rules(
+        &self,
+        tenant_id: &str,
+    ) -> Result<Vec<OptimizationRule>, EvolutionStoreError> {
         use sqlx::Row;
 
         let rows = sqlx::query(
@@ -150,10 +174,12 @@ impl EvolutionStore for SqliteEvolutionStore {
             SELECT 
                 id, rule_description, affected_traits, confidence, source_count, created_at
             FROM optimization_rules
+            WHERE tenant_id = ?
             ORDER BY confidence DESC, created_at DESC
             LIMIT 50
             "#,
         )
+        .bind(tenant_id)
         .fetch_all(&self.pool)
         .await?;
 

@@ -83,6 +83,7 @@ impl BackoffStrategy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobEntry {
     pub id: JobId,
+    pub tenant_id: String,
     pub job_type: String,
     pub payload: serde_json::Value,
     pub status: JobStatus,

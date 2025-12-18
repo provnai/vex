@@ -89,10 +89,11 @@ mod tests {
     #[tokio::test]
     async fn test_memory_queue_enqueue_dequeue() {
         let queue = MemoryQueue::new();
+        let tenant_id = "test-tenant";
 
         // Enqueue a job
         let id = queue
-            .enqueue("test_job", json!({"key": "value"}), None)
+            .enqueue(tenant_id, "test_job", json!({"key": "value"}), None)
             .await
             .unwrap();
 
@@ -102,6 +103,7 @@ mod tests {
 
         let job = job.unwrap();
         assert_eq!(job.id, id);
+        assert_eq!(job.tenant_id, tenant_id);
         assert_eq!(job.job_type, "test_job");
         assert_eq!(job.payload["key"], "value");
     }
@@ -109,9 +111,10 @@ mod tests {
     #[tokio::test]
     async fn test_memory_queue_fifo_ordering() {
         let queue = MemoryQueue::new();
+        let t1 = "tenant-1";
 
-        let id1 = queue.enqueue("job1", json!({}), None).await.unwrap();
-        let id2 = queue.enqueue("job2", json!({}), None).await.unwrap();
+        let id1 = queue.enqueue(t1, "job1", json!({}), None).await.unwrap();
+        let id2 = queue.enqueue(t1, "job2", json!({}), None).await.unwrap();
 
         // First in, first out
         let job1 = queue.dequeue().await.unwrap().unwrap();
@@ -156,9 +159,13 @@ mod tests {
     #[tokio::test]
     async fn test_delayed_job_not_immediately_available() {
         let queue = MemoryQueue::new();
+        let t1 = "tenant-1";
 
         // Enqueue with 10 second delay
-        let _id = queue.enqueue("delayed", json!({}), Some(10)).await.unwrap();
+        let _id = queue
+            .enqueue(t1, "delayed", json!({}), Some(10))
+            .await
+            .unwrap();
 
         // Should not be dequeue-able immediately
         let job = queue.dequeue().await.unwrap();

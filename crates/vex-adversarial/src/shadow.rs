@@ -89,11 +89,15 @@ impl ShadowAgent {
             "Critically analyze the following claim for {}:\n\n\
              \"{}\"\n\n\
              {}\n\n\
-             For each issue found:\n\
-             1. State the specific problem\n\
-             2. Explain why it matters\n\
-             3. Suggest how it could be verified or corrected\n\n\
-             If no issues are found, explain what makes the claim robust.",
+            For each issue found:
+            1. State the specific problem
+            2. Explain why it matters
+            3. Suggest how it could be verified or corrected
+
+            If any issues are found, start your response with the marker: [CHALLENGE]
+            If no issues are found, start your response with the marker: [CLEAN]
+
+            If [CLEAN], explain what makes the claim robust.",
             challenge_types.join(" and "),
             claim,
             issue_guidance

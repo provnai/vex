@@ -73,6 +73,7 @@ pub struct OrchestrationResult {
 #[derive(Clone)]
 struct TrackedAgent {
     agent: Agent,
+    _tenant_id: String,
     created_at: Instant,
 }
 
@@ -147,10 +148,11 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     }
 
     /// Process a query with full hierarchical agent network
-    pub async fn process(&self, query: &str) -> Result<OrchestrationResult, String> {
-        let mut agents = self.agents.write().await;
-        let mut all_results: HashMap<Uuid, ExecutionResult> = HashMap::new();
-
+    pub async fn process(
+        &self,
+        tenant_id: &str,
+        query: &str,
+    ) -> Result<OrchestrationResult, String> {
         // Create root agent
         let root_config = AgentConfig {
             name: "Root".to_string(),
@@ -158,15 +160,8 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             max_depth: self.config.max_depth,
             spawn_shadow: true,
         };
-        let root = Agent::new(root_config);
+        let mut root = Agent::new(root_config);
         let root_id = root.id;
-        agents.insert(
-            root_id,
-            TrackedAgent {
-                agent: root,
-                created_at: Instant::now(),
-            },
-        );
 
         // Spawn child agents for research
         let child_configs = vec![
@@ -184,25 +179,44 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             },
         ];
 
-        // Execute child agents in parallel
-        let mut child_results = Vec::new();
+        // Execute child agents in parallel (no lock held during await)
+        let mut execution_futures = Vec::new();
         for config in child_configs.into_iter().take(self.config.agents_per_level) {
-            let root = &agents.get(&root_id).unwrap().agent;
             let mut child = root.spawn_child(config);
-            let child_id = child.id;
+            let executor = self.executor.clone();
+            let query_str = query.to_string();
 
-            // Execute child
-            let result = self.executor.execute(&mut child, query).await?;
-            child_results.push((child_id, result.clone()));
-            all_results.insert(child_id, result);
+            execution_futures.push(tokio::spawn(async move {
+                let result = executor.execute(&mut child, &query_str).await;
+                (child.id, child, result)
+            }));
+        }
+
+        let task_results = futures::future::join_all(execution_futures).await;
+
+        // Re-acquire lock to update agents map
+        let mut agents = self.agents.write().await;
+
+        let mut all_results: HashMap<Uuid, ExecutionResult> = HashMap::new();
+        let mut child_results = Vec::new();
+        for task_result in task_results {
+            let (child_id, child, result) = task_result.map_err(|e| e.to_string())?;
+            let execution_result: ExecutionResult = result?;
+
+            child_results.push((child_id, execution_result.clone()));
+            all_results.insert(child_id, execution_result);
             agents.insert(
                 child_id,
                 TrackedAgent {
                     agent: child,
+                    _tenant_id: tenant_id.to_string(),
                     created_at: Instant::now(),
                 },
             );
         }
+
+        // Drop lock before root synthesis
+        drop(agents);
 
         // Synthesize child results at root level
         let synthesis_prompt = format!(
@@ -216,12 +230,21 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             child_results.get(1).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
         );
 
-        let tracked_root = agents.get_mut(&root_id).unwrap();
-        let root_result = self
-            .executor
-            .execute(&mut tracked_root.agent, &synthesis_prompt)
-            .await?;
+        let root_result = self.executor.execute(&mut root, &synthesis_prompt).await?;
         all_results.insert(root_id, root_result.clone());
+
+        // Re-acquire lock to update root and run evolution
+        let mut agents = self.agents.write().await;
+
+        // Insert root after children are handled
+        agents.insert(
+            root_id,
+            TrackedAgent {
+                agent: root,
+                _tenant_id: tenant_id.to_string(),
+                created_at: Instant::now(),
+            },
+        );
 
         // Build Merkle tree from all context packets
         let leaves: Vec<(String, Hash)> = all_results
@@ -237,10 +260,10 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         // Evolution step (if enabled)
         if self.config.enable_evolution {
             if self.config.enable_self_correction {
-                self.evolve_agents_self_correcting(&mut agents, &all_results)
+                self.evolve_agents_self_correcting(tenant_id, &mut agents, &all_results)
                     .await;
             } else {
-                self.evolve_agents(&mut agents, &all_results);
+                self.evolve_agents(tenant_id, &mut agents, &all_results);
             }
         }
 
@@ -260,6 +283,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     /// Evolve agents based on fitness - persists evolved genome to fittest agent
     fn evolve_agents(
         &self,
+        _tenant_id: &str,
         agents: &mut HashMap<Uuid, TrackedAgent>,
         results: &HashMap<Uuid, ExecutionResult>,
     ) {
@@ -287,22 +311,22 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         let mut offspring = operator.crossover(parent_a, parent_b);
         operator.mutate(&mut offspring, self.config.mutation_rate);
 
-        // Find the fittest agent and apply the evolved genome to it
-        // This ensures the best-performing agent gets improved traits for next generation
-        if let Some((best_id, _best_fitness)) = results.iter().max_by(|a, b| {
+        // Find the least fit agent and apply the evolved genome to it (Elitism)
+        // We preserve the 'best' and replace the 'worst' to ensure no regression.
+        if let Some((worst_id, _worst_fitness)) = results.iter().min_by(|a, b| {
             a.1.confidence
                 .partial_cmp(&b.1.confidence)
                 .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            if let Some(tracked) = agents.get_mut(best_id) {
+            if let Some(tracked) = agents.get_mut(worst_id) {
                 let old_traits = tracked.agent.genome.traits.clone();
                 tracked.agent.apply_evolved_genome(offspring.clone());
 
                 tracing::info!(
-                    agent_id = %best_id,
+                    agent_id = %worst_id,
                     old_traits = ?old_traits,
                     new_traits = ?offspring.traits,
-                    "Evolved genome applied to fittest agent"
+                    "Evolved genome applied to least fit agent (Elitism preserved fittest)"
                 );
             }
         }
@@ -319,6 +343,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     /// Users can override this for custom strategies.
     async fn evolve_agents_self_correcting(
         &self,
+        tenant_id: &str,
         agents: &mut HashMap<Uuid, TrackedAgent>,
         results: &HashMap<Uuid, ExecutionResult>,
     ) {
@@ -327,7 +352,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             Some(mem) => mem,
             None => {
                 tracing::warn!("Self-correction enabled but memory not initialized");
-                return self.evolve_agents(agents, results);
+                return self.evolve_agents(tenant_id, agents, results);
             }
         };
 
@@ -357,7 +382,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         // Save to persistence (async, no lock held)
         if let Some(store) = &self.persistence_layer {
             for experiment in experiments_to_save {
-                if let Err(e) = store.save_experiment(&experiment).await {
+                if let Err(e) = store.save_experiment(tenant_id, &experiment).await {
                     tracing::warn!("Failed to persist evolution experiment: {}", e);
                 }
             }
@@ -441,17 +466,17 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                     }
                 } else {
                     // Fallback to standard evolution
-                    self.evolve_agents(agents, results);
+                    self.evolve_agents(tenant_id, agents, results);
                 }
             }
         }
 
         // Periodically check for memory consolidation
-        self.maybe_consolidate_memory().await;
+        self.maybe_consolidate_memory(tenant_id).await;
     }
 
     /// Check if memory needs consolidation and perform it if necessary
-    async fn maybe_consolidate_memory(&self) {
+    async fn maybe_consolidate_memory(&self, tenant_id: &str) {
         let memory = match &self.evolution_memory {
             Some(m) => m,
             None => return,
@@ -490,7 +515,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                         // 2. Save rules to persistence
                         if let Some(store) = &self.persistence_layer {
                             for rule in &rules {
-                                if let Err(e) = store.save_rule(rule).await {
+                                if let Err(e) = store.save_rule(tenant_id, rule).await {
                                     tracing::warn!("Failed to save optimization rule: {}", e);
                                 }
                             }
@@ -586,7 +611,7 @@ mod tests {
         let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None);
 
         let result = orchestrator
-            .process("What is the meaning of life?")
+            .process("test-tenant", "What is the meaning of life?")
             .await
             .unwrap();
 

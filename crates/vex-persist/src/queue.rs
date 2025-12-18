@@ -24,6 +24,7 @@ impl SqliteQueueBackend {
 impl QueueBackend for SqliteQueueBackend {
     async fn enqueue(
         &self,
+        tenant_id: &str,
         job_type: &str,
         payload: Value,
         delay_secs: Option<u64>,
@@ -36,9 +37,10 @@ impl QueueBackend for SqliteQueueBackend {
         };
 
         sqlx::query(
-            "INSERT INTO jobs (id, job_type, payload, status, run_at) VALUES (?, ?, ?, 'pending', ?)"
+            "INSERT INTO jobs (id, tenant_id, job_type, payload, status, run_at) VALUES (?, ?, ?, ?, 'pending', ?)"
         )
         .bind(id.to_string())
+        .bind(tenant_id)
         .bind(job_type)
         .bind(payload)
         .bind(run_at)
@@ -64,7 +66,7 @@ impl QueueBackend for SqliteQueueBackend {
                 ORDER BY priority DESC, created_at ASC
                 LIMIT 1
             )
-            RETURNING id, job_type, payload, run_at, created_at, retries, last_error
+            RETURNING id, tenant_id, job_type, payload, run_at, created_at, retries, last_error
             "#,
         )
         .bind(worker_id)
@@ -81,6 +83,9 @@ impl QueueBackend for SqliteQueueBackend {
                 .map_err(|e| QueueError::Backend(e.to_string()))?;
             let id =
                 Uuid::parse_str(&id_str).map_err(|_| QueueError::Backend("Invalid UUID".into()))?;
+            let tenant_id: String = row
+                .try_get("tenant_id")
+                .map_err(|e| QueueError::Backend(e.to_string()))?;
             let job_type: String = row
                 .try_get("job_type")
                 .map_err(|e| QueueError::Backend(e.to_string()))?;
@@ -100,6 +105,7 @@ impl QueueBackend for SqliteQueueBackend {
 
             Ok(Some(JobEntry {
                 id,
+                tenant_id,
                 job_type,
                 payload,
                 status: JobStatus::Running,

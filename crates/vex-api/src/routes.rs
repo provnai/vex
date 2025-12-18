@@ -135,11 +135,10 @@ pub async fn create_agent(
     let agent = vex_core::Agent::new(config);
 
     // Persist agent with tenant isolation
-    let prefix = format!("user:{}:agent:", claims.sub);
-    let store = AgentStore::with_prefix(state.db(), &prefix);
+    let store = AgentStore::new(state.db());
 
     store
-        .save(&agent)
+        .save(&claims.sub, &agent)
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to save agent: {}", e)))?;
 
@@ -195,11 +194,10 @@ pub async fn execute_agent(
         .map_err(|e| ApiError::Validation(format!("Invalid prompt: {}", e)))?;
 
     // Check ownership/existence
-    let prefix = format!("user:{}:agent:", claims.sub);
-    let store = AgentStore::with_prefix(state.db(), &prefix);
+    let store = AgentStore::new(state.db());
 
     let exists = store
-        .exists(agent_id)
+        .exists(&claims.sub, agent_id)
         .await
         .map_err(|e| ApiError::Internal(format!("Storage error: {}", e)))?;
 
@@ -226,7 +224,7 @@ pub async fn execute_agent(
     let backend = &pool.backend;
 
     let job_id = backend
-        .enqueue("agent_execution", payload, None)
+        .enqueue(&claims.sub, "agent_execution", payload, None)
         .await
         .map_err(|e| ApiError::Internal(format!("Queue error: {}", e)))?;
 

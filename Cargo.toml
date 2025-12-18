@@ -47,6 +47,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 hex = "0.4"
+jsonschema = "0.18" # Keeping it conservative
 
 # Security - Secure secret memory handling
 zeroize = { version = "1.8", features = ["derive"] }

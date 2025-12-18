@@ -61,6 +61,15 @@ pub struct AgentExecutor<L: LlmBackend> {
     llm: Arc<L>,
 }
 
+impl<L: LlmBackend> Clone for AgentExecutor<L> {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            llm: self.llm.clone(),
+        }
+    }
+}
+
 impl<L: LlmBackend> AgentExecutor<L> {
     /// Create a new executor
     pub fn new(llm: Arc<L>, config: ExecutorConfig) -> Self {
@@ -73,8 +82,17 @@ impl<L: LlmBackend> AgentExecutor<L> {
         agent: &mut Agent,
         prompt: &str,
     ) -> Result<ExecutionResult, String> {
-        // Step 1: Get initial response from Blue agent
-        let blue_response = self.llm.complete(&agent.config.role, prompt).await?;
+        // Step 1: Format context and get initial response from Blue agent
+        let full_prompt = if !agent.context.content.is_empty() {
+            format!(
+                "Previous Context (Time: {}):\n\"{}\"\n\nActive Prompt:\n\"{}\"",
+                agent.context.created_at, agent.context.content, prompt
+            )
+        } else {
+            prompt.to_string()
+        };
+
+        let blue_response = self.llm.complete(&agent.config.role, &full_prompt).await?;
 
         // Step 2: If adversarial is enabled, run debate
         let (final_response, verified, confidence, debate) = if self.config.enable_adversarial {
@@ -125,11 +143,15 @@ impl<L: LlmBackend> AgentExecutor<L> {
                 .complete(&shadow.agent.config.role, &challenge_prompt)
                 .await?;
 
-            // Blue agent rebuts (if there's something to rebut)
-            let rebuttal = if red_challenge.to_lowercase().contains("disagree")
+            // Blue agent rebuts (if there's a substantive challenge)
+            let is_challenge = red_challenge.contains("[CHALLENGE]")
+                || red_challenge.to_lowercase().contains("disagree")
                 || red_challenge.to_lowercase().contains("issue")
                 || red_challenge.to_lowercase().contains("concern")
-            {
+                || red_challenge.to_lowercase().contains("incorrect")
+                || red_challenge.to_lowercase().contains("flaw");
+
+            let rebuttal = if is_challenge {
                 let rebuttal_prompt = format!(
                     "Your previous response was challenged:\n\n\
                      Original: \"{}\"\n\n\

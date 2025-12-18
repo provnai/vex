@@ -8,17 +8,49 @@
 //!
 //! Run with: cargo run -p vex-demo
 
+use std::sync::Arc;
 use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
 use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
-use vex_llm::{DeepSeekProvider, LlmProvider, LlmRequest};
+use vex_llm::{DeepSeekProvider, LlmError, LlmProvider, LlmRequest, LlmResponse};
+use vex_runtime::executor::{ExecutorConfig, LlmBackend};
+use vex_runtime::orchestrator::{Orchestrator, OrchestratorConfig};
+
+#[derive(Debug, Clone)]
+struct Llm(DeepSeekProvider);
+
+#[async_trait::async_trait]
+impl LlmProvider for Llm {
+    fn name(&self) -> &str {
+        self.0.name()
+    }
+
+    async fn is_available(&self) -> bool {
+        self.0.is_available().await
+    }
+
+    async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
+        self.0.complete(request).await
+    }
+}
+
+#[async_trait::async_trait]
+impl LlmBackend for Llm {
+    async fn complete(&self, system: &str, prompt: &str) -> Result<String, String> {
+        let request = LlmRequest::with_role(system, prompt);
+        let response: Result<LlmResponse, LlmError> = self.0.complete(request).await;
+        response
+            .map(|resp| resp.content)
+            .map_err(|e: LlmError| e.to_string())
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load API key from environment or use empty string (which will trigger Mock provider fallback in logic)
     let api_key = std::env::var("DEEPSEEK_API_KEY").unwrap_or_default();
-    let llm = DeepSeekProvider::chat(&api_key);
+    let llm = Llm(DeepSeekProvider::chat(&api_key));
 
     println!("🔌 LLM Provider: DeepSeek Chat");
     println!("   Checking availability...");
@@ -51,12 +83,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         root.config.name, root.generation
     );
 
-    let orchestrator = Orchestrator::new(
-        llm.clone(),
+    let _orchestrator = Orchestrator::new(
+        Arc::new(llm.clone()),
         OrchestratorConfig {
             max_depth: 3,
             executor_config: ExecutorConfig::default(),
             enable_self_correction: true,
+            ..OrchestratorConfig::default()
         },
         None,
     );
@@ -96,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &researcher.config.role,
         &format!("Analyze this topic in 3-4 bullet points: {}", query),
     );
-    let researcher_response = match llm.complete(researcher_request).await {
+    let researcher_response = match llm.0.complete(researcher_request).await {
         Ok(resp) => {
             println!(
                 "   ✅ Response received ({} ms, {} tokens)",
@@ -125,7 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &researcher_response[..researcher_response.len().min(200)]
         ),
     );
-    let critic_response = match llm.complete(critic_request).await {
+    let critic_response = match llm.0.complete(critic_request).await {
         Ok(resp) => {
             println!("   ✅ Response received ({} ms)", resp.latency_ms);
             resp.content
@@ -165,7 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &researcher_response[..researcher_response.len().min(150)]
         ),
     );
-    let red_challenge = match llm.complete(red_request).await {
+    let red_challenge = match llm.0.complete(red_request).await {
         Ok(resp) => resp.content,
         Err(_) => {
             "The analysis lacks specific timelines and doesn't address post-quantum solutions."
@@ -257,7 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("   📝 Coordinator synthesizing...");
-    let final_response = match llm.complete(synthesis_request).await {
+    let final_response = match llm.0.complete(synthesis_request).await {
         Ok(resp) => {
             println!("   ✅ Final response generated\n");
             resp.content

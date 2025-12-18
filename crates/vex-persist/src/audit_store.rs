@@ -156,12 +156,12 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         }
     }
 
-    fn event_key(&self, id: Uuid) -> String {
-        format!("{}event:{}", self.prefix, id)
+    fn event_key(&self, tenant_id: &str, id: Uuid) -> String {
+        format!("{}tenant:{}:event:{}", self.prefix, tenant_id, id)
     }
 
-    fn chain_key(&self) -> String {
-        format!("{}chain", self.prefix)
+    fn chain_key(&self, tenant_id: &str) -> String {
+        format!("{}tenant:{}:chain", self.prefix, tenant_id)
     }
 
     /// Get next sequence number atomically
@@ -173,6 +173,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     /// Log an audit event (automatically chained with sequence number)
     pub async fn log(
         &self,
+        tenant_id: &str,
         event_type: AuditEventType,
         agent_id: Option<Uuid>,
         data: serde_json::Value,
@@ -186,16 +187,18 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         };
 
         // Store event
-        self.backend.set(&self.event_key(event.id), &event).await?;
+        self.backend
+            .set(&self.event_key(tenant_id, event.id), &event)
+            .await?;
 
         // Update chain
         let mut chain: Vec<Uuid> = self
             .backend
-            .get(&self.chain_key())
+            .get(&self.chain_key(tenant_id))
             .await?
             .unwrap_or_default();
         chain.push(event.id);
-        self.backend.set(&self.chain_key(), &chain).await?;
+        self.backend.set(&self.chain_key(tenant_id), &chain).await?;
 
         // Update last hash
         *last_hash = Some(event.hash.clone());
@@ -204,30 +207,30 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     }
 
     /// Get event by ID
-    pub async fn get(&self, id: Uuid) -> Result<Option<AuditEvent>, StorageError> {
-        self.backend.get(&self.event_key(id)).await
+    pub async fn get(&self, tenant_id: &str, id: Uuid) -> Result<Option<AuditEvent>, StorageError> {
+        self.backend.get(&self.event_key(tenant_id, id)).await
     }
 
     /// Get all events in chain order
-    pub async fn get_chain(&self) -> Result<Vec<AuditEvent>, StorageError> {
+    pub async fn get_chain(&self, tenant_id: &str) -> Result<Vec<AuditEvent>, StorageError> {
         let chain: Vec<Uuid> = self
             .backend
-            .get(&self.chain_key())
+            .get(&self.chain_key(tenant_id))
             .await?
             .unwrap_or_default();
 
         let mut events = Vec::new();
         for id in chain {
-            if let Some(event) = self.get(id).await? {
+            if let Some(event) = self.get(tenant_id, id).await? {
                 events.push(event);
             }
         }
         Ok(events)
     }
 
-    /// Build Merkle tree of all events
-    pub async fn build_merkle_tree(&self) -> Result<MerkleTree, StorageError> {
-        let events = self.get_chain().await?;
+    /// Build Merkle tree of all events for a tenant
+    pub async fn build_merkle_tree(&self, tenant_id: &str) -> Result<MerkleTree, StorageError> {
+        let events = self.get_chain(tenant_id).await?;
         let leaves: Vec<(String, Hash)> = events
             .iter()
             .map(|e| (e.id.to_string(), e.hash.clone()))
@@ -235,9 +238,9 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         Ok(MerkleTree::from_leaves(leaves))
     }
 
-    /// Verify chain integrity
-    pub async fn verify_chain(&self) -> Result<bool, StorageError> {
-        let events = self.get_chain().await?;
+    /// Verify chain integrity for a tenant
+    pub async fn verify_chain(&self, tenant_id: &str) -> Result<bool, StorageError> {
+        let events = self.get_chain(tenant_id).await?;
 
         for (i, event) in events.iter().enumerate() {
             if i == 0 {
@@ -250,13 +253,8 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                 // Check chain link - verify prev_hash matches previous event's hash
                 match (&event.previous_hash, events.get(i - 1)) {
                     (Some(prev_hash), Some(prev_event)) => {
-                        // Verify that this event's previous_hash references the previous event
-                        // The chained() constructor combines (event_hash, previous_hash) to create new hash
-                        // So we verify the link by checking if prev_hash was derived from prev_event
                         let expected = &prev_event.hash;
 
-                        // For a proper chain, prev_hash should match prev_event's hash
-                        // (or be derived from it - depends on chained() implementation)
                         if prev_hash != expected {
                             tracing::warn!(
                                 "Chain integrity failed at event {}: expected prev_hash {:?}, got {:?}",
@@ -283,20 +281,24 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             }
         }
 
-        tracing::info!("Chain integrity verified: {} events", events.len());
+        tracing::info!(
+            "Chain integrity verified for tenant {}: {} events",
+            tenant_id,
+            events.len()
+        );
         Ok(true)
     }
 
-    /// Export audit trail for compliance
-    pub async fn export(&self) -> Result<AuditExport, StorageError> {
-        let events = self.get_chain().await?;
-        let merkle_tree = self.build_merkle_tree().await?;
+    /// Export audit trail for compliance for a tenant
+    pub async fn export(&self, tenant_id: &str) -> Result<AuditExport, StorageError> {
+        let events = self.get_chain(tenant_id).await?;
+        let merkle_tree = self.build_merkle_tree(tenant_id).await?;
 
         Ok(AuditExport {
             events,
             merkle_root: merkle_tree.root_hash().map(|h| h.to_string()),
             exported_at: Utc::now(),
-            verified: self.verify_chain().await.unwrap_or(false),
+            verified: self.verify_chain(tenant_id).await.unwrap_or(false),
         })
     }
 }
@@ -316,43 +318,54 @@ mod tests {
     use crate::backend::MemoryBackend;
 
     #[tokio::test]
-    async fn test_audit_store() {
+    async fn test_audit_store_isolation() {
         let backend = Arc::new(MemoryBackend::new());
         let store = AuditStore::new(backend);
+        let t1 = "tenant-1";
+        let t2 = "tenant-2";
 
-        // Log events
-        let _e1 = store
+        // Log to tenant 1
+        store
             .log(
+                t1,
                 AuditEventType::AgentCreated,
-                Some(Uuid::new_v4()),
-                serde_json::json!({"name": "TestAgent"}),
+                None,
+                serde_json::json!({}),
             )
             .await
             .unwrap();
 
-        let e2 = store
+        // Log to tenant 2
+        store
             .log(
+                t2,
                 AuditEventType::AgentExecuted,
-                Some(Uuid::new_v4()),
-                serde_json::json!({"prompt": "test"}),
+                None,
+                serde_json::json!({}),
             )
             .await
             .unwrap();
 
-        // Verify chain
-        assert!(e2.previous_hash.is_some());
+        // Verify isolation
+        let chain1 = store.get_chain(t1).await.unwrap();
+        let chain2 = store.get_chain(t2).await.unwrap();
 
-        // Get chain
-        let chain = store.get_chain().await.unwrap();
-        assert_eq!(chain.len(), 2);
+        assert_eq!(chain1.len(), 1);
+        assert_eq!(chain2.len(), 1);
+        assert_ne!(chain1[0].id, chain2[0].id);
 
-        // Build Merkle tree
-        let tree = store.build_merkle_tree().await.unwrap();
-        assert!(tree.root_hash().is_some());
-
-        // Export
-        let export = store.export().await.unwrap();
-        assert_eq!(export.events.len(), 2);
-        assert!(export.merkle_root.is_some());
+        let root1 = store
+            .build_merkle_tree(t1)
+            .await
+            .unwrap()
+            .root_hash()
+            .cloned();
+        let root2 = store
+            .build_merkle_tree(t2)
+            .await
+            .unwrap()
+            .root_hash()
+            .cloned();
+        assert_ne!(root1, root2);
     }
 }
