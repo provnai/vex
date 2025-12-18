@@ -29,14 +29,14 @@ pub enum AuditEventType {
 }
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
-/// 
+///
 /// # Privacy Warning (MEDIUM-1)
 /// The `Human` variant stores user identifiers directly. When exporting to
 /// external SIEM systems (OCSF, Splunk, Datadog), consider:
 /// - GDPR/CCPA compliance for PII handling
 /// - Using pseudonymized identifiers instead of real names
 /// - Implementing consent checks before export
-/// 
+///
 /// For privacy-sensitive deployments, use hashed or tokenized identifiers:
 /// ```ignore
 /// ActorType::Human(hash_user_id(user.id))
@@ -65,7 +65,7 @@ pub struct Signature {
 
 impl Signature {
     /// Create a new signature for a message
-    /// 
+    ///
     /// # Arguments
     /// * `signer_id` - Identifier for the signer (username, key fingerprint)
     /// * `message` - The message bytes to sign
@@ -77,7 +77,7 @@ impl Signature {
     ) -> Self {
         use ed25519_dalek::Signer;
         let signature = signing_key.sign(message);
-        
+
         Self {
             signer_id: signer_id.into(),
             signed_at: Utc::now(),
@@ -86,13 +86,13 @@ impl Signature {
     }
 
     /// Verify this signature against a message and public key
-    /// 
+    ///
     /// Uses `verify_strict()` to prevent weak key attacks (CRITICAL-1 fix)
-    /// 
+    ///
     /// # Arguments
     /// * `message` - The message bytes that were signed
     /// * `verifying_key` - The Ed25519 public key
-    /// 
+    ///
     /// # Returns
     /// * `Ok(true)` if signature is valid
     /// * `Ok(false)` if signature format is invalid
@@ -103,7 +103,7 @@ impl Signature {
         verifying_key: &ed25519_dalek::VerifyingKey,
     ) -> Result<bool, String> {
         use ed25519_dalek::Verifier;
-        
+
         // Decode hex signature
         let sig_bytes = match hex::decode(&self.signature_hex) {
             Ok(bytes) => bytes,
@@ -145,9 +145,8 @@ pub struct AuditEvent {
     pub previous_hash: Option<Hash>,
     /// Monotonic sequence number for ordering verification
     pub sequence_number: u64,
-    
+
     // === ISO 42001 / EU AI Act Compliance Fields ===
-    
     /// Who performed the action (ISO 42001 A.6.2.8)
     #[serde(default)]
     pub actor: ActorType,
@@ -270,7 +269,7 @@ impl AuditEvent {
     }
 
     /// Sanitize sensitive fields from audit data (HIGH-2 fix)
-    /// 
+    ///
     /// This is public so export methods can apply sanitization before
     /// sending data to external SIEM systems.
     pub fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
@@ -508,7 +507,7 @@ impl AuditExport {
                     "status_id": 1, // Success
                     "time": event.timestamp.timestamp(),
                     "timezone_offset": 0,
-                    
+
                     // Finding-specific attributes
                     "finding_info": {
                         "uid": event.id.to_string(),
@@ -516,7 +515,7 @@ impl AuditExport {
                         "desc": event.rationale.clone().unwrap_or_default(),
                         "created_time": event.timestamp.timestamp(),
                     },
-                    
+
                     // Actor information (ISO 42001 A.6.2.8)
                     "actor": {
                         "type_uid": match &event.actor {
@@ -530,7 +529,7 @@ impl AuditExport {
                             ActorType::System => "System".to_string(),
                         },
                     },
-                    
+
                     // VEX-specific extensions
                     "unmapped": {
                         "vex_event_type": format!("{:?}", event.event_type),
@@ -541,7 +540,7 @@ impl AuditExport {
                         "vex_human_review_required": event.human_review_required,
                         "vex_merkle_root": self.merkle_root.clone(),
                     },
-                    
+
                     // Metadata
                     "metadata": {
                         "version": "1.7.0",
@@ -570,7 +569,7 @@ impl AuditExport {
                     "source": source,
                     "sourcetype": "vex:audit:json",
                     "index": index,
-                    
+
                     // Event data (sanitized for external export - HIGH-2 fix)
                     "event": {
                         "id": event.id.to_string(),
@@ -590,7 +589,7 @@ impl AuditExport {
                         "policy_version": event.policy_version.clone(),
                         "human_review_required": event.human_review_required,
                     },
-                    
+
                     // Indexed fields (for fast searching)
                     "fields": {
                         "event_type": format!("{:?}", event.event_type),
@@ -616,10 +615,10 @@ impl AuditExport {
                     "hostname": "vex-audit",
                     "service": service,
                     "status": "info",
-                    
+
                     // Timestamp in ISO8601
                     "timestamp": event.timestamp.to_rfc3339(),
-                    
+
                     // Message for log stream
                     "message": format!(
                         "[{}] {} - seq:{} hash:{}",
@@ -628,7 +627,7 @@ impl AuditExport {
                         event.sequence_number,
                         &event.hash.to_hex()[..16]
                     ),
-                    
+
                     // Structured data
                     "event": {
                         "id": event.id.to_string(),
@@ -637,14 +636,14 @@ impl AuditExport {
                         "sequence": event.sequence_number,
                         "hash": event.hash.to_hex(),
                     },
-                    
+
                     // Actor attribution
                     "usr": match &event.actor {
                         ActorType::Human(name) => serde_json::json!({"name": name}),
                         ActorType::Bot(id) => serde_json::json!({"id": id.to_string(), "type": "bot"}),
                         ActorType::System => serde_json::json!({"type": "system"}),
                     },
-                    
+
                     // VEX custom attributes
                     "vex": {
                         "merkle_root": self.merkle_root.clone(),

@@ -16,7 +16,7 @@ use crate::error::AnchorError;
 ///
 /// Stores anchor receipts in a local JSON Lines file (one receipt per line).
 /// Suitable for development, testing, and single-node deployments.
-/// 
+///
 /// # Security
 /// Use `try_new()` or `with_base_dir()` for production to prevent path traversal.
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ pub struct FileAnchor {
 
 impl FileAnchor {
     /// Create a new file anchor (no path validation)
-    /// 
+    ///
     /// # Warning
     /// This constructor does not validate the path. For production use,
     /// prefer `try_new()` or `with_base_dir()` to prevent path traversal.
@@ -35,11 +35,11 @@ impl FileAnchor {
     }
 
     /// Create a file anchor with path validation (HIGH-1 fix)
-    /// 
+    ///
     /// Validates that the path:
     /// - Does not contain path traversal sequences (`..`)
     /// - Is within the specified base directory
-    /// 
+    ///
     /// # Errors
     /// Returns `AnchorError::BackendUnavailable` if path validation fails.
     pub fn with_base_dir(
@@ -53,7 +53,7 @@ impl FileAnchor {
         let path_str = path.to_string_lossy();
         if path_str.contains("..") {
             return Err(AnchorError::BackendUnavailable(
-                "Path traversal detected: '..' not allowed in anchor path".to_string()
+                "Path traversal detected: '..' not allowed in anchor path".to_string(),
             ));
         }
 
@@ -68,8 +68,11 @@ impl FileAnchor {
         // Check that resolved path starts with base_dir
         // This prevents ../../../etc/passwd style attacks
         let base_canonical = base_dir.canonicalize().unwrap_or(base_dir);
-        let resolved_parent = resolved.parent().map(|p| p.to_path_buf()).unwrap_or(resolved.clone());
-        
+        let resolved_parent = resolved
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or(resolved.clone());
+
         if !resolved_parent.starts_with(&base_canonical) && resolved_parent != base_canonical {
             // For new files, check if the parent would be valid
             let parent_str = resolved_parent.to_string_lossy();
@@ -125,24 +128,30 @@ impl AnchorBackend for FileAnchor {
 
     async fn verify(&self, receipt: &AnchorReceipt) -> Result<bool, AnchorError> {
         use subtle::ConstantTimeEq;
-        
+
         if !self.path.exists() {
             return Ok(false);
         }
 
         let content = fs::read_to_string(&self.path).await?;
-        
+
         for line in content.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             let parsed: Result<AnchorReceipt, _> = serde_json::from_str(line);
             if let Ok(stored) = parsed {
                 // Use constant-time comparison to prevent timing attacks (LOW-1 fix)
-                let id_match = stored.anchor_id.as_bytes().ct_eq(receipt.anchor_id.as_bytes());
-                let hash_match = stored.root_hash.as_bytes().ct_eq(receipt.root_hash.as_bytes());
-                
+                let id_match = stored
+                    .anchor_id
+                    .as_bytes()
+                    .ct_eq(receipt.anchor_id.as_bytes());
+                let hash_match = stored
+                    .root_hash
+                    .as_bytes()
+                    .ct_eq(receipt.root_hash.as_bytes());
+
                 if id_match.into() && hash_match.into() {
                     return Ok(true);
                 }

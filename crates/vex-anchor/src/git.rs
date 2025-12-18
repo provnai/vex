@@ -79,13 +79,19 @@ impl GitAnchor {
     async fn ensure_branch(&self) -> Result<(), AnchorError> {
         // Check if branch exists
         let branches = self.git(&["branch", "--list", &self.branch]).await?;
-        
+
         if branches.is_empty() {
             // Create orphan branch for anchors
             self.git(&["checkout", "--orphan", &self.branch]).await?;
-            
+
             // Create initial commit
-            self.git(&["commit", "--allow-empty", "-m", "VEX Anchor Chain Initialized"]).await?;
+            self.git(&[
+                "commit",
+                "--allow-empty",
+                "-m",
+                "VEX Anchor Chain Initialized",
+            ])
+            .await?;
         } else {
             // Switch to the branch
             self.git(&["checkout", &self.branch]).await?;
@@ -107,9 +113,8 @@ impl AnchorBackend for GitAnchor {
 
         // Sanitize user-controlled fields (CRITICAL-2 fix)
         let safe_tenant = Self::sanitize_git_message(&metadata.tenant_id);
-        let safe_description = Self::sanitize_git_message(
-            metadata.description.as_deref().unwrap_or("N/A")
-        );
+        let safe_description =
+            Self::sanitize_git_message(metadata.description.as_deref().unwrap_or("N/A"));
 
         // Create commit message with structured data
         let message = format!(
@@ -128,12 +133,9 @@ impl AnchorBackend for GitAnchor {
         );
 
         // Create empty commit with the anchor data
-        let commit_hash = self.git(&[
-            "commit",
-            "--allow-empty",
-            "-m",
-            &message,
-        ]).await?;
+        let commit_hash = self
+            .git(&["commit", "--allow-empty", "-m", &message])
+            .await?;
 
         // Get the commit hash
         let anchor_id = self.git(&["rev-parse", "HEAD"]).await?;
@@ -154,13 +156,15 @@ impl AnchorBackend for GitAnchor {
 
         // Check if commit exists
         let result = self.git(&["cat-file", "-t", &receipt.anchor_id]).await;
-        
+
         if result.is_err() {
             return Ok(false);
         }
 
         // Get commit message
-        let message = self.git(&["log", "-1", "--format=%B", &receipt.anchor_id]).await?;
+        let message = self
+            .git(&["log", "-1", "--format=%B", &receipt.anchor_id])
+            .await?;
 
         // Verify root hash is in the commit
         Ok(message.contains(&receipt.root_hash))
@@ -188,14 +192,14 @@ mod tests {
             .output()
             .await
             .unwrap();
-        
+
         Command::new("git")
             .args(["config", "user.email", "test@test.com"])
             .current_dir(path)
             .output()
             .await
             .unwrap();
-        
+
         Command::new("git")
             .args(["config", "user.name", "Test"])
             .current_dir(path)

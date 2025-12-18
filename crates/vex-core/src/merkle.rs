@@ -135,11 +135,11 @@ impl MerkleProof {
     pub const MAX_PROOF_JSON_SIZE: usize = 1024 * 1024;
 
     /// Import proof from JSON string with size limit (MEDIUM-2 fix)
-    /// 
+    ///
     /// # Arguments
     /// * `json` - The JSON string to parse
     /// * `max_size` - Maximum allowed size in bytes (prevents DoS)
-    /// 
+    ///
     /// # Errors
     /// Returns error if JSON exceeds max_size or is invalid
     pub fn from_json_with_limit(json: &str, max_size: usize) -> Result<Self, String> {
@@ -154,7 +154,7 @@ impl MerkleProof {
     }
 
     /// Import proof from JSON string with default 1MB limit
-    /// 
+    ///
     /// For custom limits, use `from_json_with_limit()`.
     pub fn from_json(json: &str) -> Result<Self, String> {
         Self::from_json_with_limit(json, Self::MAX_PROOF_JSON_SIZE)
@@ -257,10 +257,10 @@ impl MerkleTree {
     pub fn get_proof_by_hash(&self, target_hash: &Hash) -> Option<MerkleProof> {
         let root = self.root.as_ref()?;
         let root_hash = root.hash().clone();
-        
+
         let mut path = Vec::new();
         let (leaf_hash, leaf_id) = Self::find_path_to_hash(root, target_hash, &mut path)?;
-        
+
         Some(MerkleProof {
             leaf_hash,
             leaf_id,
@@ -293,7 +293,7 @@ impl MerkleTree {
                     });
                     return Some(result);
                 }
-                
+
                 // Try right subtree
                 if let Some(result) = Self::find_path_to_hash(right, target, path) {
                     // Target is in right subtree, sibling is on the left
@@ -303,7 +303,7 @@ impl MerkleTree {
                     });
                     return Some(result);
                 }
-                
+
                 None
             }
         }
@@ -402,9 +402,7 @@ mod tests {
 
     #[test]
     fn test_merkle_proof_not_found() {
-        let leaves = vec![
-            ("a".to_string(), Hash::digest(b"data_a")),
-        ];
+        let leaves = vec![("a".to_string(), Hash::digest(b"data_a"))];
         let tree = MerkleTree::from_leaves(leaves);
 
         let fake_hash = Hash::digest(b"not_in_tree");
@@ -442,8 +440,11 @@ mod tests {
 
         // Tamper with the leaf hash
         proof.leaf_hash = Hash::digest(b"tampered");
-        
+
         // Should fail verification
-        assert!(!proof.verify(tree.root_hash().unwrap()), "Tampered proof should fail");
+        assert!(
+            !proof.verify(tree.root_hash().unwrap()),
+            "Tampered proof should fail"
+        );
     }
 }
