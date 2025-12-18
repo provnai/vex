@@ -439,11 +439,11 @@ mod tests {
     fn test_registry_duplicate_rejection() {
         let mut registry = ToolRegistry::new();
         registry.register(Arc::new(MockTool::new("dup")));
-        
+
         // Second registration should fail
         let duplicate = Arc::new(MockTool::new("dup"));
         assert!(!registry.register(duplicate));
-        
+
         // Still only one tool
         assert_eq!(registry.len(), 1);
     }
@@ -464,4 +464,3 @@ mod tests {
         assert!(!caps.contains(&Capability::FileSystem));
     }
 }
-

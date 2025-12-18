@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// A semantic rule extracted from a batch of experiments
 #[derive(Debug, Clone, Serialize, Deserialize)]

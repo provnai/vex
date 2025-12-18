@@ -147,7 +147,10 @@ impl Tool for JsonPathTool {
     fn validate(&self, args: &Value) -> Result<(), ToolError> {
         // Check data exists
         if args.get("data").is_none() {
-            return Err(ToolError::invalid_args("json_path", "Missing required field 'data'"));
+            return Err(ToolError::invalid_args(
+                "json_path",
+                "Missing required field 'data'",
+            ));
         }
 
         // Check path exists and is valid
@@ -161,7 +164,10 @@ impl Tool for JsonPathTool {
         }
 
         if path.len() > 200 {
-            return Err(ToolError::invalid_args("json_path", "Path too long (max 200 characters)"));
+            return Err(ToolError::invalid_args(
+                "json_path",
+                "Path too long (max 200 characters)",
+            ));
         }
 
         Ok(())

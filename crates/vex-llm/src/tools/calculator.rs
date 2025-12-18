@@ -201,9 +201,7 @@ mod tests {
     #[tokio::test]
     async fn test_division_by_zero() {
         let calc = CalculatorTool::new();
-        let result = calc
-            .execute(serde_json::json!({"expression": "1/0"}))
-            .await;
+        let result = calc.execute(serde_json::json!({"expression": "1/0"})).await;
 
         assert!(matches!(result, Err(ToolError::ExecutionFailed { .. })));
     }

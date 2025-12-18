@@ -16,8 +16,8 @@
 //! - [Google A2A Blog](https://developers.googleblog.com/en/a2a-agent-protocol/)
 
 pub mod agent_card;
-pub mod task;
 pub mod handler;
+pub mod task;
 
-pub use agent_card::{AgentCard, Skill, AuthConfig};
+pub use agent_card::{AgentCard, AuthConfig, Skill};
 pub use task::{TaskRequest, TaskResponse, TaskStatus};

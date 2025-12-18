@@ -141,7 +141,9 @@ impl AgentCard {
     /// Create the default VEX agent card
     pub fn vex_default() -> Self {
         Self::new("vex-agent")
-            .with_description("VEX Protocol agent with adversarial verification and cryptographic proofs")
+            .with_description(
+                "VEX Protocol agent with adversarial verification and cryptographic proofs",
+            )
             .with_skill("verify", "Verify a claim using adversarial red/blue debate")
             .with_skill("hash", "Compute SHA-256 hash of content")
             .with_skill("merkle_root", "Get current Merkle root for audit chain")
@@ -166,7 +168,11 @@ impl Default for AuthConfig {
 
 impl Skill {
     /// Create a new skill
-    pub fn new(id: impl Into<String>, name: impl Into<String>, description: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        description: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),

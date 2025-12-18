@@ -92,10 +92,7 @@ impl Tool for UuidTool {
                     ));
                 }
             } else if !count.is_null() {
-                return Err(ToolError::invalid_args(
-                    "uuid",
-                    "Count must be an integer",
-                ));
+                return Err(ToolError::invalid_args("uuid", "Count must be an integer"));
             }
         }
 
@@ -104,7 +101,10 @@ impl Tool for UuidTool {
             if fmt != "hyphenated" && fmt != "simple" && fmt != "urn" {
                 return Err(ToolError::invalid_args(
                     "uuid",
-                    format!("Invalid format '{}'. Must be 'hyphenated', 'simple', or 'urn'", fmt),
+                    format!(
+                        "Invalid format '{}'. Must be 'hyphenated', 'simple', or 'urn'",
+                        fmt
+                    ),
                 ));
             }
         }
@@ -113,10 +113,7 @@ impl Tool for UuidTool {
     }
 
     async fn execute(&self, args: Value) -> Result<Value, ToolError> {
-        let count = args
-            .get("count")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(1) as usize;
+        let count = args.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
 
         let format = args
             .get("format")
@@ -162,7 +159,7 @@ mod tests {
 
         assert!(result["uuid"].is_string());
         let uuid = result["uuid"].as_str().unwrap();
-        
+
         // Validate UUID format (hyphenated has 36 chars)
         assert_eq!(uuid.len(), 36);
         assert!(uuid.contains('-'));
@@ -171,10 +168,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_multiple_uuids() {
         let tool = UuidTool::new();
-        let result = tool
-            .execute(serde_json::json!({"count": 5}))
-            .await
-            .unwrap();
+        let result = tool.execute(serde_json::json!({"count": 5})).await.unwrap();
 
         let uuids = result["uuids"].as_array().unwrap();
         assert_eq!(uuids.len(), 5);

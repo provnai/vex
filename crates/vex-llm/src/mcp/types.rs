@@ -2,8 +2,8 @@
 //!
 //! Core types for MCP protocol integration.
 
-use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 /// MCP client configuration
 ///
@@ -106,10 +106,7 @@ pub enum McpError {
 impl McpError {
     /// Check if error is recoverable
     pub fn is_retryable(&self) -> bool {
-        matches!(
-            self,
-            Self::ConnectionFailed(_) | Self::Timeout(_)
-        )
+        matches!(self, Self::ConnectionFailed(_) | Self::Timeout(_))
     }
 }
 

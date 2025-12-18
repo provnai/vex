@@ -66,4 +66,3 @@ pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicE
 pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleTree};
 pub use rule::OptimizationRule;
-

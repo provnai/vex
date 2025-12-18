@@ -72,7 +72,7 @@ impl GenomeExperiment {
         let overall_fitness = if overall.is_finite() && overall >= 0.0 && overall <= 1.0 {
             overall
         } else {
-            0.5  // Safe default for invalid input
+            0.5 // Safe default for invalid input
         };
 
         // Sanitize task summary (security: prevent log injection)
@@ -80,9 +80,9 @@ impl GenomeExperiment {
             .chars()
             .filter(|c| {
                 // Allow alphanumeric, whitespace, and safe punctuation
-                c.is_alphanumeric() 
-                || c.is_whitespace() && *c == ' '  // Only spaces, no CRLF
-                || ".,!?-_:;()[]{}".contains(*c)
+                c.is_alphanumeric()
+                    || c.is_whitespace() && *c == ' ' // Only spaces, no CRLF
+                    || ".,!?-_:;()[]{}".contains(*c)
             })
             .take(200)
             .collect();
@@ -174,11 +174,17 @@ mod tests {
         let genome = Genome::new("test");
         let malicious = "Task\x00\n\rINJECTED\x1b[31mRED";
         let exp = GenomeExperiment::new(&genome, HashMap::new(), 0.5, malicious);
-        
+
         assert!(!exp.task_summary.contains('\x00'), "Null byte not removed");
         assert!(!exp.task_summary.contains('\n'), "Newline not removed");
-        assert!(!exp.task_summary.contains('\r'), "Carriage return not removed");
-        assert!(!exp.task_summary.contains('\x1b'), "Escape sequence not removed");
+        assert!(
+            !exp.task_summary.contains('\r'),
+            "Carriage return not removed"
+        );
+        assert!(
+            !exp.task_summary.contains('\x1b'),
+            "Escape sequence not removed"
+        );
     }
 
     #[test]
@@ -189,17 +195,17 @@ mod tests {
         scores.insert("inf_metric".to_string(), f64::INFINITY);
         scores.insert("valid_metric".to_string(), 0.8);
         scores.insert("out_of_range".to_string(), 1.5);
-        
+
         let exp = GenomeExperiment::new(&genome, scores, f64::NAN, "task");
-        
+
         // NaN/Inf should be filtered out
         assert!(exp.fitness_scores.get("nan_metric").is_none());
         assert!(exp.fitness_scores.get("inf_metric").is_none());
         assert!(exp.fitness_scores.get("out_of_range").is_none());
-        
+
         // Valid should be kept
         assert_eq!(exp.fitness_scores.get("valid_metric"), Some(&0.8));
-        
+
         // Overall fitness should default to 0.5 for NaN
         assert_eq!(exp.overall_fitness, 0.5);
     }
@@ -208,12 +214,12 @@ mod tests {
     fn test_fitness_key_length_limit() {
         let genome = Genome::new("test");
         let mut scores = HashMap::new();
-        scores.insert("A".repeat(200), 0.5);  // Too long
+        scores.insert("A".repeat(200), 0.5); // Too long
         scores.insert("valid_key".to_string(), 0.8);
-        scores.insert("".to_string(), 0.9);  // Empty
-        
+        scores.insert("".to_string(), 0.9); // Empty
+
         let exp = GenomeExperiment::new(&genome, scores, 0.5, "task");
-        
+
         // Long and empty keys should be filtered
         assert!(exp.fitness_scores.len() == 1);
         assert_eq!(exp.fitness_scores.get("valid_key"), Some(&0.8));

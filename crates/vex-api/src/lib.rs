@@ -23,7 +23,7 @@ pub mod server;
 pub mod state;
 pub mod telemetry;
 
+pub use a2a::{AgentCard, TaskRequest, TaskResponse, TaskStatus};
 pub use auth::{Claims, JwtAuth};
 pub use error::{ApiError, ApiResult};
 pub use server::{ServerConfig, VexServer};
-pub use a2a::{AgentCard, TaskRequest, TaskResponse, TaskStatus};

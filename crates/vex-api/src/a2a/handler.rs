@@ -47,9 +47,7 @@ impl Default for A2aState {
 ///
 /// Returns the A2A Agent Card describing this agent's capabilities.
 /// This endpoint is public per the A2A spec.
-pub async fn agent_card_handler(
-    State(state): State<Arc<A2aState>>,
-) -> Json<AgentCard> {
+pub async fn agent_card_handler(State(state): State<Arc<A2aState>>) -> Json<AgentCard> {
     Json(state.agent_card.clone())
 }
 
@@ -69,13 +67,13 @@ pub async fn create_task_handler(
     // In a full implementation, we'd check:
     // 1. Nonce hasn't been seen before
     // 2. Timestamp is within acceptable window (e.g., 5 minutes)
-    
+
     // For now, return a pending response
     // In a full implementation, this would:
     // 1. Queue the task for execution
     // 2. Return immediately with pending status
     // 3. Execute asynchronously
-    
+
     let response = TaskResponse::pending(request.id);
     (StatusCode::ACCEPTED, Json(response))
 }
@@ -89,7 +87,7 @@ pub async fn get_task_handler(
 ) -> Result<Json<TaskResponse>, StatusCode> {
     // In a full implementation, this would look up the task from storage
     // For now, return a placeholder response
-    
+
     // Simulate task not found for non-existent tasks
     // In reality, we'd query task storage
     let response = TaskResponse::pending(task_id);
@@ -106,7 +104,7 @@ pub async fn get_task_handler(
 /// ```
 pub fn a2a_routes(state: Arc<A2aState>) -> axum::Router {
     use axum::routing::{get, post};
-    
+
     axum::Router::new()
         .route("/.well-known/agent.json", get(agent_card_handler))
         .route("/a2a/tasks", post(create_task_handler))

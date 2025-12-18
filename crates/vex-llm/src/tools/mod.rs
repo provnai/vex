@@ -25,8 +25,8 @@ pub use json_path::JsonPathTool;
 pub use regex::RegexTool;
 pub use uuid_tool::UuidTool;
 
-use std::sync::Arc;
 use crate::tool::ToolRegistry;
+use std::sync::Arc;
 
 /// Create a registry with all built-in tools pre-registered
 ///
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn test_builtin_registry() {
         let registry = builtin_registry();
-        
+
         assert!(registry.contains("calculator"));
         assert!(registry.contains("datetime"));
         assert!(registry.contains("uuid"));

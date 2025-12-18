@@ -102,9 +102,7 @@ impl ToolResult {
         });
 
         // Compute SHA-256 hash
-        let hash = Hash::digest(
-            &serde_json::to_vec(&hash_input).unwrap_or_default()
-        );
+        let hash = Hash::digest(&serde_json::to_vec(&hash_input).unwrap_or_default());
 
         Self {
             output,
@@ -136,9 +134,7 @@ impl ToolResult {
             "tool": &self.tool_name,
         });
 
-        let expected = Hash::digest(
-            &serde_json::to_vec(&hash_input).unwrap_or_default()
-        );
+        let expected = Hash::digest(&serde_json::to_vec(&hash_input).unwrap_or_default());
 
         self.hash == expected
     }
@@ -179,7 +175,12 @@ mod tests {
     #[test]
     fn test_result_creation() {
         let args = json!({"expression": "1+1"});
-        let result = ToolResult::new("calculator", &args, json!({"result": 2}), Duration::from_millis(10));
+        let result = ToolResult::new(
+            "calculator",
+            &args,
+            json!({"result": 2}),
+            Duration::from_millis(10),
+        );
 
         assert_eq!(result.tool_name, "calculator");
         assert_eq!(result.output["result"], 2);
@@ -190,7 +191,12 @@ mod tests {
     #[test]
     fn test_hash_verification() {
         let args = json!({"expression": "2+2"});
-        let result = ToolResult::new("calculator", &args, json!({"result": 4}), Duration::from_millis(5));
+        let result = ToolResult::new(
+            "calculator",
+            &args,
+            json!({"result": 4}),
+            Duration::from_millis(5),
+        );
 
         // Valid verification
         assert!(result.verify(&args));
@@ -203,8 +209,13 @@ mod tests {
     #[test]
     fn test_with_tokens() {
         let args = json!({});
-        let result = ToolResult::new("llm_tool", &args, json!({"text": "hello"}), Duration::from_millis(100))
-            .with_tokens(150);
+        let result = ToolResult::new(
+            "llm_tool",
+            &args,
+            json!({"text": "hello"}),
+            Duration::from_millis(100),
+        )
+        .with_tokens(150);
 
         assert_eq!(result.tokens_used, Some(150));
     }

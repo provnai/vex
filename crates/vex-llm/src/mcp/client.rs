@@ -19,9 +19,9 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
+use super::types::{McpConfig, McpError, McpToolInfo};
 use crate::tool::{Capability, Tool, ToolDefinition};
 use crate::tool_error::ToolError;
-use super::types::{McpConfig, McpToolInfo, McpError};
 
 /// MCP Client for connecting to and interacting with MCP servers.
 ///
@@ -62,7 +62,7 @@ impl McpClient {
     pub async fn connect(url: &str, config: McpConfig) -> Result<Self, McpError> {
         // Validate URL
         let is_localhost = url.contains("localhost") || url.contains("127.0.0.1");
-        
+
         // Enforce TLS for remote connections
         if config.require_tls && !is_localhost {
             if !url.starts_with("wss://") && !url.starts_with("https://") {
@@ -165,7 +165,7 @@ pub struct McpToolAdapter {
 
 impl McpToolAdapter {
     /// Create a new adapter for an MCP tool
-    /// 
+    ///
     /// # Note
     /// Uses Box::leak to create 'static strings from owned strings.
     /// This is a small, intentional memory leak (~100 bytes per tool)
@@ -178,11 +178,11 @@ impl McpToolAdapter {
         let parameters: &'static str = Box::leak(
             serde_json::to_string(&info.input_schema)
                 .unwrap_or_default()
-                .into_boxed_str()
+                .into_boxed_str(),
         );
-        
+
         let definition = ToolDefinition::new(name, description, parameters);
-        
+
         Self {
             client,
             info,
@@ -248,7 +248,9 @@ mod tests {
     #[tokio::test]
     async fn test_list_tools_empty() {
         let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config).await.unwrap();
+        let client = McpClient::connect("ws://localhost:8080", config)
+            .await
+            .unwrap();
         let tools = client.list_tools().await.unwrap();
         assert!(tools.is_empty());
     }
@@ -256,15 +258,21 @@ mod tests {
     #[tokio::test]
     async fn test_call_tool() {
         let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config).await.unwrap();
-        let result = client.call_tool("test_tool", serde_json::json!({"arg": "value"})).await;
+        let client = McpClient::connect("ws://localhost:8080", config)
+            .await
+            .unwrap();
+        let result = client
+            .call_tool("test_tool", serde_json::json!({"arg": "value"}))
+            .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_disconnect() {
         let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config).await.unwrap();
+        let client = McpClient::connect("ws://localhost:8080", config)
+            .await
+            .unwrap();
         assert!(client.is_connected().await);
         client.disconnect().await;
         assert!(!client.is_connected().await);

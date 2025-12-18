@@ -13,10 +13,14 @@ pub enum EvolutionStoreError {
 #[async_trait]
 pub trait EvolutionStore: Send + Sync {
     /// Save an experiment to persistent storage
-    async fn save_experiment(&self, experiment: &GenomeExperiment) -> Result<(), EvolutionStoreError>;
+    async fn save_experiment(
+        &self,
+        experiment: &GenomeExperiment,
+    ) -> Result<(), EvolutionStoreError>;
 
     /// Load recent experiments
-    async fn load_recent(&self, limit: usize) -> Result<Vec<GenomeExperiment>, EvolutionStoreError>;
+    async fn load_recent(&self, limit: usize)
+        -> Result<Vec<GenomeExperiment>, EvolutionStoreError>;
 
     /// Save an optimization rule (semantic lesson)
     async fn save_rule(&self, rule: &OptimizationRule) -> Result<(), EvolutionStoreError>;
@@ -41,7 +45,10 @@ impl SqliteEvolutionStore {
 #[cfg(feature = "sqlite")]
 #[async_trait]
 impl EvolutionStore for SqliteEvolutionStore {
-    async fn save_experiment(&self, experiment: &GenomeExperiment) -> Result<(), EvolutionStoreError> {
+    async fn save_experiment(
+        &self,
+        experiment: &GenomeExperiment,
+    ) -> Result<(), EvolutionStoreError> {
         let traits_json = serde_json::to_string(&experiment.traits)?;
         let trait_names_json = serde_json::to_string(&experiment.trait_names)?;
         let fitness_json = serde_json::to_string(&experiment.fitness_scores)?;
@@ -67,9 +74,12 @@ impl EvolutionStore for SqliteEvolutionStore {
         Ok(())
     }
 
-    async fn load_recent(&self, limit: usize) -> Result<Vec<GenomeExperiment>, EvolutionStoreError> {
+    async fn load_recent(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<GenomeExperiment>, EvolutionStoreError> {
         use sqlx::Row;
-        
+
         let rows = sqlx::query(
             r#"
             SELECT 
@@ -93,7 +103,7 @@ impl EvolutionStore for SqliteEvolutionStore {
             let traits = serde_json::from_str(&traits_str)?;
             let trait_names = serde_json::from_str(&trait_names_str)?;
             let fitness_scores = serde_json::from_str(&fitness_scores_str)?;
-            
+
             // We reconstruct the experiment
             let exp = GenomeExperiment {
                 id: uuid::Uuid::parse_str(&id_str).unwrap_or_default(),

@@ -243,10 +243,15 @@ mod tests {
     fn test_tool_chunk_is_terminal() {
         assert!(!ToolChunk::progress(50.0, "").is_terminal());
         assert!(!ToolChunk::partial(serde_json::json!({}), 0).is_terminal());
-        
-        let result = ToolResult::new("test", &serde_json::json!({}), serde_json::json!({}), Duration::from_secs(1));
+
+        let result = ToolResult::new(
+            "test",
+            &serde_json::json!({}),
+            serde_json::json!({}),
+            Duration::from_secs(1),
+        );
         assert!(ToolChunk::complete(result).is_terminal());
-        
+
         assert!(ToolChunk::error("test", "not found").is_terminal());
     }
 

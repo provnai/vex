@@ -10,9 +10,9 @@
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 use colored::Colorize;
-use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table, Cell, Color};
+use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Cell, Color, Table};
 
-use vex_llm::{ToolExecutor, tools::builtin_registry};
+use vex_llm::{tools::builtin_registry, ToolExecutor};
 
 /// Arguments for the tools command
 #[derive(Args)]
@@ -96,7 +96,10 @@ fn list_tools() -> Result<()> {
 
     println!("{table}");
     println!();
-    println!("Run a tool: {}", "vex tools run <name> '<json_args>'".green());
+    println!(
+        "Run a tool: {}",
+        "vex tools run <name> '<json_args>'".green()
+    );
     println!("Show schema: {}", "vex tools schema <name>".green());
 
     Ok(())
@@ -108,8 +111,8 @@ async fn run_tool(name: &str, args_str: &str, raw: bool) -> Result<()> {
     let executor = ToolExecutor::new(registry);
 
     // Parse JSON arguments
-    let args: serde_json::Value = serde_json::from_str(args_str)
-        .with_context(|| format!("Invalid JSON: {}", args_str))?;
+    let args: serde_json::Value =
+        serde_json::from_str(args_str).with_context(|| format!("Invalid JSON: {}", args_str))?;
 
     if !raw {
         println!("{} Running tool '{}'...", "⚙".blue(), name.green());
@@ -142,7 +145,10 @@ fn show_schema(name: &str) -> Result<()> {
     let registry = builtin_registry();
 
     let tool = registry.get(name).ok_or_else(|| {
-        anyhow::anyhow!("Tool '{}' not found. Run 'vex tools list' to see available tools.", name)
+        anyhow::anyhow!(
+            "Tool '{}' not found. Run 'vex tools list' to see available tools.",
+            name
+        )
     })?;
 
     let def = tool.definition();
@@ -158,8 +164,8 @@ fn show_schema(name: &str) -> Result<()> {
     println!("{}", "Parameters (JSON Schema):".bold());
 
     // Pretty print the parameters JSON
-    let params: serde_json::Value = serde_json::from_str(def.parameters)
-        .unwrap_or(serde_json::json!({}));
+    let params: serde_json::Value =
+        serde_json::from_str(def.parameters).unwrap_or(serde_json::json!({}));
     println!("{}", serde_json::to_string_pretty(&params)?);
 
     println!();

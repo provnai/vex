@@ -34,8 +34,14 @@ pub async fn run(args: VerifyArgs) -> Result<()> {
         println!("{}", "═".repeat(40).cyan());
         println!();
         println!("Usage:");
-        println!("  {} Verify an exported audit file", "vex verify --audit session.json".green());
-        println!("  {} Verify a VEX database", "vex verify --db vex.db".green());
+        println!(
+            "  {} Verify an exported audit file",
+            "vex verify --audit session.json".green()
+        );
+        println!(
+            "  {} Verify a VEX database",
+            "vex verify --db vex.db".green()
+        );
         println!();
         println!("The verify command checks the integrity of VEX audit chains");
         println!("using Merkle tree verification.");
@@ -65,8 +71,8 @@ async fn verify_audit_file(path: &PathBuf, detailed: bool) -> Result<()> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read audit file: {}", path.display()))?;
 
-    let audit_data: serde_json::Value = serde_json::from_str(&content)
-        .with_context(|| "Failed to parse audit JSON")?;
+    let audit_data: serde_json::Value =
+        serde_json::from_str(&content).with_context(|| "Failed to parse audit JSON")?;
 
     // Extract events
     let events = audit_data
@@ -94,7 +100,7 @@ async fn verify_audit_file(path: &PathBuf, detailed: bool) -> Result<()> {
     // Verification result
     if chain_valid {
         println!("{} Chain integrity verified", "✓".green().bold());
-        
+
         if detailed {
             println!();
             println!("{}", "Event Summary:".bold());
@@ -108,7 +114,12 @@ async fn verify_audit_file(path: &PathBuf, detailed: bool) -> Result<()> {
                         .get("timestamp")
                         .and_then(|t| t.as_str())
                         .unwrap_or("");
-                    println!("  {}. {} @ {}", i + 1, event_type.yellow(), timestamp.dimmed());
+                    println!(
+                        "  {}. {} @ {}",
+                        i + 1,
+                        event_type.yellow(),
+                        timestamp.dimmed()
+                    );
                 }
                 if events_arr.len() > 10 {
                     println!("  ... and {} more events", events_arr.len() - 10);
@@ -132,16 +143,23 @@ async fn verify_database(path: &PathBuf, detailed: bool) -> Result<()> {
     println!();
 
     if !path.exists() {
-        println!("{} Database file not found: {}", "✗".red().bold(), path.display());
+        println!(
+            "{} Database file not found: {}",
+            "✗".red().bold(),
+            path.display()
+        );
         std::process::exit(1);
     }
 
     println!("  {} {}", "Database:".dimmed(), path.display());
-    
+
     // TODO: Integrate with vex-persist when audit store is accessible
     // For now, show placeholder
     println!();
-    println!("{}", "Note: Direct database verification requires vex-persist integration.".yellow());
+    println!(
+        "{}",
+        "Note: Direct database verification requires vex-persist integration.".yellow()
+    );
     println!("For now, export the audit chain to JSON and verify with --audit.");
 
     if detailed {

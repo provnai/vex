@@ -17,7 +17,10 @@ pub struct InfoArgs;
 pub fn run(_args: InfoArgs) -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
 
-    println!("{}", "VEX - Verified Evolutionary Xenogenesis".bold().cyan());
+    println!(
+        "{}",
+        "VEX - Verified Evolutionary Xenogenesis".bold().cyan()
+    );
     println!("{}", "═".repeat(50).cyan());
     println!();
 
@@ -47,8 +50,16 @@ pub fn run(_args: InfoArgs) -> Result<()> {
     println!();
 
     println!("{}", "Links:".bold());
-    println!("  {} {}", "Repository:".dimmed(), "https://github.com/provnai/vex".underline());
-    println!("  {} {}", "Documentation:".dimmed(), "https://provnai.dev/docs".underline());
+    println!(
+        "  {} {}",
+        "Repository:".dimmed(),
+        "https://github.com/provnai/vex".underline()
+    );
+    println!(
+        "  {} {}",
+        "Documentation:".dimmed(),
+        "https://provnai.dev/docs".underline()
+    );
     println!();
 
     Ok(())

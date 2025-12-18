@@ -114,11 +114,7 @@ impl EvaluationContext {
 #[async_trait]
 pub trait FitnessEvaluator: Send + Sync {
     /// Evaluate agent response and return fitness report
-    async fn evaluate(
-        &self,
-        response: &str,
-        context: &EvaluationContext,
-    ) -> FitnessReport;
+    async fn evaluate(&self, response: &str, context: &EvaluationContext) -> FitnessReport;
 }
 
 /// Default metric weights (sum to 1.0)
@@ -138,11 +134,7 @@ pub struct HeuristicEvaluator;
 
 #[async_trait]
 impl FitnessEvaluator for HeuristicEvaluator {
-    async fn evaluate(
-        &self,
-        response: &str,
-        context: &EvaluationContext,
-    ) -> FitnessReport {
+    async fn evaluate(&self, response: &str, context: &EvaluationContext) -> FitnessReport {
         let mut metrics = HashMap::new();
 
         // Task completion: check if response is non-empty and substantial
@@ -158,7 +150,11 @@ impl FitnessEvaluator for HeuristicEvaluator {
         // Coherence: check sentence structure (simple heuristic)
         let sentences = response.matches('.').count();
         let words = response.split_whitespace().count();
-        let avg_sentence_len = if sentences > 0 { words / sentences } else { words };
+        let avg_sentence_len = if sentences > 0 {
+            words / sentences
+        } else {
+            words
+        };
         let coherence = if (10..40).contains(&avg_sentence_len) {
             0.8
         } else if avg_sentence_len < 60 {
@@ -184,14 +180,15 @@ impl FitnessEvaluator for HeuristicEvaluator {
         if let Some(expected) = &context.expected_outcome {
             let expected_lower = expected.to_lowercase();
             let response_lower = response.to_lowercase();
-            let accuracy = if response_lower.contains(&expected_lower) 
-                || expected_lower.contains(&response_lower) {
+            let accuracy = if response_lower.contains(&expected_lower)
+                || expected_lower.contains(&response_lower)
+            {
                 0.9
             } else {
                 // Check word overlap
-                let expected_words: std::collections::HashSet<_> = 
+                let expected_words: std::collections::HashSet<_> =
                     expected_lower.split_whitespace().collect();
-                let response_words: std::collections::HashSet<_> = 
+                let response_words: std::collections::HashSet<_> =
                     response_lower.split_whitespace().collect();
                 let overlap = expected_words.intersection(&response_words).count();
                 let total = expected_words.len().max(1);
@@ -240,13 +237,13 @@ mod tests {
     async fn test_heuristic_evaluator() {
         let evaluator = HeuristicEvaluator;
         let context = EvaluationContext::new("Explain quantum computing");
-        
+
         let response = "Quantum computing uses quantum bits or qubits. \
             Unlike classical bits that are 0 or 1, qubits can be in superposition. \
             This allows quantum computers to process many possibilities simultaneously.";
 
         let report = evaluator.evaluate(response, &context).await;
-        
+
         assert!(report.overall > 0.5);
         assert!(report.metrics.contains_key("task_completion"));
         assert!(report.metrics.contains_key("coherence"));
@@ -255,11 +252,10 @@ mod tests {
     #[tokio::test]
     async fn test_evaluator_with_expected() {
         let evaluator = HeuristicEvaluator;
-        let context = EvaluationContext::new("What is 2+2?")
-            .with_expected("4");
-        
+        let context = EvaluationContext::new("What is 2+2?").with_expected("4");
+
         let report = evaluator.evaluate("The answer is 4", &context).await;
-        
+
         assert!(*report.metrics.get("factual_accuracy").unwrap_or(&0.0) > 0.5);
     }
 }

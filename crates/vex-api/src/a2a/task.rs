@@ -149,7 +149,7 @@ mod tests {
         let req = TaskRequest::new("verify", serde_json::json!({}))
             .with_caller("other-agent")
             .with_nonce("abc123");
-        
+
         assert_eq!(req.caller_agent, Some("other-agent".to_string()));
         assert_eq!(req.nonce, Some("abc123".to_string()));
     }
@@ -158,7 +158,7 @@ mod tests {
     fn test_task_response_completed() {
         let id = Uuid::new_v4();
         let resp = TaskResponse::completed(id, serde_json::json!({"verified": true}), "hash123");
-        
+
         assert_eq!(resp.id, id);
         assert_eq!(resp.status, TaskStatus::Completed);
         assert!(resp.result.is_some());
@@ -169,7 +169,7 @@ mod tests {
     fn test_task_response_failed() {
         let id = Uuid::new_v4();
         let resp = TaskResponse::failed(id, "Verification failed");
-        
+
         assert_eq!(resp.status, TaskStatus::Failed);
         assert_eq!(resp.error, Some("Verification failed".to_string()));
     }
@@ -179,7 +179,7 @@ mod tests {
         let req = TaskRequest::new("hash", serde_json::json!({"text": "hello"}));
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("hash"));
-        
+
         let resp = TaskResponse::pending(req.id);
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("pending"));

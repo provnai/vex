@@ -63,6 +63,7 @@
 
 pub mod config;
 pub mod deepseek;
+pub mod mcp;
 pub mod metrics;
 pub mod mistral;
 pub mod mock;
@@ -76,7 +77,6 @@ pub mod tool_error;
 pub mod tool_executor;
 pub mod tool_result;
 pub mod tools;
-pub mod mcp;
 
 pub use config::{ConfigError, LlmConfig, VexConfig};
 pub use deepseek::DeepSeekProvider;
@@ -87,9 +87,9 @@ pub use ollama::OllamaProvider;
 pub use openai::OpenAIProvider;
 pub use provider::{LlmError, LlmProvider, LlmRequest, LlmResponse};
 pub use rate_limit::{RateLimitConfig, RateLimitError, RateLimitedProvider, RateLimiter};
+pub use streaming_tool::{StreamConfig, StreamingTool, ToolChunk, ToolStream};
 pub use tool::{Capability, Tool, ToolDefinition, ToolRegistry};
 pub use tool_error::ToolError;
 pub use tool_executor::ToolExecutor;
 pub use tool_result::ToolResult;
 pub use tools::{CalculatorTool, DateTimeTool, HashTool, JsonPathTool, RegexTool, UuidTool};
-pub use streaming_tool::{StreamConfig, StreamingTool, ToolChunk, ToolStream};

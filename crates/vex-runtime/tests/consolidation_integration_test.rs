@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use vex_core::{GenomeExperiment, OptimizationRule};
-use vex_persist::{SqliteEvolutionStore, EvolutionStore};
-use vex_runtime::{Orchestrator, OrchestratorConfig};
-use vex_llm::{LlmProvider, LlmRequest, LlmResponse, LlmError};
 use async_trait::async_trait;
 use sqlx::sqlite::SqlitePoolOptions;
+use std::sync::Arc;
+use vex_core::{GenomeExperiment, OptimizationRule};
+use vex_llm::{LlmError, LlmProvider, LlmRequest, LlmResponse};
+use vex_persist::{EvolutionStore, SqliteEvolutionStore};
+use vex_runtime::{Orchestrator, OrchestratorConfig};
 
 #[derive(Debug)]
 struct MockLlm {
@@ -20,11 +20,19 @@ impl vex_runtime::executor::LlmBackend for MockLlm {
 
 #[async_trait]
 impl LlmProvider for MockLlm {
-    fn name(&self) -> &str { "Mock" }
-    async fn is_available(&self) -> bool { true }
+    fn name(&self) -> &str {
+        "Mock"
+    }
+    async fn is_available(&self) -> bool {
+        true
+    }
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
         // Return a JSON rule response if prompted for consolidation
-        if request.prompt.to_lowercase().contains("extract universal optimization rules") {
+        if request
+            .prompt
+            .to_lowercase()
+            .contains("extract universal optimization rules")
+        {
             return Ok(LlmResponse {
                 content: r#"[
                     {
@@ -32,7 +40,8 @@ impl LlmProvider for MockLlm {
                         "traits": ["exploration"],
                         "confidence": 0.9
                     }
-                ]"#.to_string(),
+                ]"#
+                .to_string(),
                 model: "mock".to_string(),
                 tokens_used: Some(10),
                 latency_ms: 10,
@@ -50,10 +59,8 @@ impl LlmProvider for MockLlm {
 #[tokio::test]
 async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Setup DB
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
-        .await?;
-    
+    let pool = SqlitePoolOptions::new().connect("sqlite::memory:").await?;
+
     // Create tables (since we use raw store, we must init schema)
     sqlx::query(
         r#"
@@ -85,7 +92,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     let llm = Arc::new(MockLlm { responses: vec![] });
     let mut config = OrchestratorConfig::default();
     config.enable_self_correction = true;
-    
+
     let orchestrator = Orchestrator::new(llm, config, Some(store.clone()));
 
     // 3. Fill Memory manually (> 50)
@@ -100,7 +107,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     // However, `evolve_agents_self_correcting` adds to memory.
     // We can simulate evolution by calling `process`?
     // 50 calls with mock LLM is fast.
-    
+
     for _i in 0..75 {
         let _ = orchestrator.process("test query").await;
     }
@@ -109,9 +116,12 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     // The consolidation happens async at end of process.
     // Check store for rules.
     let rules = store.load_rules().await?;
-    
+
     // We expect at least one consolidation event occurred
-    assert!(!rules.is_empty(), "Rules should be generated after 55 iterations");
+    assert!(
+        !rules.is_empty(),
+        "Rules should be generated after 55 iterations"
+    );
     assert_eq!(rules[0].rule_description, "High exploration aids discovery");
 
     Ok(())

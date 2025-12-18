@@ -98,7 +98,7 @@ pub struct Orchestrator<L: LlmBackend + vex_llm::LlmProvider> {
 impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     /// Create a new orchestrator
     pub fn new(
-        llm: Arc<L>, 
+        llm: Arc<L>,
         config: OrchestratorConfig,
         persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
     ) -> Self {
@@ -237,7 +237,8 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         // Evolution step (if enabled)
         if self.config.enable_evolution {
             if self.config.enable_self_correction {
-                self.evolve_agents_self_correcting(&mut agents, &all_results).await;
+                self.evolve_agents_self_correcting(&mut agents, &all_results)
+                    .await;
             } else {
                 self.evolve_agents(&mut agents, &all_results);
             }
@@ -308,12 +309,12 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
     }
 
     /// Self-correcting evolution using temporal memory and statistical learning
-    /// 
+    ///
     /// This enhances basic evolution with:
     /// - Temporal memory of past experiments  
     /// - Statistical correlation learning (Pearson)
     /// - Intelligent trait adjustment suggestions
-    /// 
+    ///
     /// # Modular Design
     /// Users can override this for custom strategies.
     async fn evolve_agents_self_correcting(
@@ -334,12 +335,12 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         let experiments_to_save: Vec<vex_core::GenomeExperiment> = {
             let mut memory_guard = memory.write().await;
             let mut experiments = Vec::new();
-            
+
             for (id, result) in results {
                 if let Some(tracked) = agents.get(id) {
                     let mut fitness_scores = std::collections::HashMap::new();
                     fitness_scores.insert("confidence".to_string(), result.confidence);
-                    
+
                     let experiment = vex_core::GenomeExperiment::new(
                         &tracked.agent.genome,
                         fitness_scores,
@@ -363,8 +364,11 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         }
 
         // Find best performer
-        let best = results.iter()
-            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        let best = results.iter().max_by(|a, b| {
+            a.1.confidence
+                .partial_cmp(&b.1.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         if let Some((best_id, best_result)) = best {
             if let Some(tracked) = agents.get_mut(best_id) {
@@ -372,19 +376,23 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                 let suggestions = if let Some(ref reflection) = self.reflection_agent {
                     // Use ReflectionAgent for LLM + statistical suggestions
                     let memory_guard = memory.read().await;
-                    
-                    let reflection_result = reflection.reflect(
-                        &tracked.agent,
-                        &format!("Orchestrated task at depth {}", tracked.agent.depth),
-                        &best_result.response,
-                        best_result.confidence,
-                        &memory_guard,
-                    ).await;
-                    
+
+                    let reflection_result = reflection
+                        .reflect(
+                            &tracked.agent,
+                            &format!("Orchestrated task at depth {}", tracked.agent.depth),
+                            &best_result.response,
+                            best_result.confidence,
+                            &memory_guard,
+                        )
+                        .await;
+
                     drop(memory_guard);
-                    
+
                     // Convert to trait adjustments format
-                    reflection_result.adjustments.into_iter()
+                    reflection_result
+                        .adjustments
+                        .into_iter()
                         .map(|(name, current, suggested)| {
                             vex_core::TraitAdjustment {
                                 trait_name: name,
@@ -405,7 +413,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
 
                 if !suggestions.is_empty() {
                     let old_traits = tracked.agent.genome.traits.clone();
-                    
+
                     // Apply suggestions with high confidence
                     for (i, name) in tracked.agent.genome.trait_names.iter().enumerate() {
                         if let Some(sugg) = suggestions.iter().find(|s| &s.trait_name == name) {
@@ -421,7 +429,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                         } else {
                             "Statistical"
                         };
-                        
+
                         tracing::info!(
                             agent_id = %best_id,
                             old_traits = ?old_traits,
@@ -466,13 +474,16 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
         };
 
         if count >= 70 {
-            tracing::info!("Consolidating evolution memory ({} items, batch execution)...", batch_size);
-            
+            tracing::info!(
+                "Consolidating evolution memory ({} items, batch execution)...",
+                batch_size
+            );
+
             // 1. Extract rules using LLM
             let consolidation_result = reflection.consolidate_memory(&snapshot).await;
-            
+
             let success = consolidation_result.is_ok();
-            
+
             match consolidation_result {
                 Ok(rules) => {
                     if !rules.is_empty() {
@@ -484,15 +495,17 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                                 }
                             }
                         }
-                        
+
                         tracing::info!(
-                            "Consolidated memory into {} rules. Draining batch.", 
+                            "Consolidated memory into {} rules. Draining batch.",
                             rules.len()
                         );
                     } else {
-                        tracing::info!("Consolidation completed with no patterns found. Draining batch.");
+                        tracing::info!(
+                            "Consolidation completed with no patterns found. Draining batch."
+                        );
                     }
-                },
+                }
                 Err(e) => {
                     tracing::warn!("Consolidation failed: {}", e);
                 }
@@ -500,18 +513,19 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
 
             // 3. Manage Memory (Write lock)
             let mut guard = memory.write().await;
-            
+
             // If success (even if no rules), remove the processed batch
             if success {
                 guard.drain_oldest(batch_size);
             }
-            
+
             // Overflow Protection: Hard cap at 100 to prevent DoS
             if guard.len() > 100 {
                 let excess = guard.len() - 100;
                 tracing::warn!(
-                    "Memory overflow ({} > 100). Evicting {} oldest items.", 
-                    guard.len(), excess
+                    "Memory overflow ({} > 100). Evicting {} oldest items.",
+                    guard.len(),
+                    excess
                 );
                 guard.drain_oldest(excess);
             }
@@ -535,7 +549,10 @@ mod tests {
             } else if system.contains("critic") {
                 Ok("Critical analysis: The main concern is validation of assumptions.".to_string())
             } else {
-                Ok("Synthesized response combining all findings into a coherent answer.".to_string())
+                Ok(
+                    "Synthesized response combining all findings into a coherent answer."
+                        .to_string(),
+                )
             }
         }
     }
@@ -550,7 +567,10 @@ mod tests {
             true
         }
 
-        async fn complete(&self, request: vex_llm::LlmRequest) -> Result<vex_llm::LlmResponse, vex_llm::LlmError> {
+        async fn complete(
+            &self,
+            request: vex_llm::LlmRequest,
+        ) -> Result<vex_llm::LlmResponse, vex_llm::LlmError> {
             Ok(vex_llm::LlmResponse {
                 content: "Mock response".to_string(),
                 model: "mock".to_string(),

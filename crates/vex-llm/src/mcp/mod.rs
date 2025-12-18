@@ -25,4 +25,4 @@ pub mod client;
 pub mod types;
 
 pub use client::McpClient;
-pub use types::{McpToolInfo, McpError, McpConfig};
+pub use types::{McpConfig, McpError, McpToolInfo};

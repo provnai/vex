@@ -108,7 +108,10 @@ impl Tool for RegexTool {
 
         // Check text is provided
         if args.get("text").and_then(|t| t.as_str()).is_none() {
-            return Err(ToolError::invalid_args("regex", "Missing required field 'text'"));
+            return Err(ToolError::invalid_args(
+                "regex",
+                "Missing required field 'text'",
+            ));
         }
 
         // Limit text length
@@ -138,9 +141,8 @@ impl Tool for RegexTool {
             .and_then(|o| o.as_str())
             .unwrap_or("match");
 
-        let re = Regex::new(pattern).map_err(|e| {
-            ToolError::execution_failed("regex", format!("Invalid regex: {}", e))
-        })?;
+        let re = Regex::new(pattern)
+            .map_err(|e| ToolError::execution_failed("regex", format!("Invalid regex: {}", e)))?;
 
         match operation {
             "match" => {
@@ -154,10 +156,8 @@ impl Tool for RegexTool {
                 }))
             }
             "find_all" => {
-                let matches: Vec<String> = re
-                    .find_iter(text)
-                    .map(|m| m.as_str().to_string())
-                    .collect();
+                let matches: Vec<String> =
+                    re.find_iter(text).map(|m| m.as_str().to_string()).collect();
 
                 Ok(serde_json::json!({
                     "matches": matches,
@@ -181,7 +181,10 @@ impl Tool for RegexTool {
             }
             _ => Err(ToolError::invalid_args(
                 "regex",
-                format!("Unknown operation '{}'. Use 'match', 'find_all', or 'replace'", operation),
+                format!(
+                    "Unknown operation '{}'. Use 'match', 'find_all', or 'replace'",
+                    operation
+                ),
             )),
         }
     }

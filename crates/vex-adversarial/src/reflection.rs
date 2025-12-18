@@ -5,7 +5,9 @@
 
 use std::sync::Arc;
 
-use vex_core::{Agent, EvolutionMemory, Genome, GenomeExperiment, OptimizationRule, TraitAdjustment};
+use vex_core::{
+    Agent, EvolutionMemory, Genome, GenomeExperiment, OptimizationRule, TraitAdjustment,
+};
 use vex_llm::LlmProvider;
 
 /// Result of reflection analysis
@@ -105,7 +107,10 @@ impl<L: LlmProvider> ReflectionAgent<L> {
 
         // Optionally get LLM-based insights
         let (llm_adjustments, reasoning) = if self.config.use_llm {
-            match self.get_llm_suggestions(agent, task, response, fitness, &stat_suggestions).await {
+            match self
+                .get_llm_suggestions(agent, task, response, fitness, &stat_suggestions)
+                .await
+            {
                 Ok((adj, reason)) => (adj, reason),
                 Err(e) => {
                     tracing::warn!("LLM reflection failed: {}", e);
@@ -117,11 +122,7 @@ impl<L: LlmProvider> ReflectionAgent<L> {
         };
 
         // Merge statistical and LLM suggestions
-        let adjustments = self.merge_suggestions(
-            &agent.genome,
-            stat_suggestions,
-            llm_adjustments,
-        );
+        let adjustments = self.merge_suggestions(&agent.genome, stat_suggestions, llm_adjustments);
 
         // Estimate expected improvement
         let expected_improvement = if adjustments.is_empty() {
@@ -191,14 +192,14 @@ INSTRUCTIONS:
             agent.genome.get_trait("skepticism").unwrap_or(0.5),
             agent.genome.get_trait("verbosity").unwrap_or(0.5),
             fitness,
-            stat_suggestions.iter()
+            stat_suggestions
+                .iter()
                 .map(|s| format!("  {} correlation: {:.2}", s.trait_name, s.correlation))
                 .collect::<Vec<_>>()
                 .join("\n")
         );
 
-        let llm_response = self.llm.ask(&prompt).await
-            .map_err(|e| e.to_string())?;
+        let llm_response = self.llm.ask(&prompt).await.map_err(|e| e.to_string())?;
 
         // Parse LLM response
         let adjustments = self.parse_llm_response(&llm_response);
@@ -209,14 +210,20 @@ INSTRUCTIONS:
     /// Parse LLM response into trait adjustments
     fn parse_llm_response(&self, response: &str) -> Vec<(String, f64)> {
         let mut adjustments = Vec::new();
-        
+
         if response.to_uppercase().contains("NO_CHANGES") {
             return adjustments;
         }
 
         for line in response.lines() {
             let line = line.trim().to_lowercase();
-            for trait_name in &["exploration", "precision", "creativity", "skepticism", "verbosity"] {
+            for trait_name in &[
+                "exploration",
+                "precision",
+                "creativity",
+                "skepticism",
+                "verbosity",
+            ] {
                 if line.contains(trait_name) {
                     // Parse delta from line
                     let delta = if line.contains("+0.15") || line.contains("+ 0.15") {
@@ -234,12 +241,12 @@ INSTRUCTIONS:
                     } else {
                         continue;
                     };
-                    
+
                     adjustments.push((trait_name.to_string(), delta));
                 }
             }
         }
-        
+
         adjustments
     }
 
@@ -286,17 +293,23 @@ INSTRUCTIONS:
         }
 
         // Prepare prompt with experiment summaries
-        let summaries: Vec<String> = experiments.iter().take(20).map(|exp| {
-            format!(
-                "- Task: {}... | Traits: {:?} | Fitness: {:.2}",
-                Self::sanitize_input(&exp.task_summary),
-                exp.trait_names.iter().zip(&exp.traits)
-                    .map(|(n, v)| format!("{}: {:.2}", n, v))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                exp.overall_fitness
-            )
-        }).collect();
+        let summaries: Vec<String> = experiments
+            .iter()
+            .take(20)
+            .map(|exp| {
+                format!(
+                    "- Task: {}... | Traits: {:?} | Fitness: {:.2}",
+                    Self::sanitize_input(&exp.task_summary),
+                    exp.trait_names
+                        .iter()
+                        .zip(&exp.traits)
+                        .map(|(n, v)| format!("{}: {:.2}", n, v))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    exp.overall_fitness
+                )
+            })
+            .collect();
 
         let prompt = format!(
             r#"Analyze the experiments provided in the <experiments> tag and extract universal optimization rules.
@@ -340,8 +353,6 @@ If no clear patterns, return empty list [].
     }
 }
 
-
-
 impl<L: LlmProvider> ReflectionAgent<L> {
     // ... (rest of impl)
 
@@ -358,14 +369,10 @@ impl<L: LlmProvider> ReflectionAgent<L> {
         };
 
         match serde_json::from_str::<Vec<ExtractedRule>>(json_str) {
-            Ok(extracted) => extracted.into_iter().map(|r| {
-                OptimizationRule::new(
-                    r.rule,
-                    r.traits,
-                    r.confidence,
-                    count
-                )
-            }).collect(),
+            Ok(extracted) => extracted
+                .into_iter()
+                .map(|r| OptimizationRule::new(r.rule, r.traits, r.confidence, count))
+                .collect(),
             Err(e) => {
                 tracing::warn!("Failed to parse rules from LLM: {}", e);
                 Vec::new()
@@ -396,8 +403,12 @@ mod tests {
         let adjustments = agent.parse_llm_response(response);
 
         assert_eq!(adjustments.len(), 2);
-        assert!(adjustments.iter().any(|(n, d)| n == "exploration" && *d == 0.1));
-        assert!(adjustments.iter().any(|(n, d)| n == "precision" && *d == -0.05));
+        assert!(adjustments
+            .iter()
+            .any(|(n, d)| n == "exploration" && *d == 0.1));
+        assert!(adjustments
+            .iter()
+            .any(|(n, d)| n == "precision" && *d == -0.05));
     }
 
     #[test]
@@ -417,21 +428,26 @@ mod tests {
         let reflection = ReflectionAgent::with_config(
             llm,
             ReflectionConfig {
-                use_llm: false,  // Disable LLM for test
+                use_llm: false, // Disable LLM for test
                 ..Default::default()
             },
         );
 
         let mut memory = EvolutionMemory::new();
-        
+
         // Add experiments showing correlation
         for i in 0..15 {
             let exploration = 0.3 + (i as f64 * 0.04);
             let fitness = 0.4 + (i as f64 * 0.03);
             let exp = GenomeExperiment::from_raw(
                 vec![exploration, 0.5, 0.5, 0.5, 0.5],
-                vec!["exploration".into(), "precision".into(), 
-                     "creativity".into(), "skepticism".into(), "verbosity".into()],
+                vec![
+                    "exploration".into(),
+                    "precision".into(),
+                    "creativity".into(),
+                    "skepticism".into(),
+                    "verbosity".into(),
+                ],
                 fitness,
                 "test",
             );
@@ -439,7 +455,9 @@ mod tests {
         }
 
         let agent = vex_core::Agent::new(vex_core::AgentConfig::default());
-        let result = reflection.reflect(&agent, "test task", "test response", 0.6, &memory).await;
+        let result = reflection
+            .reflect(&agent, "test task", "test response", 0.6, &memory)
+            .await;
 
         // Should suggest adjustments based on learned correlations
         assert!(result.has_adjustments() || result.expected_improvement == 0.0);

@@ -112,19 +112,11 @@ impl Tool for DateTimeTool {
         let (formatted, timezone, unix_timestamp) = match tz {
             "local" => {
                 let now = Local::now();
-                (
-                    now.format(fmt).to_string(),
-                    "local",
-                    now.timestamp(),
-                )
+                (now.format(fmt).to_string(), "local", now.timestamp())
             }
             _ => {
                 let now = Utc::now();
-                (
-                    now.format(fmt).to_string(),
-                    "utc",
-                    now.timestamp(),
-                )
+                (now.format(fmt).to_string(), "utc", now.timestamp())
             }
         };
 

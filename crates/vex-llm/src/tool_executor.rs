@@ -117,7 +117,10 @@ impl ToolExecutor {
         // 2. Check availability
         if !tool.is_available() {
             warn!(tool = tool_name, "Tool is unavailable");
-            return Err(ToolError::unavailable(tool_name, "Tool is currently disabled"));
+            return Err(ToolError::unavailable(
+                tool_name,
+                "Tool is currently disabled",
+            ));
         }
 
         // 3. Validate arguments
@@ -198,9 +201,7 @@ impl ToolExecutor {
             .into_iter()
             .map(|(name, args)| {
                 // Create an owned future that doesn't borrow the iterator
-                async move {
-                    self.execute(&name, args).await
-                }
+                async move { self.execute(&name, args).await }
             })
             .collect();
 
@@ -241,9 +242,9 @@ impl std::fmt::Debug for ToolExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tool::{Tool, ToolDefinition};
     use async_trait::async_trait;
     use std::sync::Arc;
-    use crate::tool::{Tool, ToolDefinition};
     use std::time::Duration;
 
     // Test tool that returns arguments
@@ -282,11 +283,7 @@ mod tests {
     impl FailTool {
         fn new() -> Self {
             Self {
-                definition: ToolDefinition::new(
-                    "fail",
-                    "Always fails",
-                    r#"{"type": "object"}"#,
-                ),
+                definition: ToolDefinition::new("fail", "Always fails", r#"{"type": "object"}"#),
             }
         }
     }
@@ -310,11 +307,7 @@ mod tests {
     impl SlowTool {
         fn new() -> Self {
             Self {
-                definition: ToolDefinition::new(
-                    "slow",
-                    "Takes forever",
-                    r#"{"type": "object"}"#,
-                ),
+                definition: ToolDefinition::new("slow", "Takes forever", r#"{"type": "object"}"#),
             }
         }
     }
@@ -356,9 +349,7 @@ mod tests {
         let registry = ToolRegistry::new();
         let executor = ToolExecutor::new(registry);
 
-        let result = executor
-            .execute("nonexistent", serde_json::json!({}))
-            .await;
+        let result = executor.execute("nonexistent", serde_json::json!({})).await;
 
         assert!(matches!(result, Err(ToolError::NotFound { .. })));
     }

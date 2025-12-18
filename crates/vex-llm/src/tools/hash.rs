@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use serde_json::Value;
-use sha2::{Sha256, Sha512, Digest};
+use sha2::{Digest, Sha256, Sha512};
 
 use crate::tool::{Capability, Tool, ToolDefinition};
 use crate::tool_error::ToolError;
@@ -79,9 +79,7 @@ impl Tool for HashTool {
         let text = args
             .get("text")
             .and_then(|t| t.as_str())
-            .ok_or_else(|| {
-                ToolError::invalid_args("hash", "Missing required field 'text'")
-            })?;
+            .ok_or_else(|| ToolError::invalid_args("hash", "Missing required field 'text'"))?;
 
         // Limit input size to prevent DoS (1MB max)
         if text.len() > 1_000_000 {
@@ -199,10 +197,7 @@ mod tests {
     #[tokio::test]
     async fn test_empty_string() {
         let tool = HashTool::new();
-        let result = tool
-            .execute(serde_json::json!({"text": ""}))
-            .await
-            .unwrap();
+        let result = tool.execute(serde_json::json!({"text": ""})).await.unwrap();
 
         // SHA-256 of empty string
         assert_eq!(
