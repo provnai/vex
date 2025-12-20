@@ -9,7 +9,7 @@
 use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Arguments for the verify command
 #[derive(Args)]
@@ -217,7 +217,7 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
 }
 
 /// Verify a VEX database file
-async fn verify_database(path: &PathBuf, detailed: bool) -> Result<()> {
+async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
     println!("{}", "🔐 VEX Database Verification".bold().cyan());
     println!("{}", "═".repeat(40).cyan());
     println!();

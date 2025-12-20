@@ -10,8 +10,8 @@ keywords = ["ai", "agents", "memory", "temporal", "compression"]
 categories = ["algorithms", "asynchronous"]
 
 [dependencies]
-vex-core = { path = "../vex-core", version = "0.1.0" }
-vex-llm = { path = "../vex-llm", version = "0.1.0" }
+vex-core = { workspace = true }
+vex-llm = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }

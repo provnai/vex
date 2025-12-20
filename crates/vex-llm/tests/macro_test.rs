@@ -1,7 +1,8 @@
-use vex_llm::ToolDefinition;
+// Removed unused import
 use vex_macros::vex_tool;
 
 #[vex_tool]
+#[allow(dead_code, unused_variables)]
 fn test_macro_tool(name: String, age: i32, height: Option<f64>) -> String {
     format!("{} is {} years old", name, age)
 }

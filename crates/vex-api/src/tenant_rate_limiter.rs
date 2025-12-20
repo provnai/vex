@@ -21,9 +21,21 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 /// Rate limit tier for different tenant types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    Default,
+)]
 pub enum RateLimitTier {
     /// Free tier: 10 requests/minute
+    #[default]
     Free,
     /// Standard tier: 100 requests/minute
     Standard,
@@ -31,12 +43,6 @@ pub enum RateLimitTier {
     Pro,
     /// Unlimited (for internal services)
     Unlimited,
-}
-
-impl Default for RateLimitTier {
-    fn default() -> Self {
-        Self::Free
-    }
 }
 
 impl RateLimitTier {
@@ -85,7 +91,7 @@ impl TenantRateLimiter {
     pub async fn set_tier(&self, tenant_id: &str, tier: RateLimitTier) {
         let mut assignments = self.tier_assignments.write().await;
         assignments.insert(tenant_id.to_string(), tier);
-        
+
         // Remove cached limiter so it gets recreated with new tier
         let mut limiters = self.limiters.write().await;
         limiters.remove(tenant_id);
@@ -94,13 +100,16 @@ impl TenantRateLimiter {
     /// Get a tenant's tier
     pub async fn get_tier(&self, tenant_id: &str) -> RateLimitTier {
         let assignments = self.tier_assignments.read().await;
-        assignments.get(tenant_id).copied().unwrap_or(self.default_tier)
+        assignments
+            .get(tenant_id)
+            .copied()
+            .unwrap_or(self.default_tier)
     }
 
     /// Check if a request is allowed for a tenant
     pub async fn check(&self, tenant_id: &str) -> Result<(), Duration> {
         let tier = self.get_tier(tenant_id).await;
-        
+
         // Unlimited tier always passes
         let quota = match tier.quota() {
             Some(q) => q,
@@ -109,7 +118,7 @@ impl TenantRateLimiter {
 
         // Get or create limiter for this tenant
         let limiter = self.get_or_create_limiter(tenant_id, quota).await;
-        
+
         match limiter.check() {
             Ok(_) => Ok(()),
             Err(not_until) => {
@@ -131,7 +140,7 @@ impl TenantRateLimiter {
 
         // Slow path: create new limiter
         let mut limiters = self.limiters.write().await;
-        
+
         // Double-check after acquiring write lock
         if let Some(limiter) = limiters.get(tenant_id) {
             return limiter.clone();
@@ -144,11 +153,11 @@ impl TenantRateLimiter {
 
     /// Cleanup stale limiters (call periodically)
     pub async fn cleanup(&self) {
-        let mut limiters = self.limiters.write().await;
+        let limiters = self.limiters.write().await;
         // In a production system, you'd track last activity and remove inactive ones
         // For now, just log the count
         tracing::debug!(limiter_count = limiters.len(), "Tenant limiter cleanup");
-        
+
         // Could add logic here to remove limiters unused for > X minutes
         // but governor's memory footprint is tiny, so not critical
         let _ = limiters; // Suppress unused warning
@@ -162,7 +171,7 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limiter_allows_within_quota() {
         let limiter = TenantRateLimiter::new(RateLimitTier::Standard);
-        
+
         // Should allow requests within quota
         for _ in 0..10 {
             assert!(limiter.check("tenant1").await.is_ok());
@@ -172,12 +181,12 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limiter_blocks_over_quota() {
         let limiter = TenantRateLimiter::new(RateLimitTier::Free);
-        
+
         // Exhaust the quota (10 requests for Free tier)
         for _ in 0..10 {
             let _ = limiter.check("tenant1").await;
         }
-        
+
         // Next request should be rate limited
         let result = limiter.check("tenant1").await;
         assert!(result.is_err());
@@ -186,12 +195,12 @@ mod tests {
     #[tokio::test]
     async fn test_different_tenants_independent() {
         let limiter = TenantRateLimiter::new(RateLimitTier::Free);
-        
+
         // Exhaust tenant1's quota
         for _ in 0..15 {
             let _ = limiter.check("tenant1").await;
         }
-        
+
         // tenant2 should still work
         assert!(limiter.check("tenant2").await.is_ok());
     }
@@ -200,7 +209,7 @@ mod tests {
     async fn test_unlimited_tier() {
         let limiter = TenantRateLimiter::new(RateLimitTier::Free);
         limiter.set_tier("vip", RateLimitTier::Unlimited).await;
-        
+
         // Should never be rate limited
         for _ in 0..1000 {
             assert!(limiter.check("vip").await.is_ok());

@@ -102,8 +102,6 @@ impl Signature {
         message: &[u8],
         verifying_key: &ed25519_dalek::VerifyingKey,
     ) -> Result<bool, String> {
-        use ed25519_dalek::Verifier;
-
         // Decode hex signature
         let sig_bytes = match hex::decode(&self.signature_hex) {
             Ok(bytes) => bytes,
@@ -206,18 +204,18 @@ impl AuditEvent {
         let approval_signatures: Vec<Signature> = Vec::new();
 
         // Compute hash including ALL fields for tamper detection (CRITICAL-3 fix)
-        let hash = Self::compute_hash(
-            &event_type,
+        let hash = Self::compute_hash(HashParams {
+            event_type: &event_type,
             timestamp,
             sequence_number,
-            &data,
-            &actor,
-            &rationale,
-            &policy_version,
-            &data_provenance_hash,
+            data: &data,
+            actor: &actor,
+            rationale: &rationale,
+            policy_version: &policy_version,
+            data_provenance_hash: &data_provenance_hash,
             human_review_required,
-            approval_signatures.len(),
-        );
+            approval_count: approval_signatures.len(),
+        });
 
         Self {
             id,
@@ -236,34 +234,39 @@ impl AuditEvent {
             approval_signatures,
         }
     }
+}
 
+/// Parameters for consistent event hashing
+struct HashParams<'a> {
+    event_type: &'a AuditEventType,
+    timestamp: chrono::DateTime<Utc>,
+    sequence_number: u64,
+    data: &'a serde_json::Value,
+    actor: &'a ActorType,
+    rationale: &'a Option<String>,
+    policy_version: &'a Option<String>,
+    data_provenance_hash: &'a Option<Hash>,
+    human_review_required: bool,
+    approval_count: usize,
+}
+
+impl AuditEvent {
     /// Compute event hash including all compliance-critical fields
     /// Used by both new() and chained() to ensure consistent tamper detection
-    fn compute_hash(
-        event_type: &AuditEventType,
-        timestamp: chrono::DateTime<Utc>,
-        sequence_number: u64,
-        data: &serde_json::Value,
-        actor: &ActorType,
-        rationale: &Option<String>,
-        policy_version: &Option<String>,
-        data_provenance_hash: &Option<Hash>,
-        human_review_required: bool,
-        approval_count: usize,
-    ) -> Hash {
+    fn compute_hash(params: HashParams) -> Hash {
         // Format includes ALL fields to prevent tampering (ISO 42001 compliance)
         let content = format!(
             "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
-            event_type,
-            timestamp.timestamp(),
-            sequence_number,
-            data,
-            actor,
-            rationale,
-            policy_version,
-            data_provenance_hash.as_ref().map(|h| h.to_hex()),
-            human_review_required,
-            approval_count,
+            params.event_type,
+            params.timestamp.timestamp(),
+            params.sequence_number,
+            params.data,
+            params.actor,
+            params.rationale,
+            params.policy_version,
+            params.data_provenance_hash.as_ref().map(|h| h.to_hex()),
+            params.human_review_required,
+            params.approval_count,
         );
         Hash::digest(content.as_bytes())
     }

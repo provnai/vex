@@ -9,8 +9,9 @@ use vex_api::{
     auth::{Claims, JwtAuth},
     routes::api_router,
     state::AppState,
+    tenant_rate_limiter::{RateLimitTier, TenantRateLimiter},
 };
-use vex_llm::{Metrics, RateLimitConfig, RateLimiter};
+use vex_llm::Metrics;
 use vex_persist::sqlite::SqliteBackend;
 use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
@@ -20,7 +21,8 @@ async fn setup_state() -> AppState {
 
     // 2. Metrics & Rate Limiter
     let metrics = Arc::new(Metrics::new());
-    let rate_limiter = Arc::new(RateLimiter::new(RateLimitConfig::default()));
+    let rate_limiter = Arc::new(TenantRateLimiter::new(RateLimitTier::Standard));
+    let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
 
     // 3. In-memory DB
     let db = SqliteBackend::new("sqlite::memory:").await.unwrap();
@@ -39,6 +41,7 @@ async fn setup_state() -> AppState {
         metrics,
         Arc::new(db),
         Arc::new(worker_pool),
+        a2a_state,
     )
 }
 

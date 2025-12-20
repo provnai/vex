@@ -69,7 +69,7 @@ impl GenomeExperiment {
         });
 
         // Sanitize overall fitness
-        let overall_fitness = if overall.is_finite() && overall >= 0.0 && overall <= 1.0 {
+        let overall_fitness = if overall.is_finite() && (0.0..=1.0).contains(&overall) {
             overall
         } else {
             0.5 // Safe default for invalid input
@@ -199,9 +199,9 @@ mod tests {
         let exp = GenomeExperiment::new(&genome, scores, f64::NAN, "task");
 
         // NaN/Inf should be filtered out
-        assert!(exp.fitness_scores.get("nan_metric").is_none());
-        assert!(exp.fitness_scores.get("inf_metric").is_none());
-        assert!(exp.fitness_scores.get("out_of_range").is_none());
+        assert!(!exp.fitness_scores.contains_key("nan_metric"));
+        assert!(!exp.fitness_scores.contains_key("inf_metric"));
+        assert!(!exp.fitness_scores.contains_key("out_of_range"));
 
         // Valid should be kept
         assert_eq!(exp.fitness_scores.get("valid_metric"), Some(&0.8));

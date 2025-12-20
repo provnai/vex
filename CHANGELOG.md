@@ -8,12 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.4] - 2025-12-20
 
 ### Added
-- **Tenant-Scoped Rate Limiting**: Per-tenant limits using the `governor` crate.
-  - `TenantRateLimiter` with configurable tiers (Standard, Premium, Enterprise).
+- **Tenant-Scoped Rate Limiting**: Per-tenant limits using the `governor` crate (GCRA algorithm).
+  - `TenantRateLimiter` with configurable tiers (Free, Standard, Pro, Unlimited).
   - JWT-based tenant identification with fallback to `x-client-id` header.
 - **A2A Protocol Integration**: Full Agent-to-Agent communication suite.
   - Endpoints: `/.well-known/agent.json`, `/a2a/tasks`, `/a2a/tasks/{id}`.
   - Standardized agent capability advertising via agent cards.
+  - **NonceCache hardening**: Partial eviction (10%) at 20k entries to prevent memory reset attacks.
 - **LLM Resilience & Caching**: Production-grade response optimization.
   - Circuit Breaker pattern for provider failover.
   - `CachedProvider` for response memoization using `moka`.
@@ -22,16 +23,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HTTPS Enforcement**: Production security requirement with native `tokio-rustls`.
 - **Parallel Evolution**: Performance optimization for genome processing via `rayon`.
 - **Property-Based Testing**: Added `proptest` for cryptographic primitives verification.
+- **Crates.io Readiness**: All 11 crates now have complete metadata (keywords, categories, READMEs).
 
 ### Changed
 - **BREAKING**: Replaced global `RateLimiter` with `TenantRateLimiter`.
 - **BREAKING**: Unified API router signature and updated `axum` to 0.8.
 - **Improved Observability**: Injected `request_id` and `tenant_id` into all telemetry spans.
+- **Workspace Standardization**: All internal crate dependencies now use `workspace = true`.
+
+### Security
+- **Input Sanitization**: Expanded jailbreak patterns for 2025 adaptive attacks (stylistic proxies, audit chain bypass attempts).
+- **A2A Replay Protection**: Hardened nonce cache with partial eviction to prevent OOM-based replay windows.
+- **Audit Trail Integrity**: Refactored `compute_hash` to use structured parameters (ISO 42001 compliance).
 
 ### Fixed
 - Middleware JWT claim extraction for tenant identification.
 - OpenAPI schema generation errors.
 - Axum 0.8 / Hyper 1.0 compatibility issues.
+- All Clippy warnings resolved (zero-warning build).
 
 ## [0.1.3] - 2025-12-18
 

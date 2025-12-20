@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_capability_enum() {
-        let caps = vec![Capability::PureComputation, Capability::Network];
+        let caps = [Capability::PureComputation, Capability::Network];
         assert!(caps.contains(&Capability::PureComputation));
         assert!(!caps.contains(&Capability::FileSystem));
     }

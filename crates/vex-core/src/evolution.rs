@@ -249,7 +249,7 @@ impl StandardOperator {
             .map(|_| {
                 let parent_a = tournament_select(population, tournament_size);
                 let parent_b = tournament_select(population, tournament_size);
-                
+
                 let mut child = self.crossover(parent_a, parent_b);
                 self.mutate(&mut child, mutation_rate);
                 child

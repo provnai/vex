@@ -6,6 +6,8 @@ license.workspace = true
 repository.workspace = true
 description = "Command-line interface for VEX - verified AI agent tooling"
 readme = "README.md"
+keywords = ["ai", "agents", "cli", "verification", "tooling"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "vex"
@@ -13,9 +15,9 @@ path = "src/main.rs"
 
 [dependencies]
 # VEX crates
-vex-core = { path = "../vex-core", version = "0.1.0" }
-vex-llm = { path = "../vex-llm", version = "0.1.0" }
-vex-persist = { path = "../vex-persist", version = "0.1.0" }
+vex-core = { workspace = true }
+vex-llm = { workspace = true }
+vex-persist = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }

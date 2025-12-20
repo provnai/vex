@@ -594,7 +594,7 @@ mod tests {
 
         async fn complete(
             &self,
-            request: vex_llm::LlmRequest,
+            _request: vex_llm::LlmRequest,
         ) -> Result<vex_llm::LlmResponse, vex_llm::LlmError> {
             Ok(vex_llm::LlmResponse {
                 content: "Mock response".to_string(),

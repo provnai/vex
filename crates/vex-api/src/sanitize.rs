@@ -156,6 +156,14 @@ const INJECTION_PATTERNS: &[&str] = &[
     "what are your rules",
     "print your system prompt",
     "reveal your instructions",
+    // === 2025 Advanced Attacks (Adaptive/Indirect) ===
+    "style of a research paper", // Stylistic proxy
+    "hypothetical scenario where",
+    "ignore safety guidelines",
+    "unfiltered response",
+    "output raw content",
+    "bypass audit chain",
+    "disable cryptographic verification",
     // === Context Manipulation ===
     "end of conversation",
     "new conversation",

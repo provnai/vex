@@ -53,6 +53,19 @@ jsonschema = "0.18" # Keeping it conservative
 # Security - Secure secret memory handling
 zeroize = { version = "1.8", features = ["derive"] }
 
+# Internal VEX crates
+vex-core = { path = "crates/vex-core", version = "0.1.4" }
+vex-adversarial = { path = "crates/vex-adversarial", version = "0.1.4" }
+vex-llm = { path = "crates/vex-llm", version = "0.1.4" }
+vex-persist = { path = "crates/vex-persist", version = "0.1.4" }
+vex-queue = { path = "crates/vex-queue", version = "0.1.4" }
+vex-runtime = { path = "crates/vex-runtime", version = "0.1.4" }
+vex-macros = { path = "crates/vex-macros", version = "0.1.4" }
+vex-api = { path = "crates/vex-api", version = "0.1.4" }
+vex-anchor = { path = "crates/vex-anchor", version = "0.1.4" }
+vex-temporal = { path = "crates/vex-temporal", version = "0.1.4" }
+vex-cli = { path = "crates/vex-cli", version = "0.1.4" }
+
 # Release profile with security-hardened settings
 [profile.release]
 # Enable overflow checks even in release builds to prevent integer overflow vulnerabilities

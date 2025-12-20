@@ -85,7 +85,7 @@ impl Tool for UuidTool {
         // Validate count if provided
         if let Some(count) = args.get("count") {
             if let Some(n) = count.as_i64() {
-                if n < 1 || n > 100 {
+                if !(1..=100).contains(&n) {
                     return Err(ToolError::invalid_args(
                         "uuid",
                         format!("Count must be between 1 and 100, got {}", n),

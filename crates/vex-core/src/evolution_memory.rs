@@ -70,7 +70,7 @@ impl EvolutionMemory {
         self.maybe_evict();
 
         // Update correlations periodically
-        if self.experiments.len() % 10 == 0 {
+        if self.experiments.len().is_multiple_of(10) {
             self.update_correlations();
         }
     }

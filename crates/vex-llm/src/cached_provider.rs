@@ -33,7 +33,7 @@ impl Default for LlmCacheConfig {
     fn default() -> Self {
         Self {
             max_entries: 1000,
-            ttl: Duration::from_secs(3600), // 1 hour
+            ttl: Duration::from_secs(3600),       // 1 hour
             tti: Some(Duration::from_secs(1800)), // 30 minutes idle
         }
     }
@@ -174,12 +174,12 @@ mod tests {
         // First call - cache miss
         let req = LlmRequest::simple("test prompt");
         let resp1 = cached.complete(req.clone()).await.unwrap();
-        
+
         // Second call - cache hit
         let resp2 = cached.complete(req).await.unwrap();
 
         assert_eq!(resp1.content, resp2.content);
-        
+
         let (hits, misses, _) = cached.stats();
         assert_eq!(hits, 1);
         assert_eq!(misses, 1);

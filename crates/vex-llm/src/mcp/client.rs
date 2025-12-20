@@ -65,10 +65,12 @@ impl McpClient {
         let is_localhost = url.contains("localhost") || url.contains("127.0.0.1");
 
         // Enforce TLS for remote connections
-        if config.require_tls && !is_localhost {
-            if !url.starts_with("wss://") && !url.starts_with("https://") {
-                return Err(McpError::TlsRequired);
-            }
+        if config.require_tls
+            && !is_localhost
+            && !url.starts_with("wss://")
+            && !url.starts_with("https://")
+        {
+            return Err(McpError::TlsRequired);
         }
 
         let client = Self {

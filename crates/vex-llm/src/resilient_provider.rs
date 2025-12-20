@@ -119,7 +119,7 @@ impl<P: LlmProvider> ResilientProvider<P> {
     async fn record_success(&self) {
         let mut state = self.cb_state.write().await;
         state.failure_count = 0;
-        
+
         if state.state == CircuitState::HalfOpen {
             state.success_count += 1;
             if state.success_count >= self.config.success_threshold {
@@ -135,7 +135,7 @@ impl<P: LlmProvider> ResilientProvider<P> {
         let mut state = self.cb_state.write().await;
         state.failure_count += 1;
         state.last_failure = Some(Instant::now());
-        
+
         if state.state == CircuitState::HalfOpen {
             // Any failure in half-open goes back to open
             state.state = CircuitState::Open;
@@ -154,7 +154,7 @@ impl<P: LlmProvider> ResilientProvider<P> {
 
     async fn check_circuit(&self) -> Result<(), LlmError> {
         let mut state = self.cb_state.write().await;
-        
+
         match state.state {
             CircuitState::Closed => Ok(()),
             CircuitState::Open => {
@@ -187,10 +187,10 @@ impl<P: LlmProvider + 'static> LlmProvider for ResilientProvider<P> {
 
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
-        
+
         // Check circuit state
         self.check_circuit().await?;
-        
+
         // Execute request
         match self.inner.complete(request).await {
             Ok(response) => {
@@ -200,9 +200,9 @@ impl<P: LlmProvider + 'static> LlmProvider for ResilientProvider<P> {
             Err(e) => {
                 // Only count as failure for connection/availability issues, not validation
                 match &e {
-                    LlmError::ConnectionFailed(_) | 
-                    LlmError::NotAvailable | 
-                    LlmError::RateLimited => {
+                    LlmError::ConnectionFailed(_)
+                    | LlmError::NotAvailable
+                    | LlmError::RateLimited => {
                         self.record_failure().await;
                     }
                     _ => {}
@@ -222,7 +222,7 @@ mod tests {
     async fn test_resilient_provider_passes_through() {
         let mock = MockProvider::smart();
         let resilient = ResilientProvider::wrap(mock);
-        
+
         let result = resilient.ask("test").await;
         assert!(result.is_ok());
         assert_eq!(resilient.circuit_state().await, CircuitState::Closed);

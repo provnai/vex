@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
-use vex_core::{GenomeExperiment, OptimizationRule};
+// Removed unused imports
 use vex_llm::{LlmError, LlmProvider, LlmRequest, LlmResponse};
 use vex_persist::{EvolutionStore, SqliteEvolutionStore};
 use vex_runtime::{Orchestrator, OrchestratorConfig};
 
 #[derive(Debug)]
 struct MockLlm {
+    #[allow(dead_code)]
     responses: Vec<String>,
 }
 
@@ -93,8 +94,10 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Setup Orchestrator
     let llm = Arc::new(MockLlm { responses: vec![] });
-    let mut config = OrchestratorConfig::default();
-    config.enable_self_correction = true;
+    let config = OrchestratorConfig {
+        enable_self_correction: true,
+        ..Default::default()
+    };
 
     let orchestrator = Orchestrator::new(llm, config, Some(store.clone()));
 

@@ -10,12 +10,14 @@ use vex_queue::worker::WorkerConfig;
 
 /// A test job that counts executions
 #[derive(Debug)]
+#[allow(dead_code)]
 struct CounterJob {
     counter: Arc<AtomicU32>,
     should_fail: bool,
     fail_times: u32,
 }
 
+#[allow(dead_code)]
 impl CounterJob {
     fn new(counter: Arc<AtomicU32>) -> Self {
         Self {
@@ -61,6 +63,7 @@ impl Job for CounterJob {
 
 /// A job that always fails fatally
 #[derive(Debug)]
+#[allow(dead_code)]
 struct FatalJob;
 
 #[async_trait::async_trait]

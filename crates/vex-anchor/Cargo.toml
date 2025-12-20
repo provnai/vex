@@ -6,9 +6,11 @@ license.workspace = true
 repository.workspace = true
 description = "Public anchoring layer for VEX audit logs - Git, OpenTimestamps, and blockchain support"
 readme = "README.md"
+keywords = ["ai", "agents", "blockchain", "anchoring", "audit"]
+categories = ["cryptography", "asynchronous"]
 
 [dependencies]
-vex-core = { path = "../vex-core" }
+vex-core = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

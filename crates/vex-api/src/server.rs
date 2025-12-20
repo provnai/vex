@@ -15,7 +15,7 @@ use crate::middleware::{
     timeout_layer, tracing_middleware,
 };
 use crate::routes::api_router;
-use vex_llm::{Metrics, RateLimitConfig, RateLimiter};
+use vex_llm::{Metrics, RateLimitConfig};
 // use vex_persist::StorageBackend; // Not dealing with trait directly here
 // use vex_queue::WorkerPool;
 
@@ -85,14 +85,16 @@ impl ServerConfig {
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or(8080);
-        
+
         let timeout_secs: u64 = std::env::var("VEX_TIMEOUT_SECS")
             .ok()
             .and_then(|t| t.parse().ok())
             .unwrap_or(30);
 
-        let enforce_https = std::env::var("VEX_ENFORCE_HTTPS").is_ok() || 
-                           std::env::var("VEX_ENV").map(|e| e == "production").unwrap_or(false);
+        let enforce_https = std::env::var("VEX_ENFORCE_HTTPS").is_ok()
+            || std::env::var("VEX_ENV")
+                .map(|e| e == "production")
+                .unwrap_or(false);
 
         Self {
             addr: SocketAddr::from(([0, 0, 0, 0], port)),
@@ -116,7 +118,9 @@ impl VexServer {
     pub async fn new(config: ServerConfig) -> Result<Self, ApiError> {
         use crate::jobs::agent::{AgentExecutionJob, AgentJobPayload};
         use crate::tenant_rate_limiter::{RateLimitTier, TenantRateLimiter};
-        use vex_llm::{CachedProvider, DeepSeekProvider, LlmProvider, MockProvider, ResilientProvider};
+        use vex_llm::{
+            CachedProvider, DeepSeekProvider, LlmProvider, MockProvider, ResilientProvider,
+        };
         use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
         let jwt_auth = JwtAuth::from_env()?;
@@ -246,8 +250,8 @@ impl VexServer {
 
             // Load TLS certificates
             use rustls_pemfile::{certs, pkcs8_private_keys};
-            use tokio_rustls::rustls::ServerConfig;
             use std::io::BufReader;
+            use tokio_rustls::rustls::ServerConfig;
 
             let cert_file = std::fs::File::open(&tls_config.cert_path)
                 .map_err(|e| ApiError::Internal(format!("Failed to open cert file: {}", e)))?;
@@ -260,7 +264,7 @@ impl VexServer {
             let certs = certs(&mut cert_reader)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ApiError::Internal(format!("Failed to parse certs: {}", e)))?;
-            
+
             let mut keys = pkcs8_private_keys(&mut key_reader)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ApiError::Internal(format!("Failed to parse key: {}", e)))?;
@@ -282,9 +286,11 @@ impl VexServer {
             tracing::info!("✅ VEX API listening on https://{}", addr);
 
             loop {
-                let (tcp_stream, remote_addr) = tcp_listener.accept().await
+                let (tcp_stream, remote_addr) = tcp_listener
+                    .accept()
+                    .await
                     .map_err(|e| ApiError::Internal(format!("Accept error: {}", e)))?;
-                
+
                 let tls_acceptor = tls_acceptor.clone();
                 let app = app.clone();
 
@@ -298,15 +304,21 @@ impl VexServer {
                     };
 
                     let tower_service = app.clone();
-                    let hyper_service = hyper::service::service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
-                        tower_service.clone().call(request)
-                    });
+                    let hyper_service = hyper::service::service_fn(
+                        move |request: hyper::Request<hyper::body::Incoming>| {
+                            tower_service.clone().call(request)
+                        },
+                    );
 
                     if let Err(e) = hyper::server::conn::http1::Builder::new()
                         .serve_connection(hyper_util::rt::TokioIo::new(tls_stream), hyper_service)
-                        .await 
+                        .await
                     {
-                        tracing::error!("Error serving HTTPS connection from {}: {}", remote_addr, e);
+                        tracing::error!(
+                            "Error serving HTTPS connection from {}: {}",
+                            remote_addr,
+                            e
+                        );
                     }
                 });
             }
@@ -318,14 +330,20 @@ impl VexServer {
             }
 
             // HTTP (development only)
-            tracing::warn!("⚠️  Starting VEX API server WITHOUT HTTPS on {} - NOT for production!", addr);
+            tracing::warn!(
+                "⚠️  Starting VEX API server WITHOUT HTTPS on {} - NOT for production!",
+                addr
+            );
 
             let listener = tokio::net::TcpListener::bind(addr).await?;
 
-            axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
-                .with_graceful_shutdown(shutdown_signal())
-                .await
-                .map_err(|e| ApiError::Internal(format!("Server error: {}", e)))?;
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .map_err(|e| ApiError::Internal(format!("Server error: {}", e)))?;
         }
 
         tracing::info!("Server shutdown complete");

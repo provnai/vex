@@ -61,6 +61,7 @@
 //! // limiter.try_acquire("user123").await.unwrap();
 //! ```
 
+pub mod cached_provider;
 pub mod config;
 pub mod deepseek;
 pub mod mcp;
@@ -72,7 +73,6 @@ pub mod openai;
 pub mod provider;
 pub mod rate_limit;
 pub mod resilient_provider;
-pub mod cached_provider;
 pub mod streaming_tool;
 pub mod tool;
 pub mod tool_error;
@@ -80,6 +80,7 @@ pub mod tool_executor;
 pub mod tool_result;
 pub mod tools;
 
+pub use cached_provider::{CachedProvider, LlmCacheConfig};
 pub use config::{ConfigError, LlmConfig, VexConfig};
 pub use deepseek::DeepSeekProvider;
 pub use metrics::{global_metrics, Metrics, MetricsSnapshot, Span, Timer};
@@ -90,7 +91,6 @@ pub use openai::OpenAIProvider;
 pub use provider::{LlmError, LlmProvider, LlmRequest, LlmResponse};
 pub use rate_limit::{RateLimitConfig, RateLimitError, RateLimitedProvider, RateLimiter};
 pub use resilient_provider::{CircuitState, LlmCircuitConfig, ResilientProvider};
-pub use cached_provider::{CachedProvider, LlmCacheConfig};
 pub use streaming_tool::{StreamConfig, StreamingTool, ToolChunk, ToolStream};
 pub use tool::{Capability, Tool, ToolDefinition, ToolRegistry};
 pub use tool_error::ToolError;

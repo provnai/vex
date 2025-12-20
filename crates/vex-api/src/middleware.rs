@@ -82,8 +82,16 @@ pub async fn tracing_middleware(
     let uri = request.uri().clone();
     let path = uri.path().to_string();
     // Extract IDs for tracing
-    let request_id = request.extensions().get::<RequestId>().map(|id| id.0.clone()).unwrap_or_else(|| "unknown".to_string());
-    let tenant_id = request.extensions().get::<Claims>().map(|c| c.sub.clone()).unwrap_or_else(|| "anonymous".to_string());
+    let request_id = request
+        .extensions()
+        .get::<RequestId>()
+        .map(|id| id.0.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let tenant_id = request
+        .extensions()
+        .get::<Claims>()
+        .map(|c| c.sub.clone())
+        .unwrap_or_else(|| "anonymous".to_string());
 
     // Create span for this request
     let span = tracing::info_span!(

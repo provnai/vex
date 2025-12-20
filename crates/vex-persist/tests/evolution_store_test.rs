@@ -1,5 +1,5 @@
 use sqlx::sqlite::SqlitePoolOptions;
-use std::collections::HashMap;
+// Removed unused import
 use vex_core::{GenomeExperiment, OptimizationRule};
 use vex_persist::{EvolutionStore, SqliteEvolutionStore};
 

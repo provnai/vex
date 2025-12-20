@@ -10,10 +10,10 @@ keywords = ["ai", "agents", "tokio", "orchestration", "runtime"]
 categories = ["asynchronous", "concurrency"]
 
 [dependencies]
-vex-core = { path = "../vex-core", version = "0.1.0" }
-vex-adversarial = { path = "../vex-adversarial", version = "0.1.0" }
-vex-llm = { path = "../vex-llm", version = "0.1.0" }
-vex-persist = { path = "../vex-persist", version = "0.1.0" }
+vex-core = { workspace = true }
+vex-adversarial = { workspace = true }
+vex-llm = { workspace = true }
+vex-persist = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }

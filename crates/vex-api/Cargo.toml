@@ -11,12 +11,12 @@ categories = ["web-programming::http-server", "asynchronous"]
 
 [dependencies]
 # Core VEX crates
-vex-core = { path = "../vex-core", version = "0.1.0" }
-vex-adversarial = { path = "../vex-adversarial", version = "0.1.0" }
-vex-llm = { path = "../vex-llm", version = "0.1.0" }
-vex-persist = { path = "../vex-persist", version = "0.1.0" }
-vex-queue = { path = "../vex-queue", version = "0.1.0" }
-vex-runtime = { path = "../vex-runtime", version = "0.1.0" }
+vex-core = { workspace = true }
+vex-adversarial = { workspace = true }
+vex-llm = { workspace = true }
+vex-persist = { workspace = true }
+vex-queue = { workspace = true }
+vex-runtime = { workspace = true }
 
 # Async runtime & web framework
 tokio = { workspace = true }

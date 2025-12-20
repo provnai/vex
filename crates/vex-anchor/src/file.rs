@@ -76,7 +76,7 @@ impl FileAnchor {
         if !resolved_parent.starts_with(&base_canonical) && resolved_parent != base_canonical {
             // For new files, check if the parent would be valid
             let parent_str = resolved_parent.to_string_lossy();
-            if !parent_str.starts_with(&base_canonical.to_string_lossy().as_ref()) {
+            if !parent_str.starts_with(base_canonical.to_string_lossy().as_ref()) {
                 return Err(AnchorError::BackendUnavailable(format!(
                     "Path '{}' is outside allowed directory '{}'",
                     resolved.display(),

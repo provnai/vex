@@ -2,7 +2,6 @@
 
 use axum::{
     extract::{Extension, Path, State},
-    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -13,8 +12,8 @@ use crate::auth::Claims;
 use crate::error::{ApiError, ApiResult};
 use crate::sanitize::{sanitize_name, sanitize_prompt, sanitize_role};
 use crate::state::AppState;
-use vex_persist::AgentStore;
 use utoipa::OpenApi;
+use vex_persist::AgentStore;
 
 /// Health check response
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -410,7 +409,7 @@ pub fn api_router(state: AppState) -> Router {
         // Documentation endpoints
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         // A2A Protocol endpoints
-        .merge(crate::a2a::handler::a2a_routes())
+        .merge(crate::a2a::handler::a2a_routes().with_state(state.a2a_state()))
         // Public endpoints
         .route("/health", get(health))
         .route("/health/detailed", get(health_detailed))

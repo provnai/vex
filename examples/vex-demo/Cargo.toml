@@ -21,12 +21,12 @@ name = "gen-audit-cli"
 path = "src/gen_audit_cli.rs"
 
 [dependencies]
-vex-core = { path = "../../crates/vex-core" }
-vex-adversarial = { path = "../../crates/vex-adversarial" }
-vex-llm = { path = "../../crates/vex-llm" }
-vex-temporal = { path = "../../crates/vex-temporal" }
-vex-runtime = { path = "../../crates/vex-runtime" }
-vex-persist = { path = "../../crates/vex-persist" }
+vex-core = { workspace = true }
+vex-adversarial = { workspace = true }
+vex-llm = { workspace = true }
+vex-temporal = { workspace = true }
+vex-runtime = { workspace = true }
+vex-persist = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 serde_json = "1"
