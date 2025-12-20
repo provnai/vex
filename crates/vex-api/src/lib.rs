@@ -22,6 +22,7 @@ pub mod sanitize;
 pub mod server;
 pub mod state;
 pub mod telemetry;
+pub mod tenant_rate_limiter;
 
 pub use a2a::{AgentCard, TaskRequest, TaskResponse, TaskStatus};
 pub use auth::{Claims, JwtAuth};

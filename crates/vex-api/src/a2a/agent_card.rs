@@ -12,20 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A2A Agent Card structure
-///
-/// Describes this agent's capabilities to other agents.
-/// Served at `/.well-known/agent.json`.
-///
-/// # Example
-///
-/// ```
-/// use vex_api::a2a::AgentCard;
-///
-/// let card = AgentCard::new("vex-verifier")
-///     .with_description("VEX adversarial verification agent")
-///     .with_skill("verify", "Verify claims with adversarial debate");
-/// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AgentCard {
     /// Agent name (unique identifier)
     pub name: String,
@@ -45,7 +32,7 @@ pub struct AgentCard {
 }
 
 /// A skill/capability that this agent offers
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Skill {
     /// Skill identifier
     pub id: String,
@@ -62,7 +49,7 @@ pub struct Skill {
 }
 
 /// Authentication configuration for the agent
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AuthConfig {
     /// Supported authentication schemes
     pub schemes: Vec<String>,
@@ -75,7 +62,7 @@ pub struct AuthConfig {
 }
 
 /// Provider information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProviderInfo {
     /// Organization name
     pub organization: String,

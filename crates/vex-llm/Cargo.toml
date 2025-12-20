@@ -30,6 +30,9 @@ tokio-stream = "0.1"
 pin-project-lite = "0.2"
 jsonschema = { workspace = true }
 
+# High-performance caching
+moka = { version = "0.12", features = ["future"] }
+
 [dev-dependencies]
 vex-macros = { path = "../vex-macros", version = "0.1.0" }
 

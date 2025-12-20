@@ -8,6 +8,14 @@ use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
 use vex_core::{Agent, ContextPacket};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct ChallengeResponse {
+    is_challenge: bool,
+    #[serde(default)]
+    reasoning: String,
+}
 
 /// Configuration for agent execution
 #[derive(Debug, Clone)]
@@ -137,19 +145,38 @@ impl<L: LlmBackend> AgentExecutor<L> {
         // Run debate rounds
         for round_num in 1..=self.config.max_debate_rounds {
             // Red agent challenges
-            let challenge_prompt = shadow.challenge_prompt(blue_response);
+            let mut challenge_prompt = shadow.challenge_prompt(blue_response);
+            challenge_prompt.push_str("\n\nIMPORTANT: Respond in valid JSON format: {\"is_challenge\": boolean, \"reasoning\": \"string\"}. If you agree with the statement, set is_challenge to false.");
+            
             let red_challenge = self
                 .llm
                 .complete(&shadow.agent.config.role, &challenge_prompt)
                 .await?;
 
-            // Blue agent rebuts (if there's a substantive challenge)
-            let is_challenge = red_challenge.contains("[CHALLENGE]")
-                || red_challenge.to_lowercase().contains("disagree")
-                || red_challenge.to_lowercase().contains("issue")
-                || red_challenge.to_lowercase().contains("concern")
-                || red_challenge.to_lowercase().contains("incorrect")
-                || red_challenge.to_lowercase().contains("flaw");
+            // Try to parse JSON response
+            let is_challenge = if let Ok(json_start) = red_challenge.find('{').ok_or(()) {
+                if let Ok(json_end) = red_challenge.rfind('}').ok_or(()) {
+                    if let Ok(response) = serde_json::from_str::<ChallengeResponse>(&red_challenge[json_start..=json_end]) {
+                         response.is_challenge
+                    } else {
+                         // Fallback to heuristic
+                         red_challenge.contains("[CHALLENGE]")
+                            || red_challenge.to_lowercase().contains("disagree")
+                            || red_challenge.to_lowercase().contains("issue")
+                            || red_challenge.to_lowercase().contains("concern")
+                            || red_challenge.to_lowercase().contains("incorrect")
+                            || red_challenge.to_lowercase().contains("flaw")
+                    }
+                } else { false }
+            } else {
+                // Fallback to heuristic if no JSON found
+                red_challenge.contains("[CHALLENGE]")
+                    || red_challenge.to_lowercase().contains("disagree")
+                    || red_challenge.to_lowercase().contains("issue")
+                    || red_challenge.to_lowercase().contains("concern")
+                    || red_challenge.to_lowercase().contains("incorrect")
+                    || red_challenge.to_lowercase().contains("flaw")
+            };
 
             let rebuttal = if is_challenge {
                 let rebuttal_prompt = format!(

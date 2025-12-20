@@ -2,9 +2,11 @@
 //!
 //! Centralizes access to DB, Queue, and Auth/Monitoring services.
 
+use crate::a2a::handler::A2aState;
 use crate::auth::JwtAuth;
+use crate::tenant_rate_limiter::TenantRateLimiter;
 use std::sync::Arc;
-use vex_llm::{Metrics, RateLimiter};
+use vex_llm::Metrics;
 use vex_persist::StorageBackend;
 use vex_queue::{QueueBackend, WorkerPool};
 
@@ -12,20 +14,22 @@ use vex_queue::{QueueBackend, WorkerPool};
 #[derive(Clone)]
 pub struct AppState {
     jwt_auth: JwtAuth,
-    rate_limiter: Arc<RateLimiter>,
+    rate_limiter: Arc<TenantRateLimiter>,
     metrics: Arc<Metrics>,
     db: Arc<dyn StorageBackend>,
     queue: Arc<WorkerPool<dyn QueueBackend>>,
+    a2a_state: Arc<A2aState>,
 }
 
 impl AppState {
     /// Create new application state
     pub fn new(
         jwt_auth: JwtAuth,
-        rate_limiter: Arc<RateLimiter>,
+        rate_limiter: Arc<TenantRateLimiter>,
         metrics: Arc<Metrics>,
         db: Arc<dyn StorageBackend>,
         queue: Arc<WorkerPool<dyn QueueBackend>>,
+        a2a_state: Arc<A2aState>,
     ) -> Self {
         Self {
             jwt_auth,
@@ -33,6 +37,7 @@ impl AppState {
             metrics,
             db,
             queue,
+            a2a_state,
         }
     }
 
@@ -42,7 +47,7 @@ impl AppState {
     }
 
     /// Get rate limiter (cloned Arc for sharing)
-    pub fn rate_limiter(&self) -> Arc<RateLimiter> {
+    pub fn rate_limiter(&self) -> Arc<TenantRateLimiter> {
         self.rate_limiter.clone()
     }
 
@@ -59,5 +64,10 @@ impl AppState {
     /// Get queue worker pool (cloned Arc for sharing)
     pub fn queue(&self) -> Arc<WorkerPool<dyn QueueBackend>> {
         self.queue.clone()
+    }
+
+    /// Get A2A state (cloned Arc for sharing)
+    pub fn a2a_state(&self) -> Arc<A2aState> {
+        self.a2a_state.clone()
     }
 }

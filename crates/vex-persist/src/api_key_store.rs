@@ -172,6 +172,20 @@ pub trait ApiKeyStore: Send + Sync {
 
     /// Delete a key
     async fn delete(&self, id: Uuid) -> Result<(), ApiKeyError>;
+
+    /// Rotate a key: creates a new key and revokes the old one
+    ///
+    /// # Arguments
+    /// * `old_key_id` - The ID of the key to rotate
+    /// * `expires_in_days` - TTL for the new key (default: 90 days)
+    ///
+    /// # Returns
+    /// * `(new_record, plaintext_key)` - The new record and plaintext key (shown once!)
+    async fn rotate(
+        &self,
+        old_key_id: Uuid,
+        expires_in_days: Option<u32>,
+    ) -> Result<(ApiKeyRecord, String), ApiKeyError>;
 }
 
 /// In-memory implementation of API key store (for testing)
@@ -246,6 +260,44 @@ impl ApiKeyStore for MemoryApiKeyStore {
         let mut keys = self.keys.write().await;
         keys.remove(&id).ok_or(ApiKeyError::NotFound)?;
         Ok(())
+    }
+
+    async fn rotate(
+        &self,
+        old_key_id: Uuid,
+        expires_in_days: Option<u32>,
+    ) -> Result<(ApiKeyRecord, String), ApiKeyError> {
+        // Get old key to copy user_id, name, and scopes
+        let old_key = {
+            let keys = self.keys.read().await;
+            keys.get(&old_key_id)
+                .cloned()
+                .ok_or(ApiKeyError::NotFound)?
+        };
+
+        // Revoke old key first
+        self.revoke(old_key_id).await?;
+
+        // Create new key with same user, name suffix, and scopes
+        let ttl = expires_in_days.unwrap_or(90); // Default 90 days per 2025 best practices
+        let (new_record, plaintext) = ApiKeyRecord::new(
+            &old_key.user_id,
+            &format!("{} (rotated)", old_key.name),
+            old_key.scopes.clone(),
+            Some(ttl),
+        );
+
+        // Store new key
+        self.create(&new_record).await?;
+
+        tracing::info!(
+            old_key_id = %old_key_id,
+            new_key_id = %new_record.id,
+            user_id = %old_key.user_id,
+            "API key rotated successfully"
+        );
+
+        Ok((new_record, plaintext))
     }
 }
 

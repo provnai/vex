@@ -309,15 +309,24 @@ impl AuditEvent {
     }
 }
 
+/// Per-tenant chain state for proper multi-tenancy isolation
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct ChainState {
+    /// Last event hash for this tenant
+    last_hash: Option<Hash>,
+    /// Monotonic sequence counter for this tenant
+    sequence: u64,
+}
+
 /// Audit store for compliance logging
+///
+/// # Multi-Tenancy
+/// Chain state (hash and sequence) is now stored per-tenant in the backend,
+/// ensuring tenant isolation and preventing cross-tenant chain corruption.
 #[derive(Debug)]
 pub struct AuditStore<B: StorageBackend + ?Sized> {
     backend: Arc<B>,
     prefix: String,
-    /// Last event hash (for chaining)
-    last_hash: tokio::sync::RwLock<Option<Hash>>,
-    /// Monotonic sequence counter for ordering verification
-    sequence_counter: std::sync::atomic::AtomicU64,
 }
 
 impl<B: StorageBackend + ?Sized> AuditStore<B> {
@@ -326,8 +335,6 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         Self {
             backend,
             prefix: "audit:".to_string(),
-            last_hash: tokio::sync::RwLock::new(None),
-            sequence_counter: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -339,13 +346,32 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         format!("{}tenant:{}:chain", self.prefix, tenant_id)
     }
 
-    /// Get next sequence number atomically
-    fn next_sequence(&self) -> u64 {
-        self.sequence_counter
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    fn chain_state_key(&self, tenant_id: &str) -> String {
+        format!("{}tenant:{}:chain_state", self.prefix, tenant_id)
+    }
+
+    /// Get per-tenant chain state from storage
+    async fn get_chain_state(&self, tenant_id: &str) -> Result<ChainState, StorageError> {
+        self.backend
+            .get(&self.chain_state_key(tenant_id))
+            .await
+            .map(|opt| opt.unwrap_or_default())
+    }
+
+    /// Update per-tenant chain state in storage
+    async fn set_chain_state(
+        &self,
+        tenant_id: &str,
+        state: &ChainState,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .set(&self.chain_state_key(tenant_id), state)
+            .await
     }
 
     /// Log an audit event (automatically chained with sequence number)
+    ///
+    /// Chain state is stored per-tenant to ensure proper isolation.
     pub async fn log(
         &self,
         tenant_id: &str,
@@ -353,10 +379,11 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         agent_id: Option<Uuid>,
         data: serde_json::Value,
     ) -> Result<AuditEvent, StorageError> {
-        let mut last_hash = self.last_hash.write().await;
-        let seq = self.next_sequence();
+        // Get per-tenant chain state
+        let mut chain_state = self.get_chain_state(tenant_id).await?;
+        let seq = chain_state.sequence;
 
-        let event = match &*last_hash {
+        let event = match &chain_state.last_hash {
             Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone(), seq),
             None => AuditEvent::new(event_type, agent_id, data, seq),
         };
@@ -366,7 +393,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             .set(&self.event_key(tenant_id, event.id), &event)
             .await?;
 
-        // Update chain
+        // Update chain index
         let mut chain: Vec<Uuid> = self
             .backend
             .get(&self.chain_key(tenant_id))
@@ -375,8 +402,10 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         chain.push(event.id);
         self.backend.set(&self.chain_key(tenant_id), &chain).await?;
 
-        // Update last hash
-        *last_hash = Some(event.hash.clone());
+        // Update per-tenant chain state
+        chain_state.last_hash = Some(event.hash.clone());
+        chain_state.sequence += 1;
+        self.set_chain_state(tenant_id, &chain_state).await?;
 
         Ok(event)
     }

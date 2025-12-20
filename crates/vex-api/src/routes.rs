@@ -2,6 +2,7 @@
 
 use axum::{
     extract::{Extension, Path, State},
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -13,10 +14,10 @@ use crate::error::{ApiError, ApiResult};
 use crate::sanitize::{sanitize_name, sanitize_prompt, sanitize_role};
 use crate::state::AppState;
 use vex_persist::AgentStore;
-// use vex_queue::QueueBackend; // Removed unused import
+use utoipa::OpenApi;
 
 /// Health check response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct HealthResponse {
     pub status: String,
     pub version: String,
@@ -26,14 +27,14 @@ pub struct HealthResponse {
 }
 
 /// Component health status
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ComponentHealth {
     pub database: ComponentStatus,
     pub queue: ComponentStatus,
 }
 
 /// Individual component status
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ComponentStatus {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -41,6 +42,13 @@ pub struct ComponentStatus {
 }
 
 /// Basic health check handler (lightweight)
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Basic health check", body = HealthResponse)
+    )
+)]
 pub async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "healthy".to_string(),
@@ -51,6 +59,13 @@ pub async fn health() -> Json<HealthResponse> {
 }
 
 /// Detailed health check with database connectivity
+#[utoipa::path(
+    get,
+    path = "/health/detailed",
+    responses(
+        (status = 200, description = "Detailed health check with component status", body = HealthResponse)
+    )
+)]
 pub async fn health_detailed(State(state): State<AppState>) -> Json<HealthResponse> {
     let start = std::time::Instant::now();
 
@@ -83,7 +98,7 @@ pub async fn health_detailed(State(state): State<AppState>) -> Json<HealthRespon
 }
 
 /// Agent creation request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateAgentRequest {
     pub name: String,
     pub role: String,
@@ -98,7 +113,7 @@ fn default_max_depth() -> u8 {
 }
 
 /// Agent response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AgentResponse {
     pub id: Uuid,
     pub name: String,
@@ -109,6 +124,19 @@ pub struct AgentResponse {
 }
 
 /// Create agent handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/agents",
+    request_body = CreateAgentRequest,
+    responses(
+        (status = 200, description = "Agent created successfully", body = AgentResponse),
+        (status = 403, description = "Insufficient permissions"),
+        (status = 400, description = "Invalid input")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
 pub async fn create_agent(
     Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
@@ -156,7 +184,7 @@ pub async fn create_agent(
 }
 
 /// Execute agent request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ExecuteRequest {
     pub prompt: String,
     #[serde(default)]
@@ -170,7 +198,7 @@ fn default_max_rounds() -> u32 {
 }
 
 /// Execute agent response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ExecuteResponse {
     pub agent_id: Uuid,
     pub response: String,
@@ -181,6 +209,21 @@ pub struct ExecuteResponse {
 }
 
 /// Execute agent handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/agents/{id}/execute",
+    params(
+        ("id" = Uuid, Path, description = "Agent ID")
+    ),
+    request_body = ExecuteRequest,
+    responses(
+        (status = 200, description = "Job queued successfully", body = ExecuteResponse),
+        (status = 404, description = "Agent not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
 pub async fn execute_agent(
     Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
@@ -242,7 +285,7 @@ pub async fn execute_agent(
 }
 
 /// Metrics response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MetricsResponse {
     pub llm_calls: u64,
     pub llm_errors: u64,
@@ -255,6 +298,17 @@ pub struct MetricsResponse {
 }
 
 /// Get metrics handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/metrics",
+    responses(
+        (status = 200, description = "Current system metrics", body = MetricsResponse),
+        (status = 403, description = "Forbidden")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
 pub async fn get_metrics(
     Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
@@ -279,6 +333,13 @@ pub async fn get_metrics(
 }
 
 /// Prometheus metrics handler
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "Prometheus formatted metrics", body = String)
+    )
+)]
 pub async fn get_prometheus_metrics(
     Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
@@ -292,9 +353,64 @@ pub async fn get_prometheus_metrics(
     Ok(snapshot.to_prometheus())
 }
 
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        health,
+        health_detailed,
+        create_agent,
+        execute_agent,
+        get_metrics,
+        get_prometheus_metrics,
+        crate::a2a::handler::agent_card_handler,
+        crate::a2a::handler::create_task_handler,
+        crate::a2a::handler::get_task_handler,
+    ),
+    components(
+        schemas(
+            HealthResponse, ComponentHealth, ComponentStatus,
+            CreateAgentRequest, AgentResponse,
+            ExecuteRequest, ExecuteResponse,
+            MetricsResponse,
+            crate::a2a::agent_card::AgentCard,
+            crate::a2a::agent_card::AuthConfig,
+            crate::a2a::agent_card::Skill,
+            crate::a2a::task::TaskRequest,
+            crate::a2a::task::TaskResponse,
+            crate::a2a::task::TaskStatus,
+        )
+    ),
+    modifiers(&SecurityAddon)
+)]
+pub struct ApiDoc;
+
+struct SecurityAddon;
+
+impl utoipa::Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "jwt",
+                utoipa::openapi::security::SecurityScheme::Http(
+                    utoipa::openapi::security::HttpBuilder::new()
+                        .scheme(utoipa::openapi::security::HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            )
+        }
+    }
+}
+
 /// Build the API router
 pub fn api_router(state: AppState) -> Router {
+    use utoipa_swagger_ui::SwaggerUi;
+
     Router::new()
+        // Documentation endpoints
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        // A2A Protocol endpoints
+        .merge(crate::a2a::handler::a2a_routes())
         // Public endpoints
         .route("/health", get(health))
         .route("/health/detailed", get(health_detailed))

@@ -26,9 +26,11 @@ rand = { workspace = true }
 tracing = { workspace = true }
 metrics = "0.22"
 hex = { workspace = true }
+rayon = "1.10"
 
 [dev-dependencies]
 criterion = "0.5"
+proptest = "1.4"
 
 [[bench]]
 name = "merkle_benchmark"

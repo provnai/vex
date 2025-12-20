@@ -99,7 +99,9 @@ impl SqliteBackend {
         // Handle encryption key (requires SQLCipher)
         let encrypted = if let Some(ref key) = config.encryption_key {
             // SQLCipher pragma - will fail silently if not compiled with SQLCipher
-            options = options.pragma("key", format!("'{}'", key));
+            // Safe: escape single quotes to prevent injection
+            let escaped_key = key.replace("'", "''");
+            options = options.pragma("key", format!("'{}'", escaped_key));
             warn!("SQLite encryption enabled - ensure SQLCipher is available");
             true
         } else {

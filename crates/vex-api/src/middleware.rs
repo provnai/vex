@@ -47,24 +47,24 @@ pub async fn rate_limit_middleware(
     request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    // Get client identifier (from claims or IP)
-    let client_id = if let Some(claims) = request.extensions().get::<Claims>() {
-        claims.sub.clone()
-    } else {
-        // Fallback to IP address for anonymous users to prevent global DoS
-        request
-            .headers()
-            .get("x-forwarded-for")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "anonymous-fallback".to_string())
-    };
+    // Extract tenant identifier (prioritize authenticated sub from JWT)
+    let tenant_id = request
+        .extensions()
+        .get::<Claims>()
+        .map(|c| c.sub.clone())
+        .or_else(|| {
+            request
+                .headers()
+                .get("x-client-id")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "anonymous".to_string());
 
     // Check rate limit
     state
         .rate_limiter()
-        .try_acquire(&client_id)
+        .check(&tenant_id)
         .await
         .map_err(|_| ApiError::RateLimited)?;
 
@@ -81,12 +81,17 @@ pub async fn tracing_middleware(
     let method = request.method().clone();
     let uri = request.uri().clone();
     let path = uri.path().to_string();
+    // Extract IDs for tracing
+    let request_id = request.extensions().get::<RequestId>().map(|id| id.0.clone()).unwrap_or_else(|| "unknown".to_string());
+    let tenant_id = request.extensions().get::<Claims>().map(|c| c.sub.clone()).unwrap_or_else(|| "anonymous".to_string());
 
     // Create span for this request
     let span = tracing::info_span!(
         "http_request",
         method = %method,
         path = %path,
+        request_id = %request_id,
+        tenant_id = %tenant_id,
         status = tracing::field::Empty,
         latency_ms = tracing::field::Empty,
     );

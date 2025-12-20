@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
+use tower::Service;
 use tower_http::compression::CompressionLayer;
 
 use crate::auth::JwtAuth;
@@ -59,6 +60,8 @@ pub struct ServerConfig {
     pub rate_limit: RateLimitConfig,
     /// Optional TLS configuration for HTTPS
     pub tls: Option<TlsConfig>,
+    /// Whether to strictly enforce HTTPS (fail if not configured)
+    pub enforce_https: bool,
 }
 
 impl Default for ServerConfig {
@@ -70,6 +73,7 @@ impl Default for ServerConfig {
             compression: true,
             rate_limit: RateLimitConfig::default(),
             tls: None,
+            enforce_https: false,
         }
     }
 }
@@ -81,15 +85,19 @@ impl ServerConfig {
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or(8080);
-
+        
         let timeout_secs: u64 = std::env::var("VEX_TIMEOUT_SECS")
             .ok()
             .and_then(|t| t.parse().ok())
             .unwrap_or(30);
 
+        let enforce_https = std::env::var("VEX_ENFORCE_HTTPS").is_ok() || 
+                           std::env::var("VEX_ENV").map(|e| e == "production").unwrap_or(false);
+
         Self {
             addr: SocketAddr::from(([0, 0, 0, 0], port)),
             timeout: Duration::from_secs(timeout_secs),
+            enforce_https,
             ..Default::default()
         }
     }
@@ -107,11 +115,12 @@ impl VexServer {
     /// Create a new server
     pub async fn new(config: ServerConfig) -> Result<Self, ApiError> {
         use crate::jobs::agent::{AgentExecutionJob, AgentJobPayload};
-        use vex_llm::{DeepSeekProvider, LlmProvider, MockProvider};
+        use crate::tenant_rate_limiter::{RateLimitTier, TenantRateLimiter};
+        use vex_llm::{CachedProvider, DeepSeekProvider, LlmProvider, MockProvider, ResilientProvider};
         use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
         let jwt_auth = JwtAuth::from_env()?;
-        let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
+        let rate_limiter = Arc::new(TenantRateLimiter::new(RateLimitTier::Standard));
         let metrics = Arc::new(Metrics::new());
 
         // Initialize Persistence (SQLite)
@@ -130,10 +139,14 @@ impl VexServer {
             WorkerConfig::default(),
         );
 
-        // Initialize Intelligence (LLM)
+        // Initialize Intelligence (LLM) with resilience and caching
         let llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("DEEPSEEK_API_KEY") {
-            tracing::info!("Initializing DeepSeek Provider");
-            Arc::new(DeepSeekProvider::chat(&key))
+            tracing::info!("Initializing Resilient+Cached DeepSeek Provider");
+            let base = DeepSeekProvider::chat(&key);
+            // Wrap with resilience first, then caching
+            let resilient = ResilientProvider::new(base, vex_llm::LlmCircuitConfig::conservative());
+            let cached = CachedProvider::wrap(resilient);
+            Arc::new(cached)
         } else {
             tracing::warn!("DEEPSEEK_API_KEY not found. Using Mock Provider.");
             Arc::new(MockProvider::smart())
@@ -161,18 +174,21 @@ impl VexServer {
             ))
         });
 
+        let a2a_state = Arc::new(crate::a2a::handler::A2aState::default());
+
         let app_state = AppState::new(
             jwt_auth,
             rate_limiter,
             metrics,
             Arc::new(db),
             Arc::new(worker_pool),
+            a2a_state,
         );
 
         Ok(Self { config, app_state })
     }
 
-    /// Build the complete router with all middleware
+    /// Build the complete    /// Get the configured router
     pub fn router(&self) -> Router {
         let mut app = api_router(self.app_state.clone());
 
@@ -208,11 +224,14 @@ impl VexServer {
     }
 
     /// Run the server with graceful shutdown
+    ///
+    /// # HTTPS Support
+    /// When `config.tls` is set, the server starts with TLS using RustlsConfig.
+    /// Without TLS, the server requires `allow_insecure` to prevent accidental
+    /// plaintext deployment in production.
     pub async fn run(self) -> Result<(), ApiError> {
         let app = self.router();
         let addr = self.config.addr;
-
-        tracing::info!("Starting VEX API server on {}", addr);
 
         // Start Worker Pool in background
         let queue = self.app_state.queue();
@@ -220,14 +239,94 @@ impl VexServer {
             queue.start().await;
         });
 
-        let listener = tokio::net::TcpListener::bind(addr)
-            .await
-            .map_err(|e| ApiError::Internal(format!("Failed to bind: {}", e)))?;
+        // HTTPS with TLS
+        if let Some(tls_config) = &self.config.tls {
+            // HTTPS with TLS
+            tracing::info!("🔒 Starting VEX API server with HTTPS on {}", addr);
 
-        axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown_signal())
-            .await
-            .map_err(|e| ApiError::Internal(format!("Server error: {}", e)))?;
+            // Load TLS certificates
+            use rustls_pemfile::{certs, pkcs8_private_keys};
+            use tokio_rustls::rustls::ServerConfig;
+            use std::io::BufReader;
+
+            let cert_file = std::fs::File::open(&tls_config.cert_path)
+                .map_err(|e| ApiError::Internal(format!("Failed to open cert file: {}", e)))?;
+            let key_file = std::fs::File::open(&tls_config.key_path)
+                .map_err(|e| ApiError::Internal(format!("Failed to open key file: {}", e)))?;
+
+            let mut cert_reader = BufReader::new(cert_file);
+            let mut key_reader = BufReader::new(key_file);
+
+            let certs = certs(&mut cert_reader)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ApiError::Internal(format!("Failed to parse certs: {}", e)))?;
+            
+            let mut keys = pkcs8_private_keys(&mut key_reader)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ApiError::Internal(format!("Failed to parse key: {}", e)))?;
+
+            if keys.is_empty() {
+                return Err(ApiError::Internal("No private keys found".to_string()));
+            }
+
+            let mut server_config = ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(certs, keys.remove(0).into())
+                .map_err(|e| ApiError::Internal(format!("Failed to build TLS config: {}", e)))?;
+
+            server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+
+            let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+            let tcp_listener = tokio::net::TcpListener::bind(addr).await?;
+
+            tracing::info!("✅ VEX API listening on https://{}", addr);
+
+            loop {
+                let (tcp_stream, remote_addr) = tcp_listener.accept().await
+                    .map_err(|e| ApiError::Internal(format!("Accept error: {}", e)))?;
+                
+                let tls_acceptor = tls_acceptor.clone();
+                let app = app.clone();
+
+                tokio::spawn(async move {
+                    let tls_stream = match tls_acceptor.accept(tcp_stream).await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("TLS handshake failed: {}", e);
+                            return;
+                        }
+                    };
+
+                    let tower_service = app.clone();
+                    let hyper_service = hyper::service::service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
+                        tower_service.clone().call(request)
+                    });
+
+                    if let Err(e) = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(hyper_util::rt::TokioIo::new(tls_stream), hyper_service)
+                        .await 
+                    {
+                        tracing::error!("Error serving HTTPS connection from {}: {}", remote_addr, e);
+                    }
+                });
+            }
+        } else {
+            // Check enforcement
+            if self.config.enforce_https {
+                tracing::error!("FATAL: HTTPS enforcement is enabled but TLS certificates are missing (VEX_TLS_CERT/VEX_TLS_KEY)");
+                return Err(ApiError::Internal("HTTPS enforcement error".to_string()));
+            }
+
+            // HTTP (development only)
+            tracing::warn!("⚠️  Starting VEX API server WITHOUT HTTPS on {} - NOT for production!", addr);
+
+            let listener = tokio::net::TcpListener::bind(addr).await?;
+
+            axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+                .with_graceful_shutdown(shutdown_signal())
+                .await
+                .map_err(|e| ApiError::Internal(format!("Server error: {}", e)))?;
+        }
 
         tracing::info!("Server shutdown complete");
         Ok(())

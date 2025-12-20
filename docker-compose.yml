@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VEX_JWT_SECRET=${VEX_JWT_SECRET:-change-me-in-production-32chars}
+      - VEX_JWT_SECRET=${VEX_JWT_SECRET:-INSECURE-CHANGE-ME-32-CHARS-MIN}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - RUST_LOG=info,vex=debug

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A2A Task request from another agent
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct TaskRequest {
     /// Unique task ID (created by caller or generated)
     #[serde(default = "Uuid::new_v4")]
@@ -34,7 +34,7 @@ pub struct TaskRequest {
 }
 
 /// A2A Task response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct TaskResponse {
     /// Task ID (matches request)
     pub id: Uuid,
@@ -54,7 +54,7 @@ pub struct TaskResponse {
 }
 
 /// Task execution status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskStatus {
     /// Task is queued

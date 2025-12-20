@@ -25,6 +25,12 @@ axum = { version = "0.8", features = ["macros"] }
 tower = { version = "0.5", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "timeout", "limit", "compression-gzip"] }
 
+# TLS for HTTPS
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -48,4 +54,13 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 rand = { workspace = true }
 http-body-util = "0.1"
+
+# Rate limiting (GCRA via governor)
+governor = "0.8"
+tower_governor = "0.5"
+
+# OpenAPI documentation
+utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-axum = "0.2"
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
 

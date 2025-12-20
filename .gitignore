@@ -7,6 +7,16 @@
 # Environment files
 .env
 .env.*
+!.env.example
+
+# Secrets & Certificates (never commit these!)
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+secrets/
 
 # IDE/Editor
 .DS_Store

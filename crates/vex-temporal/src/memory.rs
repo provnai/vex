@@ -146,37 +146,80 @@ impl EpisodicMemory {
     }
 
     /// Evict old episodes if over capacity
+    /// Evict old episodes if over capacity (Optimized O(N) bulk eviction)
     fn maybe_evict(&mut self) {
         if !self.config.auto_evict {
             return;
         }
 
-        // Evict by age first
-        self.episodes
-            .retain(|e| e.pinned || !self.compressor.should_evict(e.created_at));
+        // 1. Evict by age (O(N)) - using a collected list of IDs to avoid borrow conflicts
+        // if we needed to access self.compressor inside retain.
+        // Actually, for age validation we need compressor.
+        // We can't access self.compressor inside self.episodes.retain().
+        // So we must use the ID collection strategy for BOTH checks or perform age check separately.
+        
+        // Age check typically simple, let's just do it first with ID collection
+        let max_age_ids: std::collections::HashSet<u64> = self.episodes
+            .iter()
+            .filter(|e| !e.pinned && self.compressor.should_evict(e.created_at))
+            .map(|e| e.id)
+            .collect();
+            
+        if !max_age_ids.is_empty() {
+             self.episodes.retain(|e| !max_age_ids.contains(&e.id));
+        }
 
-        // Then evict by count
-        while self.episodes.len() > self.config.max_entries {
-            // Find least important non-pinned episode
-            let maybe_idx = self
-                .episodes
+        // 2. Check overlap for Count eviction
+        let current_len = self.episodes.len();
+        if current_len <= self.config.max_entries {
+            return;
+        }
+
+        // We need to reduce to max_entries.
+        // Pinned items are protected.
+        let pinned_count = self.episodes.iter().filter(|e| e.pinned).count();
+        if pinned_count >= self.config.max_entries {
+            self.episodes.retain(|e| e.pinned);
+            return;
+        }
+
+        let slots_for_non_pinned = self.config.max_entries - pinned_count;
+
+        // 3. Collect scores for all non-pinned items: (Importance, Time, ID)
+        // We calculate importance ONCE per pass.
+        let mut candidates: Vec<(f64, DateTime<Utc>, u64)> = self.episodes
+            .iter()
+            .filter(|e| !e.pinned)
+            .map(|e| (
+                self.compressor.importance(e.created_at, e.base_importance),
+                e.created_at,
+                e.id
+            ))
+            .collect();
+
+        // 4. Find threshold to KEEP top N items
+        // We want to keep the `slots_for_non_pinned` items with HIGHEST scores.
+        if candidates.len() > slots_for_non_pinned {
+            // We want the pivot at index (len - slots).
+            // Items AFTER pivot will be the largest (to keep).
+            let target_idx = candidates.len() - slots_for_non_pinned;
+            
+            // Sort such that smallest are at beginning, largest at end
+            candidates.select_nth_unstable_by(target_idx, |a, b| {
+                a.0.partial_cmp(&b.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.1.cmp(&b.1))
+            });
+            
+            // Collect IDs of items to KEEP (those >= threshold)
+            // The items from target_idx onwards are the ones to keep.
+            let keep_ids: std::collections::HashSet<u64> = candidates[target_idx..]
                 .iter()
-                .enumerate()
-                .filter(|(_, e)| !e.pinned)
-                .min_by(|(_, a), (_, b)| {
-                    let imp_a = self.compressor.importance(a.created_at, a.base_importance);
-                    let imp_b = self.compressor.importance(b.created_at, b.base_importance);
-                    imp_a
-                        .partial_cmp(&imp_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .map(|(i, _)| i);
-
-            if let Some(idx) = maybe_idx {
-                self.episodes.remove(idx);
-            } else {
-                break; // All pinned
-            }
+                .map(|c| c.2)
+                .collect();
+                
+            // 5. Bulk retain
+            self.episodes.retain(|e| e.pinned || keep_ids.contains(&e.id));
         }
     }
 

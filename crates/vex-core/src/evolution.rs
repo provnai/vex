@@ -233,6 +233,31 @@ pub fn tournament_select(population: &[(Genome, Fitness)], tournament_size: usiz
     &best.unwrap().0
 }
 
+impl StandardOperator {
+    /// Produce a next generation using parallel evolution
+    pub fn produce_next_generation(
+        &self,
+        population: &[(Genome, Fitness)],
+        size: usize,
+        mutation_rate: f64,
+        tournament_size: usize,
+    ) -> Vec<Genome> {
+        use rayon::prelude::*;
+
+        (0..size)
+            .into_par_iter()
+            .map(|_| {
+                let parent_a = tournament_select(population, tournament_size);
+                let parent_b = tournament_select(population, tournament_size);
+                
+                let mut child = self.crossover(parent_a, parent_b);
+                self.mutate(&mut child, mutation_rate);
+                child
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
