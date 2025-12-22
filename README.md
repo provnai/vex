@@ -13,6 +13,17 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 
 ---
 
+## Prerequisites
+
+- **Rust 1.75+** with Cargo package manager
+- **SQLite 3.35+** (for vex-persist - included with most systems)
+- **OpenSSL development libraries** (for HTTPS support)
+- **Optional**: API keys for LLM providers (DeepSeek, OpenAI, Mistral, Ollama)
+
+📚 **[Full Installation Guide →](https://www.provnai.dev/docs/getting-started)**
+
+---
+
 ## Why VEX?
 
 | Problem | VEX Solution |
