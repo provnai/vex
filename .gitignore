@@ -4,6 +4,10 @@
 /target/
 **/*.rs.bk
 
+# Build outputs and logs
+clippy_*.txt
+*_verify.txt
+
 # Environment files
 .env
 .env.*
