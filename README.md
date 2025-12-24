@@ -11,6 +11,8 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 [![Docs](https://img.shields.io/badge/docs-provnai.dev-4285F4.svg)](https://www.provnai.dev/docs)
 [![Website](https://img.shields.io/badge/website-provnai.com-00C7B7.svg)](https://provnai.com)
 
+**🚀 [Live Demo: AI News Verification on Solana](https://www.vexevolve.com/)** - Experience VEX in action with full transparency and blockchain anchoring.
+
 ---
 
 ## Prerequisites
