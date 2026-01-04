@@ -52,6 +52,7 @@ jsonschema = "0.18" # Keeping it conservative
 
 # Security - Secure secret memory handling
 zeroize = { version = "1.8", features = ["derive"] }
+curve25519-dalek = "4.1"
 
 # Internal VEX crates
 vex-core = { path = "crates/vex-core", version = "0.1.4" }
