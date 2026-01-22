@@ -27,7 +27,7 @@ tower-http = { version = "0.6", features = ["cors", "trace", "timeout", "limit",
 
 # TLS for HTTPS
 tokio-rustls = "0.26"
-rustls-pemfile = "2"
+rustls-pki-types = { version = "1", features = ["std"] }  # Replaces unmaintained rustls-pemfile (fixes RUSTSEC-2025-0134)
 hyper = { version = "1", features = ["server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 

@@ -249,23 +249,29 @@ impl VexServer {
             tracing::info!("🔒 Starting VEX API server with HTTPS on {}", addr);
 
             // Load TLS certificates
-            use rustls_pemfile::{certs, pkcs8_private_keys};
-            use std::io::BufReader;
+            use rustls_pki_types::pem::PemObject;
+            use rustls_pki_types::{CertificateDer, PrivateKeyDer};
+            use std::io::Read;
             use tokio_rustls::rustls::ServerConfig;
 
-            let cert_file = std::fs::File::open(&tls_config.cert_path)
+            let mut cert_file = std::fs::File::open(&tls_config.cert_path)
                 .map_err(|e| ApiError::Internal(format!("Failed to open cert file: {}", e)))?;
-            let key_file = std::fs::File::open(&tls_config.key_path)
+            let mut key_file = std::fs::File::open(&tls_config.key_path)
                 .map_err(|e| ApiError::Internal(format!("Failed to open key file: {}", e)))?;
 
-            let mut cert_reader = BufReader::new(cert_file);
-            let mut key_reader = BufReader::new(key_file);
+            let mut cert_pem = Vec::new();
+            cert_file.read_to_end(&mut cert_pem)
+                .map_err(|e| ApiError::Internal(format!("Failed to read cert file: {}", e)))?;
 
-            let certs = certs(&mut cert_reader)
+            let mut key_pem = Vec::new();
+            key_file.read_to_end(&mut key_pem)
+                .map_err(|e| ApiError::Internal(format!("Failed to read key file: {}", e)))?;
+
+            let certs = CertificateDer::pem_slice_iter(&cert_pem)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ApiError::Internal(format!("Failed to parse certs: {}", e)))?;
 
-            let mut keys = pkcs8_private_keys(&mut key_reader)
+            let mut keys = PrivateKeyDer::pem_slice_iter(&key_pem)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ApiError::Internal(format!("Failed to parse key: {}", e)))?;
 
