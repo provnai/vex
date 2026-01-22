@@ -260,11 +260,13 @@ impl VexServer {
                 .map_err(|e| ApiError::Internal(format!("Failed to open key file: {}", e)))?;
 
             let mut cert_pem = Vec::new();
-            cert_file.read_to_end(&mut cert_pem)
+            cert_file
+                .read_to_end(&mut cert_pem)
                 .map_err(|e| ApiError::Internal(format!("Failed to read cert file: {}", e)))?;
 
             let mut key_pem = Vec::new();
-            key_file.read_to_end(&mut key_pem)
+            key_file
+                .read_to_end(&mut key_pem)
                 .map_err(|e| ApiError::Internal(format!("Failed to read key file: {}", e)))?;
 
             let certs = CertificateDer::pem_slice_iter(&cert_pem)
@@ -281,7 +283,7 @@ impl VexServer {
 
             let mut server_config = ServerConfig::builder()
                 .with_no_client_auth()
-                .with_single_cert(certs, keys.remove(0).into())
+                .with_single_cert(certs, keys.remove(0))
                 .map_err(|e| ApiError::Internal(format!("Failed to build TLS config: {}", e)))?;
 
             server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
