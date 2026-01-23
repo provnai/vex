@@ -51,6 +51,8 @@ pub struct ContextPacket {
     pub hash: Hash,
     /// Hash of the parent packet (for chaining)
     pub parent_hash: Option<Hash>,
+    /// Logit-Merkle trace root (for provenance)
+    pub trace_root: Option<Hash>,
     /// Source agent ID
     pub source_agent: Option<Uuid>,
     /// Importance score (0.0 - 1.0)
@@ -85,6 +87,7 @@ impl ContextPacket {
             compression: CompressionLevel::Full,
             hash,
             parent_hash: None,
+            trace_root: None,
             source_agent: None,
             importance: 0.5,
         }

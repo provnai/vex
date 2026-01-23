@@ -8,7 +8,7 @@ use serde::Deserialize;
 use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
-use vex_core::{Agent, ContextPacket};
+use vex_core::{Agent, ContextPacket, Hash};
 
 #[derive(Debug, Deserialize)]
 struct ChallengeResponse {
@@ -52,6 +52,8 @@ pub struct ExecutionResult {
     pub confidence: f64,
     /// Context packet with merkle hash
     pub context: ContextPacket,
+    /// Logit-Merkle trace root (for provenance)
+    pub trace_root: Option<Hash>,
     /// Debate details (if adversarial was enabled)
     pub debate: Option<Debate>,
 }
@@ -125,6 +127,7 @@ impl<L: LlmBackend> AgentExecutor<L> {
             response: final_response,
             verified,
             confidence,
+            trace_root: context.trace_root.clone(),
             context,
             debate,
         })

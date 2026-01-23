@@ -61,6 +61,8 @@ pub struct OrchestrationResult {
     pub response: String,
     /// Merkle root of all context packets
     pub merkle_root: Hash,
+    /// Aggregated trace root from all agents
+    pub trace_root: Option<Hash>,
     /// All execution results (agent_id -> result)
     pub agent_results: HashMap<Uuid, ExecutionResult>,
     /// Total levels processed
@@ -267,6 +269,13 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             }
         }
 
+        // Build trace merkle tree from agent trace roots
+        let trace_leaves: Vec<(String, Hash)> = all_results
+            .iter()
+            .filter_map(|(id, r)| r.trace_root.clone().map(|tr| (id.to_string(), tr)))
+            .collect();
+        let trace_merkle = MerkleTree::from_leaves(trace_leaves);
+
         Ok(OrchestrationResult {
             root_agent_id: root_id,
             response: root_result.response,
@@ -274,6 +283,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                 .root_hash()
                 .cloned()
                 .unwrap_or(Hash::digest(b"empty")),
+            trace_root: trace_merkle.root_hash().cloned(),
             agent_results: all_results,
             levels_processed: 2,
             confidence: avg_confidence,
