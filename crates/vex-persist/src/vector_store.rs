@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use thiserror::Error;
-use sha2::{Sha256, Digest};
 
 #[derive(Error, Debug)]
 pub enum VectorError {
@@ -44,14 +44,23 @@ impl VectorStore {
         }
     }
 
-    pub fn add(&self, id: String, vector: Vec<f32>, metadata: HashMap<String, String>) -> Result<(), VectorError> {
+    pub fn add(
+        &self,
+        id: String,
+        vector: Vec<f32>,
+        metadata: HashMap<String, String>,
+    ) -> Result<(), VectorError> {
         if vector.len() != self.dimension {
             return Err(VectorError::DimensionMismatch(self.dimension, vector.len()));
         }
 
         let mut data = self.data.write().unwrap();
-        data.embeddings.push(VectorEmbedding { id, vector, metadata });
-        
+        data.embeddings.push(VectorEmbedding {
+            id,
+            vector,
+            metadata,
+        });
+
         // Update revision hash (simple content hash)
         let mut hasher = Sha256::new();
         hasher.update(data.embeddings.len().to_be_bytes());
@@ -62,13 +71,18 @@ impl VectorStore {
         Ok(())
     }
 
-    pub fn search(&self, query: &[f32], k: usize) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
+    pub fn search(
+        &self,
+        query: &[f32],
+        k: usize,
+    ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
         if query.len() != self.dimension {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
         }
 
         let data = self.data.read().unwrap();
-        let mut scores: Vec<(f32, VectorEmbedding)> = data.embeddings
+        let mut scores: Vec<(f32, VectorEmbedding)> = data
+            .embeddings
             .iter()
             .map(|emb| {
                 let score = cosine_similarity(query, &emb.vector);
@@ -95,10 +109,10 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     let dot_product: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    
+
     if norm_a == 0.0 || norm_b == 0.0 {
         return 0.0;
     }
-    
+
     dot_product / (norm_a * norm_b)
 }
