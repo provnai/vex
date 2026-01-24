@@ -83,6 +83,9 @@ pub struct LlmResponse {
     pub tokens_used: Option<u32>,
     /// Time taken in milliseconds
     pub latency_ms: u64,
+    /// Merkle root of logit hashes (for cryptographic verification)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_root: Option<String>,
 }
 
 /// Trait for LLM providers

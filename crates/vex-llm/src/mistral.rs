@@ -198,6 +198,7 @@ impl LlmProvider for MistralProvider {
             model: api_response.model,
             tokens_used: api_response.usage.map(|u| u.total_tokens),
             latency_ms: start.elapsed().as_millis() as u64,
+            trace_root: None,
         })
     }
 }

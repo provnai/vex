@@ -113,6 +113,7 @@ impl LlmProvider for OllamaProvider {
             model: api_response.model,
             tokens_used: api_response.eval_count,
             latency_ms: start.elapsed().as_millis() as u64,
+            trace_root: None,
         })
     }
 }

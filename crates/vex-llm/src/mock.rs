@@ -133,6 +133,7 @@ impl LlmProvider for MockProvider {
             model: self.name.clone(),
             tokens_used: Some((request.prompt.len() / 4) as u32 + 100),
             latency_ms: start.elapsed().as_millis() as u64,
+            trace_root: None,
         })
     }
 }
