@@ -5,6 +5,21 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-02-22
+
+### Added
+- **v0.1.6 Ecosystem Synchronization**: Bumped all 13 workspace crates to v0.1.6 to recover from the partial v0.1.5 release and ensure consistent versioning across the registry.
+
+### Changed
+- **LlmProvider Migration**: Removed legacy `LlmBackend` references in `vex-runtime` and integration tests in favor of the unified `LlmProvider` trait.
+- **Workflow Renaming**: Renamed `vex-cli` to `vex-protocol-cli` in `release.yml` and `Cargo.toml` to resolve the registration conflict on crates.io.
+
+### Fixed
+- **CI/CD Stabilization**: Resolved hidden compilation errors in `vex-algoswitch` and `vex-router` benchmarks, examples, and tests discovered by the `--all-targets` CI flag.
+- **WSL Green Build**: Verified 100% build compatibility and test pass rates in WSL 2 for all targets and features.
+- **AppState Signature**: Fixed signature mismatch in `vex-api` integration tests by correctly initializing the optional `Router` arc.
+- **Benchmark Registry**: Fixed incorrect crate names and missing dev-dependencies (`criterion`) in benchmark configurations.
+
 ## [0.1.5] - 2026-02-20
 
 ### Added

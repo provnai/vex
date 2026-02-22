@@ -1,7 +1,7 @@
 //! Quick Performance Tests
 //! Run with: cargo run --example bench
 
-use algoswitch::{detect_pattern, sort};
+use vex_algoswitch::{detect_pattern, sort};
 use std::time::Instant;
 
 fn generate_random(size: usize) -> Vec<i64> {

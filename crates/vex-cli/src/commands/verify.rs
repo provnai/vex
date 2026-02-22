@@ -300,7 +300,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use uuid::Uuid;
-    use vex_core::audit::{ActorType, AuditEvent, AuditEventType};
+    use vex_core::audit::{AuditEvent, AuditEventType};
     use vex_core::{Hash, MerkleTree};
     use vex_persist::audit_store::AuditExport;
 

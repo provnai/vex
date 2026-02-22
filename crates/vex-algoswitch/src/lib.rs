@@ -29,6 +29,8 @@ use std::fmt::Debug;
 use std::sync::Mutex;
 use std::time::Instant;
 
+pub mod prelude;
+
 // ============================================================================
 // Core Types
 // ============================================================================
@@ -286,7 +288,7 @@ pub fn cache_stats() -> (usize, Vec<(String, String, u32)>) {
 // ============================================================================
 
 pub mod sort {
-    use super::*;
+    // Removed unused import
 
     /// QuickSort algorithm
     pub fn quicksort(data: &mut [i64]) {
@@ -431,7 +433,7 @@ pub mod sort {
 // ============================================================================
 
 pub mod search {
-    use super::*;
+    // Removed unused import
 
     /// Linear search - O(n)
     pub fn linear(data: &[i64], target: i64) -> Option<usize> {
@@ -497,7 +499,7 @@ pub mod search {
 // ============================================================================
 
 pub mod hash {
-    use super::*;
+    // Removed unused import
 
     /// FNV-1a hash
     pub fn fnv(data: &[u8]) -> u64 {
@@ -529,12 +531,87 @@ pub mod hash {
 }
 
 // ============================================================================
+// Algorithm Families - PHASE 3 INTELLIGENCE
+// ============================================================================
+
+/// A family of algorithms for a specific task
+pub struct SortFamily;
+
+impl SortFamily {
+    /// Get standard sorting algorithms
+    pub fn standard() -> Vec<(&'static str, AlgoFn)> {
+        vec![
+            ("quicksort", sort::quicksort),
+            ("mergesort", sort::mergesort),
+            ("heapsort", sort::heapsort),
+            ("insertionsort", sort::insertionsort),
+        ]
+    }
+
+    /// Get all available sorting algorithms
+    pub fn all() -> Vec<(&'static str, AlgoFn)> {
+        let mut all = Self::standard();
+        all.push(("radixsort", sort::radixsort));
+        all
+    }
+}
+
+/// Type alias for search functions
+pub type SearchFn = fn(&[i64], i64) -> Option<usize>;
+
+/// A family of algorithms for searching
+pub struct SearchFamily;
+
+impl SearchFamily {
+    /// Get standard search algorithms
+    pub fn standard() -> Vec<(&'static str, SearchFn)> {
+        vec![
+            ("linear", search::linear),
+            ("binary", search::binary),
+            ("interpolation", search::interpolation),
+        ]
+    }
+}
+
+/// Type alias for hash functions
+pub type HashFn = fn(&[u8]) -> u64;
+
+/// A family of algorithms for hashing
+pub struct HashFamily;
+
+impl HashFamily {
+    /// Get standard hash algorithms
+    pub fn standard() -> Vec<(&'static str, HashFn)> {
+        vec![
+            ("fnv", hash::fnv),
+            ("djb2", hash::djb2),
+            ("simple", hash::simple),
+        ]
+    }
+}
+
+/// A module to group the select function for cleaner API
+pub mod algo {
+    use super::*;
+    pub fn select(
+        algos: Vec<(&str, AlgoFn)>,
+        data: &mut [i64],
+        config: Config,
+    ) -> SelectResult<Vec<i64>> {
+        super::select(algos, data, config)
+    }
+}
+
+// ============================================================================
 // Main Selection Function with INTELLIGENCE
 // ============================================================================
 
+/// Type alias for algorithm functions to reduce type complexity
+pub type AlgoFn = fn(&mut [i64]);
+
 /// Select the best algorithm with smart pattern detection
 pub fn select(
-    algos: Vec<(&str, fn(&mut [i64]))>,
+    algos: Vec<(&str, AlgoFn)>,
     data: &mut [i64],
     config: Config,
 ) -> SelectResult<Vec<i64>> {

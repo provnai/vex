@@ -603,22 +603,6 @@ mod tests {
     struct MockLlm;
 
     #[async_trait]
-    impl LlmBackend for MockLlm {
-        async fn complete(&self, system: &str, _prompt: &str) -> Result<String, String> {
-            if system.contains("researcher") {
-                Ok("Research finding: This is a detailed analysis of the topic.".to_string())
-            } else if system.contains("critic") {
-                Ok("Critical analysis: The main concern is validation of assumptions.".to_string())
-            } else {
-                Ok(
-                    "Synthesized response combining all findings into a coherent answer."
-                        .to_string(),
-                )
-            }
-        }
-    }
-
-    #[async_trait]
     impl vex_llm::LlmProvider for MockLlm {
         fn name(&self) -> &str {
             "MockLLM"
@@ -630,10 +614,20 @@ mod tests {
 
         async fn complete(
             &self,
-            _request: vex_llm::LlmRequest,
+            request: vex_llm::LlmRequest,
         ) -> Result<vex_llm::LlmResponse, vex_llm::LlmError> {
+            let content = if request.system.contains("researcher") {
+                "Research finding: This is a detailed analysis of the topic.".to_string()
+            } else if request.system.contains("critic") {
+                "Critical analysis: The main concern is validation of assumptions.".to_string()
+            } else if request.prompt.is_empty() {
+                 "Mock response".to_string()
+            } else {
+                "Synthesized response combining all findings into a coherent answer.".to_string()
+            };
+
             Ok(vex_llm::LlmResponse {
-                content: "Mock response".to_string(),
+                content,
                 model: "mock".to_string(),
                 tokens_used: Some(10),
                 latency_ms: 10,

@@ -15,11 +15,11 @@ use tower_http::trace::TraceLayer;
 use crate::cache::SemanticCache;
 use crate::classifier::QueryClassifier;
 use crate::compress::{CompressionLevel, PromptCompressor};
-use crate::config::{Config, RoutingStrategy};
+use crate::config::Config;
 use crate::guardrails::Guardrails;
 use crate::models::ModelPool;
-use crate::observability::{Observability, ObservabilitySummary, RequestMetrics, SavingsReport};
-use crate::router::{Router as RoutingEngine, RouterConfig, RoutingDecision};
+use crate::observability::{Observability, RequestMetrics};
+// Removed unused RoutingDecision
 
 /// Application state with all new features
 pub struct AppState {
@@ -140,12 +140,27 @@ async fn chat_completions(
 
     let compressor = PromptCompressor::new(compression_level);
 
-    let query_text: String = request
+    let system_prompt: String = request
         .messages
         .iter()
+        .filter(|m| m.get("role").and_then(|r| r.as_str()) == Some("system"))
         .filter_map(|m| m.get("content").and_then(|c| c.as_str()))
         .collect::<Vec<_>>()
-        .join(" ");
+        .join("\n");
+
+    let user_prompt: String = request
+        .messages
+        .iter()
+        .filter(|m| m.get("role").and_then(|r| r.as_str()) != Some("system"))
+        .filter_map(|m| m.get("content").and_then(|c| c.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let query_text = if system_prompt.is_empty() {
+        user_prompt.clone()
+    } else {
+        format!("System: {}\n\nUser: {}", system_prompt, user_prompt)
+    };
 
     if enable_guardrails {
         let guard_result = state.guardrails.check_input(&query_text);
@@ -213,7 +228,7 @@ async fn chat_completions(
 
     let decision = state
         .engine
-        .route(&processed_query)
+        .route(&processed_query, &system_prompt)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let response_text = format!(
@@ -300,7 +315,7 @@ async fn route_query(
     let complexity = state.classifier.classify(&request.query);
     let decision = state
         .engine
-        .route(&request.query)
+        .route(&request.query, "")
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let response = RouteResponse {

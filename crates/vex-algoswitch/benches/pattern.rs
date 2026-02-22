@@ -1,11 +1,11 @@
 //! Pattern Detection Benchmarks
 
-use algoswitch::{detect_pattern, DataPattern};
+use vex_algoswitch::detect_pattern;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn generate_random(size: usize) -> Vec<i64> {
     use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    use std::hash::Hasher;
     (0..size)
         .map(|i| {
             let mut hasher = DefaultHasher::new();
@@ -38,7 +38,7 @@ fn bench_pattern_detection_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
             b.iter(|| detect_pattern(&data));
         });
     }
@@ -50,7 +50,7 @@ fn bench_pattern_detection_sorted(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
             b.iter(|| detect_pattern(&data));
         });
     }
@@ -62,7 +62,7 @@ fn bench_pattern_detection_nearly(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_nearly_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
             b.iter(|| detect_pattern(&data));
         });
     }
@@ -74,7 +74,7 @@ fn bench_pattern_detection_few_unique(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_few_unique(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b| {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
             b.iter(|| detect_pattern(&data));
         });
     }

@@ -12,12 +12,7 @@ struct MockLlm {
     responses: Vec<String>,
 }
 
-#[async_trait]
-impl vex_runtime::executor::LlmBackend for MockLlm {
-    async fn complete(&self, _system: &str, _prompt: &str) -> Result<String, String> {
-        Ok("Mock completion".to_string())
-    }
-}
+// Redundant legacy trait removed
 
 #[async_trait]
 impl LlmProvider for MockLlm {

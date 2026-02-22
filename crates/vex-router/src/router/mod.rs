@@ -402,7 +402,7 @@ mod tests {
     async fn test_router_auto() {
         let router = Router::builder().strategy(RoutingStrategy::Auto).build();
 
-        let decision = router.route("What is 2+2?").unwrap();
+        let decision = router.route("What is 2+2?", "").unwrap();
         assert!(!decision.model_id.is_empty());
     }
 

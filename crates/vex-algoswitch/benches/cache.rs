@@ -1,7 +1,7 @@
 //! Cache Benchmarks
 
-use algoswitch::{cache_winner, clear_cache, get_cached, DataPattern};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use vex_algoswitch::{cache_winner, clear_cache, get_cached, DataPattern};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_cache_get(c: &mut Criterion) {
     // Pre-populate cache
@@ -15,7 +15,7 @@ fn bench_cache_get(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_get");
 
     for _ in 0..1000 {
-        group.bench_function("hit", |b| {
+        group.bench_function("hit", |b: &mut criterion::Bencher| {
             b.iter(|| get_cached(&DataPattern::Sorted));
         });
     }
@@ -26,7 +26,7 @@ fn bench_cache_get(c: &mut Criterion) {
 fn bench_cache_set(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_set");
 
-    group.bench_function("single_write", |b| {
+    group.bench_function("single_write", |b: &mut criterion::Bencher| {
         b.iter(|| {
             cache_winner(&DataPattern::Sorted, "insertionsort");
         });

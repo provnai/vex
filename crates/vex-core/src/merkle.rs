@@ -1,7 +1,6 @@
 //! Provides cryptographic verification of context packet hierarchies.
 
-#[cfg(feature = "algoswitch")]
-use vex_algoswitch as algoswitch;
+// Removed unused import
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

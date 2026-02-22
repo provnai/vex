@@ -4234,7 +4234,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vex-adversarial"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "metrics 0.22.4",
@@ -4251,14 +4251,15 @@ dependencies = [
 
 [[package]]
 name = "vex-algoswitch"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
+ "criterion",
  "once_cell",
 ]
 
 [[package]]
 name = "vex-anchor"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "base64",
@@ -4277,7 +4278,7 @@ dependencies = [
 
 [[package]]
 name = "vex-api"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "argon2",
@@ -4318,28 +4319,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "vex-cli"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "colored",
- "comfy-table",
- "serde_json",
- "sqlx",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "vex-core",
- "vex-llm",
- "vex-persist",
-]
-
-[[package]]
 name = "vex-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4379,7 +4360,7 @@ dependencies = [
 
 [[package]]
 name = "vex-llm"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-openai",
  "async-stream",
@@ -4409,7 +4390,7 @@ dependencies = [
 
 [[package]]
 name = "vex-macros"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4419,7 +4400,7 @@ dependencies = [
 
 [[package]]
 name = "vex-persist"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "argon2",
  "async-trait",
@@ -4441,8 +4422,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "vex-protocol-cli"
+version = "0.1.6"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "colored",
+ "comfy-table",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "vex-core",
+ "vex-llm",
+ "vex-persist",
+]
+
+[[package]]
 name = "vex-queue"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4457,7 +4458,7 @@ dependencies = [
 
 [[package]]
 name = "vex-router"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4491,7 +4492,7 @@ dependencies = [
 
 [[package]]
 name = "vex-runtime"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "futures",
@@ -4511,7 +4512,7 @@ dependencies = [
 
 [[package]]
 name = "vex-temporal"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "chrono",

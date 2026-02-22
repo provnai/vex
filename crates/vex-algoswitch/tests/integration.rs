@@ -1,7 +1,7 @@
-use algoswitch::{
+use vex_algoswitch::{
     cache_stats, cache_winner, clear_cache, detect_pattern, get_cached, pattern_name, DataPattern,
 };
-use algoswitch::{hash, search, select, select_hash, select_search, sort, Config};
+use vex_algoswitch::{hash, search, select, select_hash, select_search, sort, Config};
 
 #[test]
 fn test_quicksort() {
@@ -140,7 +140,7 @@ fn test_smart_selection_with_pattern() {
     clear_cache();
 
     // Test with sorted data - should detect and cache
-    let mut sorted_data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let sorted_data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
 
     let result = select(
         vec![
