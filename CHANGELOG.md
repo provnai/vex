@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD Stabilization**: Resolved hidden compilation errors in `vex-algoswitch` and `vex-router` benchmarks, examples, and tests discovered by the `--all-targets` CI flag.
 - **WSL Green Build**: Verified 100% build compatibility and test pass rates in WSL 2 for all targets and features.
 - **AppState Signature**: Fixed signature mismatch in `vex-api` integration tests by correctly initializing the optional `Router` arc.
+- **Lint Stabilization**: Refactored `vex-router` gateway with argument structs to resolve Clippy `too_many_arguments` and `redundant_closure` errors.
+- **Workspace Cleanup**: Removed redundant imports and applied global `cargo fmt` for a perfectly organized codebase.
 - **Benchmark Registry**: Fixed incorrect crate names and missing dev-dependencies (`criterion`) in benchmark configurations.
 
 ## [0.1.5] - 2026-02-20

@@ -25,6 +25,7 @@ pub struct AppState {
 
 impl AppState {
     /// Create new application state
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         jwt_auth: JwtAuth,
         rate_limiter: Arc<TenantRateLimiter>,

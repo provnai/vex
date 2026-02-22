@@ -2,8 +2,8 @@
 //!
 //! Tests different algorithms with various data patterns and sizes
 
-use vex_algoswitch::{detect_pattern, sort};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use vex_algoswitch::{detect_pattern, sort};
 
 // ============================================================================
 // Data Generation Helpers
@@ -48,12 +48,16 @@ fn bench_quicksort_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::quicksort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::quicksort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -63,12 +67,16 @@ fn bench_mergesort_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::mergesort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::mergesort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -78,12 +86,16 @@ fn bench_heapsort_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::heapsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::heapsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -93,12 +105,16 @@ fn bench_insertionsort_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::insertionsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::insertionsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -108,12 +124,16 @@ fn bench_radixsort_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::radixsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::radixsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -127,12 +147,16 @@ fn bench_insertionsort_sorted(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::insertionsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::insertionsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -142,12 +166,16 @@ fn bench_quicksort_sorted(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::quicksort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::quicksort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -161,12 +189,16 @@ fn bench_insertionsort_nearly(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_nearly_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::insertionsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::insertionsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -180,12 +212,16 @@ fn bench_radixsort_few_unique(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         let data = generate_few_unique(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| {
-                let mut d = data.clone();
-                sort::radixsort(&mut d);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| {
+                    let mut d = data.clone();
+                    sort::radixsort(&mut d);
+                });
+            },
+        );
     }
     group.finish();
 }

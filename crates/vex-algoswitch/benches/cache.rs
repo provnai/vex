@@ -1,7 +1,7 @@
 //! Cache Benchmarks
 
-use vex_algoswitch::{cache_winner, clear_cache, get_cached, DataPattern};
 use criterion::{criterion_group, criterion_main, Criterion};
+use vex_algoswitch::{cache_winner, clear_cache, get_cached, DataPattern};
 
 fn bench_cache_get(c: &mut Criterion) {
     // Pre-populate cache
@@ -60,7 +60,7 @@ fn bench_cache_clear(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_clear");
 
     group.bench_function("clear", |b| {
-        b.iter(|| clear_cache());
+        b.iter(clear_cache);
     });
 
     group.finish();

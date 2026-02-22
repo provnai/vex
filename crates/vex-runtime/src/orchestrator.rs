@@ -621,7 +621,7 @@ mod tests {
             } else if request.system.contains("critic") {
                 "Critical analysis: The main concern is validation of assumptions.".to_string()
             } else if request.prompt.is_empty() {
-                 "Mock response".to_string()
+                "Mock response".to_string()
             } else {
                 "Synthesized response combining all findings into a coherent answer.".to_string()
             };

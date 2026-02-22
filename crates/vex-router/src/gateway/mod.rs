@@ -187,21 +187,21 @@ async fn chat_completions(
             let latency = start_time.elapsed().as_millis() as u64;
             let cost = calculate_request_cost(&state.pool, "gpt-4o-mini", 50, 50);
 
-            let metrics = build_metrics(
-                &request_id,
-                "gpt-4o-mini",
-                "auto",
-                0.1,
-                50,
-                50,
-                cost,
-                latency,
+            let metrics = build_metrics(MetricsParams {
+                request_id: &request_id,
+                model_used: "gpt-4o-mini",
+                routing_strategy: "auto",
+                complexity_score: 0.1,
+                tokens_input: 50,
+                tokens_output: 50,
+                cost_usd: cost,
+                latency_ms: latency,
                 cache_hit,
                 cache_similarity,
-                compressed.compression_ratio,
-                true,
-                None,
-            );
+                compression_ratio: compressed.compression_ratio,
+                guardrails_passed: true,
+                error: None,
+            });
             state.observability.record(metrics);
 
             return Ok(Json(build_response(
@@ -210,16 +210,16 @@ async fn chat_completions(
                 cached.response,
                 50,
                 50,
-                Some(build_smartrouter_info(
-                    "semantic_cache_hit",
-                    0.1,
-                    95.0,
+                Some(build_smartrouter_info(SmartRouterInfoParams {
+                    reason: "semantic_cache_hit",
+                    complexity_score: 0.1,
+                    estimated_savings: 95.0,
                     cache_hit,
                     cache_similarity,
-                    compressed.compression_ratio,
-                    latency,
-                    true,
-                )),
+                    compression_ratio: compressed.compression_ratio,
+                    latency_ms: latency,
+                    guardrails_passed: true,
+                })),
             )));
         }
     }
@@ -259,33 +259,33 @@ async fn chat_completions(
         50,
     );
 
-    let metrics = build_metrics(
-        &request_id,
-        &decision.model_id,
-        "auto",
-        complexity.score,
-        compressed.compressed_tokens,
-        50,
-        cost,
-        latency,
+    let metrics = build_metrics(MetricsParams {
+        request_id: &request_id,
+        model_used: &decision.model_id,
+        routing_strategy: "auto",
+        complexity_score: complexity.score,
+        tokens_input: compressed.compressed_tokens,
+        tokens_output: 50,
+        cost_usd: cost,
+        latency_ms: latency,
         cache_hit,
         cache_similarity,
-        compressed.compression_ratio,
-        true,
-        None,
-    );
+        compression_ratio: compressed.compression_ratio,
+        guardrails_passed: true,
+        error: None,
+    });
     state.observability.record(metrics);
 
-    let smartrouter_info = build_smartrouter_info(
-        &decision.reason,
-        complexity.score,
-        decision.estimated_savings,
+    let smartrouter_info = build_smartrouter_info(SmartRouterInfoParams {
+        reason: &decision.reason,
+        complexity_score: complexity.score,
+        estimated_savings: decision.estimated_savings,
         cache_hit,
         cache_similarity,
-        compressed.compression_ratio,
-        latency,
-        true,
-    );
+        compression_ratio: compressed.compression_ratio,
+        latency_ms: latency,
+        guardrails_passed: true,
+    });
 
     Ok(Json(build_response(
         request_id,
@@ -426,8 +426,8 @@ fn build_response(
     }
 }
 
-fn build_smartrouter_info(
-    reason: &str,
+struct SmartRouterInfoParams<'a> {
+    reason: &'a str,
     complexity_score: f64,
     estimated_savings: f64,
     cache_hit: bool,
@@ -435,7 +435,19 @@ fn build_smartrouter_info(
     compression_ratio: f64,
     latency_ms: u64,
     guardrails_passed: bool,
-) -> serde_json::Value {
+}
+
+fn build_smartrouter_info(params: SmartRouterInfoParams) -> serde_json::Value {
+    let SmartRouterInfoParams {
+        reason,
+        complexity_score,
+        estimated_savings,
+        cache_hit,
+        cache_similarity,
+        compression_ratio,
+        latency_ms,
+        guardrails_passed,
+    } = params;
     let mut routing_reason = reason.to_string();
     if cache_hit {
         routing_reason = format!("{} + semantic_cache_hit", routing_reason);
@@ -454,10 +466,10 @@ fn build_smartrouter_info(
     })
 }
 
-fn build_metrics(
-    request_id: &str,
-    model_used: &str,
-    routing_strategy: &str,
+struct MetricsParams<'a> {
+    request_id: &'a str,
+    model_used: &'a str,
+    routing_strategy: &'a str,
     complexity_score: f64,
     tokens_input: u32,
     tokens_output: u32,
@@ -468,7 +480,24 @@ fn build_metrics(
     compression_ratio: f64,
     guardrails_passed: bool,
     error: Option<String>,
-) -> RequestMetrics {
+}
+
+fn build_metrics(params: MetricsParams) -> RequestMetrics {
+    let MetricsParams {
+        request_id,
+        model_used,
+        routing_strategy,
+        complexity_score,
+        tokens_input,
+        tokens_output,
+        cost_usd,
+        latency_ms,
+        cache_hit,
+        cache_similarity,
+        compression_ratio,
+        guardrails_passed,
+        error,
+    } = params;
     RequestMetrics {
         request_id: request_id.to_string(),
         timestamp: chrono::Utc::now().timestamp(),

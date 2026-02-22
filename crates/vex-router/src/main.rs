@@ -1,6 +1,6 @@
 //! VEX Router - Main entry point (standalone mode)
 
-use tracing_subscriber;
+// Redundant import removed
 
 #[cfg(feature = "standalone")]
 use vex_router::Server;

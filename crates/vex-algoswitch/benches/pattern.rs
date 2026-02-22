@@ -1,7 +1,7 @@
 //! Pattern Detection Benchmarks
 
-use vex_algoswitch::detect_pattern;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use vex_algoswitch::detect_pattern;
 
 fn generate_random(size: usize) -> Vec<i64> {
     use std::collections::hash_map::DefaultHasher;
@@ -38,9 +38,13 @@ fn bench_pattern_detection_random(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_random(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| detect_pattern(&data));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| detect_pattern(&data));
+            },
+        );
     }
     group.finish();
 }
@@ -50,9 +54,13 @@ fn bench_pattern_detection_sorted(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| detect_pattern(&data));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| detect_pattern(&data));
+            },
+        );
     }
     group.finish();
 }
@@ -62,9 +70,13 @@ fn bench_pattern_detection_nearly(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_nearly_sorted(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| detect_pattern(&data));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| detect_pattern(&data));
+            },
+        );
     }
     group.finish();
 }
@@ -74,9 +86,13 @@ fn bench_pattern_detection_few_unique(c: &mut Criterion) {
 
     for size in [100, 1000, 10000, 100000, 1000000].iter() {
         let data = generate_few_unique(*size);
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b: &mut criterion::Bencher, _size| {
-            b.iter(|| detect_pattern(&data));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            size,
+            |b: &mut criterion::Bencher, _size| {
+                b.iter(|| detect_pattern(&data));
+            },
+        );
     }
     group.finish();
 }

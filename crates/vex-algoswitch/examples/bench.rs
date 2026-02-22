@@ -1,8 +1,8 @@
 //! Quick Performance Tests
 //! Run with: cargo run --example bench
 
-use vex_algoswitch::{detect_pattern, sort};
 use std::time::Instant;
+use vex_algoswitch::{detect_pattern, sort};
 
 fn generate_random(size: usize) -> Vec<i64> {
     use std::collections::hash_map::DefaultHasher;
