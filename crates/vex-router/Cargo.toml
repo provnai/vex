@@ -1,0 +1,74 @@
+[package]
+name = "vex-router"
+version.workspace = true
+edition.workspace = true
+description = "Intelligent LLM Routing for VEX Protocol"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+
+[features]
+default = []
+standalone = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tracing-subscriber"]
+vex = ["dep:vex-persist"]  # Enable for VEX integration
+
+[dependencies]
+# Core (always required)
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+utoipa = { version = "5", features = ["chrono", "uuid"] }
+
+# Standalone server (optional)
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["trace"], optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+hyper = { version = "1", optional = true }
+
+# HTTP client for model APIs
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Utilities
+chrono = { workspace = true }
+uuid = { workspace = true }
+once_cell = "1.19"
+parking_lot = "0.12"
+
+# Metrics
+metrics = "0.21"
+
+# Security
+regex = "1.10"
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+# Caching
+lru = "0.12"
+
+# VEX Integration (optional - for when integrated into VEX workspace)
+vex-core = { workspace = true }
+vex-llm = { workspace = true }
+vex-persist = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio-test = "0.4"
+
+[[bin]]
+name = "vex-router"
+path = "src/main.rs"
+required-features = ["standalone"]
+
+[lib]
+name = "vex_router"
+path = "src/lib.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

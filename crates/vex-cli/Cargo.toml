@@ -21,6 +21,7 @@ vex-persist = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros"] }
 
 # CLI
 clap = { version = "4", features = ["derive", "env", "color"] }

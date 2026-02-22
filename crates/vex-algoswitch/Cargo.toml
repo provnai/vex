@@ -1,0 +1,12 @@
+[package]
+name = "vex-algoswitch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Self-optimizing algorithm selection runtime with smart pattern detection"
+authors.workspace = true
+readme = "README.md"
+
+[dependencies]
+once_cell = "1.19"

@@ -14,7 +14,7 @@ use vex_adversarial::{
 };
 use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
 use vex_llm::{DeepSeekProvider, LlmError, LlmProvider, LlmRequest, LlmResponse};
-use vex_runtime::executor::{ExecutorConfig, LlmBackend};
+use vex_runtime::executor::ExecutorConfig;
 use vex_runtime::orchestrator::{Orchestrator, OrchestratorConfig};
 
 #[derive(Debug, Clone)]
@@ -35,16 +35,6 @@ impl LlmProvider for Llm {
     }
 }
 
-#[async_trait::async_trait]
-impl LlmBackend for Llm {
-    async fn complete(&self, system: &str, prompt: &str) -> Result<String, String> {
-        let request = LlmRequest::with_role(system, prompt);
-        let response: Result<LlmResponse, LlmError> = self.0.complete(request).await;
-        response
-            .map(|resp| resp.content)
-            .map_err(|e: LlmError| e.to_string())
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

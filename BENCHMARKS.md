@@ -1,7 +1,7 @@
 # VEX Benchmarks
 
-> **Verification Date**: 2025-12-14
-> **System**: VEX Scale Test Suite Local Microbenchmarks (Ryzen 9 3900X)
+> **Verification Date**: 2026-02-21
+> **System**: VEX Scale Test Suite Local Microbenchmarks (WSL Ubuntu 22.04 LTS)
 
 ---
 

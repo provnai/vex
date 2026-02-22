@@ -36,9 +36,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## API Endpoints
 
-- `POST /agents` - Create a new agent
-- `GET /agents/:id` - Get agent by ID
-- `POST /agents/:id/run` - Execute agent task
+- `POST /api/v1/agents` - Create a new agent
+- `POST /api/v1/agents/:id/execute` - Execute agent task (Adversarial/Verified)
+- `GET /api/v1/jobs/:id` - Poll execution results
+- `GET /api/v1/routing/stats` - View routing cost savings
+- `GET /api/v1/routing/config` - Configure routing strategy (Admin)
 - `GET /health` - Health check
 
 ## License

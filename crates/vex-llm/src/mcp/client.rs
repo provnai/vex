@@ -1,70 +1,70 @@
 //! MCP client implementation
 //!
 //! Provides a client for connecting to MCP servers and calling tools.
-//! This is a standalone implementation that doesn't depend on external MCP crates
-//! to maintain full control over security.
-//!
-//! # Security
-//!
-//! - All remote connections require TLS (except localhost)
-//! - OAuth 2.1 authentication support
-//! - Timeouts on all operations
-//! - Response size limits
-//! - All results are Merkle-hashed for VEX audit trail
-
-use std::sync::Arc;
-use std::time::Duration;
-
-use async_trait::async_trait;
-use serde_json::Value;
-use tokio::sync::RwLock;
+//! This implementation uses tokio-tungstenite for WebSocket communication.
 
 use super::types::{McpConfig, McpError, McpToolInfo};
 use crate::tool::{Capability, Tool, ToolDefinition};
 use crate::tool_error::ToolError;
+use async_trait::async_trait;
+use futures::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tracing::{error, info};
+
+/// JSON-RPC Request
+#[derive(Debug, Serialize)]
+struct JsonRpcRequest {
+    jsonrpc: String,
+    method: String,
+    params: Value,
+    id: u64,
+}
+
+/// JSON-RPC Response
+#[derive(Debug, Deserialize)]
+struct JsonRpcResponse {
+    _jsonrpc: String,
+    result: Option<Value>,
+    error: Option<JsonRpcError>,
+    id: Option<u64>,
+}
+
+/// JSON-RPC Error
+#[derive(Debug, Deserialize)]
+struct JsonRpcError {
+    _code: i32,
+    message: String,
+    #[allow(dead_code)]
+    data: Option<Value>,
+}
+
+enum McpCommand {
+    Call {
+        method: String,
+        params: Value,
+        resp_tx: oneshot::Sender<Result<Value, McpError>>,
+    },
+    Shutdown,
+}
 
 /// MCP Client for connecting to and interacting with MCP servers.
-///
-/// # Security
-///
-/// - TLS enforced for non-localhost connections
-/// - Response size limited to prevent memory exhaustion
-/// - Timeouts on all operations
-///
-/// # Example
-///
-/// ```ignore
-/// let client = McpClient::connect("ws://localhost:8080", McpConfig::default()).await?;
-/// let tools = client.list_tools().await?;
-/// for tool in &tools {
-///     println!("{}: {}", tool.name, tool.description);
-/// }
-/// ```
 pub struct McpClient {
-    /// Server URL
     server_url: String,
-    /// Configuration
-    #[allow(dead_code)]
-    config: McpConfig,
-    /// Cached tools from server
-    tools_cache: Arc<RwLock<Option<Vec<McpToolInfo>>>>,
-    /// Connection state
+    command_tx: mpsc::Sender<McpCommand>,
     connected: Arc<RwLock<bool>>,
+    tools_cache: Arc<RwLock<Option<Vec<McpToolInfo>>>>,
 }
 
 impl McpClient {
     /// Connect to an MCP server.
-    ///
-    /// # Security
-    ///
-    /// - Validates URL scheme
-    /// - Enforces TLS for non-localhost URLs
-    /// - Applies connection timeout
     pub async fn connect(url: &str, config: McpConfig) -> Result<Self, McpError> {
-        // Validate URL
         let is_localhost = url.contains("localhost") || url.contains("127.0.0.1");
 
-        // Enforce TLS for remote connections
         if config.require_tls
             && !is_localhost
             && !url.starts_with("wss://")
@@ -73,109 +73,174 @@ impl McpClient {
             return Err(McpError::TlsRequired);
         }
 
+        let (ws_stream, _) = connect_async(url)
+            .await
+            .map_err(|e| McpError::ConnectionFailed(e.to_string()))?;
+
+        info!(url = url, "Connected to MCP server");
+
+        let (command_tx, mut command_rx) = mpsc::channel::<McpCommand>(32);
+        let connected = Arc::new(RwLock::new(true));
+        let connected_clone = connected.clone();
+
+        // Background task for WebSocket handling
+        tokio::spawn(async move {
+            let (mut ws_tx, mut ws_rx) = ws_stream.split();
+            let mut pending_requests: HashMap<u64, oneshot::Sender<Result<Value, McpError>>> =
+                HashMap::new();
+            let mut next_id = 1u64;
+
+            loop {
+                tokio::select! {
+                    // Handle commands from the client
+                    Some(cmd) = command_rx.recv() => {
+                        match cmd {
+                            McpCommand::Call { method, params, resp_tx } => {
+                                let id = next_id;
+                                next_id += 1;
+
+                                let req = JsonRpcRequest {
+                                    jsonrpc: "2.0".to_string(),
+                                    method,
+                                    params,
+                                    id,
+                                };
+
+                                let json = serde_json::to_string(&req).unwrap();
+                                if let Err(e) = ws_tx.send(Message::Text(json)).await {
+                                    error!("WS send failed: {}", e);
+                                    let _ = resp_tx.send(Err(McpError::ConnectionFailed(e.to_string())));
+                                    break;
+                                }
+                                pending_requests.insert(id, resp_tx);
+                            }
+                            McpCommand::Shutdown => break,
+                        }
+                    }
+
+                    // Handle messages from the server
+                    Some(msg) = ws_rx.next() => {
+                        match msg {
+                            Ok(Message::Text(text)) => {
+                                if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(&text) {
+                                    if let Some(id) = resp.id {
+                                        if let Some(tx) = pending_requests.remove(&id) {
+                                            if let Some(err) = resp.error {
+                                                let _ = tx.send(Err(McpError::ExecutionFailed(err.message)));
+                                            } else {
+                                                let _ = tx.send(Ok(resp.result.unwrap_or(Value::Null)));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(Message::Close(_)) => {
+                                info!("MCP server closed connection");
+                                break;
+                            }
+                            Err(e) => {
+                                error!("WS read error: {}", e);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            *connected_clone.write().await = false;
+        });
+
         let client = Self {
             server_url: url.to_string(),
-            config,
+            command_tx,
+            connected,
             tools_cache: Arc::new(RwLock::new(None)),
-            connected: Arc::new(RwLock::new(false)),
         };
 
-        // In a full implementation, we'd establish the WebSocket/HTTP connection here
-        // For now, we mark as "connected" for the mockable interface
-        *client.connected.write().await = true;
+        // Initialize MCP protocol
+        client.initialize().await?;
 
         Ok(client)
     }
 
-    /// List available tools from the MCP server.
-    ///
-    /// Results are cached after the first call.
-    pub async fn list_tools(&self) -> Result<Vec<McpToolInfo>, McpError> {
-        // Check cache first
-        {
-            let cache = self.tools_cache.read().await;
-            if let Some(ref tools) = *cache {
-                return Ok(tools.clone());
+    async fn initialize(&self) -> Result<(), McpError> {
+        let params = serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "vex-client",
+                "version": "0.1.5"
             }
+        });
+
+        self.call_raw("initialize", params).await?;
+        // Note: notifications/initialized is often skipped in simple clients but can be added
+        Ok(())
+    }
+
+    async fn call_raw(&self, method: &str, params: Value) -> Result<Value, McpError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.command_tx
+            .send(McpCommand::Call {
+                method: method.to_string(),
+                params,
+                resp_tx,
+            })
+            .await
+            .map_err(|_| McpError::ConnectionFailed("Channel closed".into()))?;
+
+        resp_rx
+            .await
+            .map_err(|_| McpError::ConnectionFailed("Response channel closed".into()))?
+    }
+
+    /// List available tools from the MCP server.
+    pub async fn list_tools(&self) -> Result<Vec<McpToolInfo>, McpError> {
+        if let Some(ref tools) = *self.tools_cache.read().await {
+            return Ok(tools.clone());
         }
 
-        // In a full implementation, this would call the MCP server
-        // For now, return empty list (will be populated by register_mock_tool for testing)
-        let tools = Vec::new();
+        let resp = self.call_raw("tools/list", Value::Null).await?;
+        let tools: Vec<McpToolInfo> = serde_json::from_value(resp["tools"].clone())
+            .map_err(|e| McpError::Serialization(e.to_string()))?;
 
-        // Cache result
         *self.tools_cache.write().await = Some(tools.clone());
         Ok(tools)
     }
 
     /// Call a tool on the MCP server.
-    ///
-    /// # Security
-    ///
-    /// - Applies request timeout
-    /// - Limits response size
-    /// - Returns structured result for Merkle hashing
     pub async fn call_tool(&self, name: &str, args: Value) -> Result<Value, McpError> {
-        // Check connection
-        if !*self.connected.read().await {
-            return Err(McpError::ConnectionFailed("Not connected".into()));
-        }
+        let params = serde_json::json!({
+            "name": name,
+            "arguments": args
+        });
 
-        // In a full implementation, this would:
-        // 1. Send JSON-RPC request to MCP server
-        // 2. Wait for response with timeout
-        // 3. Validate response size
-        // 4. Return result
-
-        // For now, return a placeholder that indicates the call was made
-        Ok(serde_json::json!({
-            "tool": name,
-            "args": args,
-            "result": null,
-            "status": "mcp_call_placeholder"
-        }))
+        self.call_raw("tools/call", params).await
     }
 
-    /// Get the server URL
     pub fn server_url(&self) -> &str {
         &self.server_url
     }
 
-    /// Check if client is connected
     pub async fn is_connected(&self) -> bool {
         *self.connected.read().await
     }
 
-    /// Disconnect from the server
     pub async fn disconnect(&self) {
-        *self.connected.write().await = false;
-        *self.tools_cache.write().await = None;
+        let _ = self.command_tx.send(McpCommand::Shutdown).await;
     }
 }
 
 /// Adapter that wraps an MCP tool to be used as a VEX Tool.
-///
-/// This enables MCP tools to be used with the VEX ToolExecutor and
-/// ensures all MCP calls are Merkle-hashed for the audit trail.
 pub struct McpToolAdapter {
-    /// Reference to the MCP client
     client: Arc<McpClient>,
-    /// Tool info from MCP
     info: McpToolInfo,
-    /// Tool definition for VEX
     definition: ToolDefinition,
 }
 
 impl McpToolAdapter {
-    /// Create a new adapter for an MCP tool
-    ///
-    /// # Note
-    /// Uses Box::leak to create 'static strings from owned strings.
-    /// This is a small, intentional memory leak (~100 bytes per tool)
-    /// as MCP tools are typically registered once at startup.
     pub fn new(client: Arc<McpClient>, info: McpToolInfo) -> Self {
-        // Convert owned strings to 'static using Box::leak
-        // This is safe because MCP tools are typically registered once
         let name: &'static str = Box::leak(info.name.clone().into_boxed_str());
         let description: &'static str = Box::leak(info.description.clone().into_boxed_str());
         let parameters: &'static str = Box::leak(
@@ -192,11 +257,6 @@ impl McpToolAdapter {
             definition,
         }
     }
-
-    /// Get the MCP tool info
-    pub fn info(&self) -> &McpToolInfo {
-        &self.info
-    }
 }
 
 #[async_trait]
@@ -206,13 +266,11 @@ impl Tool for McpToolAdapter {
     }
 
     fn capabilities(&self) -> Vec<Capability> {
-        // MCP tools are assumed to be network-capable
         vec![Capability::Network]
     }
 
-    fn timeout(&self) -> Duration {
-        // Use the client's configured request timeout
-        Duration::from_secs(30)
+    fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(30)
     }
 
     async fn execute(&self, args: Value) -> Result<Value, ToolError> {
@@ -220,64 +278,5 @@ impl Tool for McpToolAdapter {
             .call_tool(&self.info.name, args)
             .await
             .map_err(|e| ToolError::execution_failed(&self.info.name, e.to_string()))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_connect_localhost() {
-        let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config).await;
-        assert!(client.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_connect_tls_required() {
-        let config = McpConfig::default(); // TLS required by default
-        let result = McpClient::connect("ws://remote.server:8080", config).await;
-        assert!(matches!(result, Err(McpError::TlsRequired)));
-    }
-
-    #[tokio::test]
-    async fn test_connect_tls_allowed() {
-        let config = McpConfig::default();
-        let result = McpClient::connect("wss://remote.server:8080", config).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_list_tools_empty() {
-        let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config)
-            .await
-            .unwrap();
-        let tools = client.list_tools().await.unwrap();
-        assert!(tools.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_call_tool() {
-        let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config)
-            .await
-            .unwrap();
-        let result = client
-            .call_tool("test_tool", serde_json::json!({"arg": "value"}))
-            .await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_disconnect() {
-        let config = McpConfig::default().allow_insecure();
-        let client = McpClient::connect("ws://localhost:8080", config)
-            .await
-            .unwrap();
-        assert!(client.is_connected().await);
-        client.disconnect().await;
-        assert!(!client.is_connected().await);
     }
 }

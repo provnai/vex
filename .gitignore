@@ -6,7 +6,10 @@
 
 # Build outputs and logs
 clippy_*.txt
+clippy_output.txt
+build_output.txt
 *_verify.txt
+*.log
 
 # Environment files
 .env

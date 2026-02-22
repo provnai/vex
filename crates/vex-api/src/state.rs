@@ -6,7 +6,7 @@ use crate::a2a::handler::A2aState;
 use crate::auth::JwtAuth;
 use crate::tenant_rate_limiter::TenantRateLimiter;
 use std::sync::Arc;
-use vex_llm::Metrics;
+use vex_llm::{LlmProvider, Metrics};
 use vex_persist::StorageBackend;
 use vex_queue::{QueueBackend, WorkerPool};
 
@@ -19,6 +19,8 @@ pub struct AppState {
     db: Arc<dyn StorageBackend>,
     queue: Arc<WorkerPool<dyn QueueBackend>>,
     a2a_state: Arc<A2aState>,
+    llm: Arc<dyn LlmProvider>,
+    router: Option<Arc<vex_router::Router>>,
 }
 
 impl AppState {
@@ -30,6 +32,8 @@ impl AppState {
         db: Arc<dyn StorageBackend>,
         queue: Arc<WorkerPool<dyn QueueBackend>>,
         a2a_state: Arc<A2aState>,
+        llm: Arc<dyn LlmProvider>,
+        router: Option<Arc<vex_router::Router>>,
     ) -> Self {
         Self {
             jwt_auth,
@@ -38,6 +42,8 @@ impl AppState {
             db,
             queue,
             a2a_state,
+            llm,
+            router,
         }
     }
 
@@ -69,5 +75,15 @@ impl AppState {
     /// Get A2A state (cloned Arc for sharing)
     pub fn a2a_state(&self) -> Arc<A2aState> {
         self.a2a_state.clone()
+    }
+
+    /// Get LLM provider (cloned Arc for sharing)
+    pub fn llm(&self) -> Arc<dyn LlmProvider> {
+        self.llm.clone()
+    }
+
+    /// Get Router specifically (cloned Arc for sharing)
+    pub fn router(&self) -> Option<Arc<vex_router::Router>> {
+        self.router.clone()
     }
 }

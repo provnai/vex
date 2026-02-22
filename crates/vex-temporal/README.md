@@ -6,6 +6,7 @@ Time-aware memory compression for the VEX Protocol.
 
 - **Temporal Compression** - Intelligent context summarization over time
 - **Memory Decay** - Configurable importance-weighted memory retention
+- **VectorStore Integration** - Semantic similarity search for context retrieval
 - **Context Windows** - Efficient LLM context management
 
 ## Installation

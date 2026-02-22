@@ -104,84 +104,55 @@ impl ShadowAgent {
         )
     }
 
-    /// Detect potential issues in a claim using pattern-based heuristics
-    /// Returns a list of issue descriptions for targeted challenges
+    /// Detect potential areas of interest in a claim using pattern-based guidance
+    /// Returns a list of focus areas for the shadow agent to scrutinize.
     pub fn detect_issues(&self, claim: &str) -> Vec<String> {
-        let mut issues = Vec::new();
+        let mut areas_of_interest = Vec::new();
         let claim_lower = claim.to_lowercase();
 
-        // Absolute/universal claims (often overstated)
+        // Check for over-generalization
         if claim_lower.contains("always")
             || claim_lower.contains("never")
             || claim_lower.contains("all ")
             || claim_lower.contains("none ")
-            || claim_lower.contains("every ")
-            || claim_lower.contains("no one")
         {
-            issues.push("Universal claim detected - verify no exceptions exist".to_string());
+            areas_of_interest.push("Over-generalization: Verify if universal claims 'always'/'never' hold true for all edge cases.".to_string());
         }
 
-        // Vague quantifiers
+        // Check for quantificational ambiguity
         if claim_lower.contains("many")
             || claim_lower.contains("some")
-            || claim_lower.contains("often")
-            || claim_lower.contains("rarely")
             || claim_lower.contains("significant")
         {
-            issues.push("Vague quantifier used - request specific data/numbers".to_string());
+            areas_of_interest.push("Quantification: Assess if vague terms like 'many' or 'significant' hide a lack of specific data.".to_string());
         }
 
-        // Causal claims without evidence
-        if claim_lower.contains("because")
-            || claim_lower.contains("therefore")
-            || claim_lower.contains("causes")
-            || claim_lower.contains("leads to")
-            || claim_lower.contains("results in")
-        {
-            issues.push("Causal claim detected - verify mechanism and evidence".to_string());
+        // Check for evidence-free causality
+        if claim_lower.contains("because") || claim_lower.contains("therefore") {
+            areas_of_interest.push("Causality: Scrutinize the link between the premise and the conclusion for logical leaps.".to_string());
         }
 
-        // Unattributed statistics
-        if claim_lower.contains("%")
-            || claim_lower.contains("percent")
-            || claim_lower.contains("statistics")
-            || claim_lower.contains("data shows")
-        {
-            issues.push("Statistical claim - verify source and methodology".to_string());
+        // Check for unsubstantiated numbers
+        if claim_lower.contains("%") || claim_lower.contains("percent") {
+            areas_of_interest.push("Statistics: Determine if percentages are sourced or if they are illustrative placeholders.".to_string());
         }
 
-        // Emotional/loaded language
-        let emotional_words = [
-            "obvious",
-            "clearly",
-            "undeniable",
-            "proven",
-            "fact",
-            "definitely",
-            "absolutely",
-            "certainly",
-            "must",
-        ];
-        for word in emotional_words {
+        // Check for certainty bias (loaded language)
+        let certainty_markers = ["obvious", "clearly", "undeniable", "proven", "fact"];
+        for word in certainty_markers {
             if claim_lower.contains(word) {
-                issues.push(format!("Loaded language ('{}') - examine for bias", word));
+                areas_of_interest.push(format!("Certainty Bias: The use of '{}' may indicate a claim that assumes its own conclusion.", word));
                 break;
             }
         }
 
-        // Technical jargon (may obscure meaning)
-        if claim.chars().filter(|c| c.is_uppercase()).count() > claim.len() / 8 {
-            issues.push("Heavy use of acronyms/jargon - verify definitions".to_string());
+        // Check for linguistic complexity
+        let avg_words_per_sentence = claim.split_whitespace().count() / claim.matches('.').count().max(1);
+        if avg_words_per_sentence > 30 {
+            areas_of_interest.push("Complexity: The high sentence length may obscure specific errors or contradictions.".to_string());
         }
 
-        // Complexity heuristic - very long sentences may hide issues
-        let sentence_count = claim.matches('.').count().max(1);
-        let avg_words = claim.split_whitespace().count() / sentence_count;
-        if avg_words > 35 {
-            issues.push("Complex sentence structure - break down for clarity".to_string());
-        }
-
-        issues
+        areas_of_interest
     }
 }
 
@@ -204,7 +175,7 @@ mod tests {
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
 
         let issues = shadow.detect_issues("This method always works without fail.");
-        assert!(issues.iter().any(|i| i.contains("Universal claim")));
+        assert!(issues.iter().any(|i| i.contains("Over-generalization")));
     }
 
     #[test]
@@ -213,7 +184,7 @@ mod tests {
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
 
         let issues = shadow.detect_issues("Studies show 90% of users prefer this approach.");
-        assert!(issues.iter().any(|i| i.contains("Statistical claim")));
+        assert!(issues.iter().any(|i| i.contains("Statistics")));
     }
 
     #[test]
@@ -222,7 +193,7 @@ mod tests {
         let shadow = ShadowAgent::new(&blue, ShadowConfig::default());
 
         let issues = shadow.detect_issues("It is obvious that the solution is correct.");
-        assert!(issues.iter().any(|i| i.contains("Loaded language")));
+        assert!(issues.iter().any(|i| i.contains("Certainty Bias")));
     }
 
     #[test]

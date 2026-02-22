@@ -17,6 +17,7 @@ vex-llm = { workspace = true }
 vex-persist = { workspace = true }
 vex-queue = { workspace = true }
 vex-runtime = { workspace = true }
+vex-router = { workspace = true }
 
 # Async runtime & web framework
 tokio = { workspace = true }
@@ -58,6 +59,9 @@ http-body-util = "0.1"
 # Rate limiting (GCRA via governor)
 governor = "0.8"
 tower_governor = "0.5"
+
+# Security utilities
+regex = "1.10"
 
 # OpenAPI documentation
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }

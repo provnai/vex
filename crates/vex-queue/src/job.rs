@@ -49,8 +49,8 @@ pub trait Job: Send + Sync + Debug {
 /// Result of job execution
 #[derive(Debug)]
 pub enum JobResult {
-    /// Job succeeded
-    Success,
+    /// Job succeeded with optional result
+    Success(Option<serde_json::Value>),
     /// Job failed but should retry
     Retry(String),
     /// Job failed permanently
@@ -91,4 +91,7 @@ pub struct JobEntry {
     pub run_at: DateTime<Utc>,
     pub attempts: u32,
     pub last_error: Option<String>,
+    /// The output produced by the job once completed
+    #[serde(default)]
+    pub result: Option<serde_json::Value>,
 }

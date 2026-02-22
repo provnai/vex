@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Public anchoring layer for VEX audit logs - Git, OpenTimestamps, and blockchain support"
+description = "Public anchoring layer for VEX audit logs - Git, OpenTimestamps, Ethereum, Celestia support"
 readme = "README.md"
 keywords = ["ai", "agents", "blockchain", "anchoring", "audit"]
 categories = ["cryptography", "asynchronous"]
@@ -20,16 +20,19 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 # Constant-time comparison for timing attack prevention (LOW-1 fix)
 subtle = "2.5"
+# HTTP client for remote backends (OTS, Ethereum, Celestia)
+reqwest = { version = "0.12", features = ["json"], optional = true }
+# Base64 encoding for OTS proof blobs
+base64 = { version = "0.22", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
 tokio-test = "0.4"
 
 [features]
-default = ["file", "git"]
+default = ["file", "git", "opentimestamps", "ethereum", "celestia"]
 file = []
 git = []
-# Future blockchain backends (optional heavy deps):
-# eip4844 = ["alloy"]
-# celestia = ["celestia-rpc"]
-# opentimestamps = ["ots-client"]
+opentimestamps = ["reqwest", "base64"]
+ethereum = ["reqwest"]
+celestia = ["reqwest", "base64"]

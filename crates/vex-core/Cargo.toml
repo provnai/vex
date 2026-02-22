@@ -12,6 +12,7 @@ categories = ["cryptography", "asynchronous"]
 [features]
 default = []
 evolution-memory = []
+algoswitch = ["dep:vex-algoswitch"]
 
 [dependencies]
 tokio = { workspace = true }
@@ -27,6 +28,8 @@ tracing = { workspace = true }
 metrics = "0.22"
 hex = { workspace = true }
 rayon = "1.10"
+ed25519-dalek = { workspace = true }
+vex-algoswitch = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

@@ -109,6 +109,7 @@ async fn main() {
             model: "fallback".to_string(),
             tokens_used: None,
             latency_ms: 0,
+            trace_root: None,
         }
     });
 
@@ -136,6 +137,7 @@ async fn main() {
             model: "fallback".to_string(),
             tokens_used: None,
             latency_ms: 0,
+            trace_root: None,
         });
 
     println!("   ⚠️  Red Team Findings:");
@@ -154,6 +156,7 @@ async fn main() {
         model: "fallback".to_string(),
         tokens_used: None,
         latency_ms: 0,
+        trace_root: None,
     });
 
     println!("   ✅ Blue Team Defense:");

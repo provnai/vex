@@ -138,6 +138,14 @@ impl LlmProvider for MockProvider {
     }
 }
 
+#[async_trait]
+impl crate::provider::EmbeddingProvider for MockProvider {
+    async fn embed(&self, _text: &str) -> Result<Vec<f32>, LlmError> {
+        // Return a zeroed vector of dimension 1536 (common for OpenAI)
+        Ok(vec![0.0; 1536])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

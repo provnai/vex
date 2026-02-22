@@ -66,6 +66,7 @@ impl QueueBackend for MemoryQueue {
             run_at,
             attempts: 0,
             last_error: None,
+            result: None,
         };
 
         let mut jobs = self.jobs.write().await;
@@ -146,6 +147,21 @@ impl QueueBackend for MemoryQueue {
     async fn get_status(&self, id: Uuid) -> Result<JobStatus, QueueError> {
         let jobs = self.jobs.read().await;
         jobs.get(&id).map(|j| j.status).ok_or(QueueError::NotFound)
+    }
+
+    async fn get_job(&self, id: Uuid) -> Result<JobEntry, QueueError> {
+        let jobs = self.jobs.read().await;
+        jobs.get(&id).cloned().ok_or(QueueError::NotFound)
+    }
+
+    async fn set_result(&self, id: Uuid, result: serde_json::Value) -> Result<(), QueueError> {
+        let mut jobs = self.jobs.write().await;
+        if let Some(job) = jobs.get_mut(&id) {
+            job.result = Some(result);
+            Ok(())
+        } else {
+            Err(QueueError::NotFound)
+        }
     }
 }
 

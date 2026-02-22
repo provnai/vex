@@ -63,6 +63,7 @@ pub async fn run(args: VerifyArgs) -> Result<()> {
 
 /// Verify an exported audit JSON file
 async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<()> {
+    use vex_core::audit::AuditEvent;
     use vex_core::{Hash, MerkleTree};
     use vex_persist::audit_store::AuditExport;
 
@@ -98,22 +99,20 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
     // 1. Verify individual event hashes and the chain
     let mut last_hash: Option<Hash> = None;
     for (i, event) in events.iter().enumerate() {
-        // Re-calculate the "individual" hash including all ISO 42001 fields
-        // (CRITICAL-3 fix: must match AuditEvent::compute_hash formula exactly)
-        let base_content = format!(
-            "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
-            event.event_type,
-            event.timestamp.timestamp(),
-            event.sequence_number,
-            event.data,
-            event.actor,
-            event.rationale,
-            event.policy_version,
-            event.data_provenance_hash.as_ref().map(|h| h.to_hex()),
-            event.human_review_required,
-            event.approval_signatures.len(),
-        );
-        let base_hash = Hash::digest(base_content.as_bytes());
+        // Re-calculate the "individual" hash (Centralized in vex-core)
+        use vex_core::audit::HashParams;
+        let base_hash = AuditEvent::compute_hash(HashParams {
+            event_type: &event.event_type,
+            timestamp: event.timestamp,
+            sequence_number: event.sequence_number,
+            data: &event.data,
+            actor: &event.actor,
+            rationale: &event.rationale,
+            policy_version: &event.policy_version,
+            data_provenance_hash: &event.data_provenance_hash,
+            human_review_required: event.human_review_required,
+            approval_count: event.approval_signatures.len(),
+        });
 
         // Calculate expected final hash (including chain link if applicable)
         let expected_hash = if let Some(prev) = &event.previous_hash {
@@ -137,9 +136,8 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
                 ));
             }
 
-            // Chained hash logic: digest(base_hash : prev_hash : sequence)
-            let chained_content = format!("{}:{}:{}", base_hash, prev, event.sequence_number);
-            Hash::digest(chained_content.as_bytes())
+            // Chained hash logic (Centralized in vex-core)
+            AuditEvent::compute_chained_hash(&base_hash, prev, event.sequence_number)
         } else {
             if i > 0 {
                 return Err(anyhow::anyhow!(
@@ -233,20 +231,54 @@ async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
 
     println!("  {} {}", "Database:".dimmed(), path.display());
 
-    // TODO: Integrate with vex-persist when audit store is accessible
-    // For now, show placeholder
-    println!();
-    println!(
-        "{}",
-        "Note: Direct database verification requires vex-persist integration.".yellow()
-    );
-    println!("For now, export the audit chain to JSON and verify with --audit.");
+    println!("  {} {}", "Database:".dimmed(), path.display());
 
-    if detailed {
-        println!();
-        println!("To export, use the VEX API:");
-        println!("  {}", "GET /api/audit/export".green());
+    // Connect to database
+    let db_url = format!("sqlite://{}", path.display());
+    let backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
+        .await
+        .with_context(|| format!("Failed to connect to database: {}", path.display()))?;
+
+    let store = vex_persist::audit_store::AuditStore::new(std::sync::Arc::new(backend));
+
+    // In a real multi-tenant system, we'd need a list of tenants.
+    // For the CLI tool, we'll try to find common tenants or verify the default ones.
+    // For now, let's look for all unique tenant_ids in the database.
+    let pool = vex_persist::sqlite::SqliteBackend::new(&db_url).await?.pool().clone();
+    let tenants: Vec<String> = sqlx::query_as::<_, (String,)>("SELECT DISTINCT tenant_id FROM audit_events")
+        .fetch_all(&pool)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(t,)| t)
+        .collect();
+
+    if tenants.is_empty() {
+        println!("  {}", "Warning: No audit events found in database".yellow());
+        return Ok(());
     }
+
+    println!("  {} {}", "Tenants found:".dimmed(), tenants.len());
+    println!();
+
+    for tenant in tenants {
+        print!("  Verifying tenant {}... ", tenant.bold());
+        match store.verify_chain(&tenant).await {
+            Ok(true) => println!("{}", "OK".green()),
+            Ok(false) => println!("{}", "FAILED (Integrity break)".red()),
+            Err(e) => println!("{} ({})", "ERROR".red(), e),
+        }
+
+        if detailed {
+            let tree = store.build_merkle_tree(&tenant).await?;
+            println!("    Merkle Root: {}", tree.root_hash().map(|h| h.to_hex()).unwrap_or_else(|| "None".to_string()));
+            let count = store.get_chain(&tenant).await?.len();
+            println!("    Event Count: {}", count);
+        }
+    }
+
+    println!();
+    println!("{} Database verification complete.", "✓".green().bold());
 
     Ok(())
 }
@@ -257,7 +289,8 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
     use vex_core::{Hash, MerkleTree};
-    use vex_persist::audit_store::{AuditEvent, AuditEventType, AuditExport};
+    use vex_core::audit::{AuditEvent, AuditEventType, ActorType};
+    use vex_persist::audit_store::AuditExport;
 
     fn create_test_audit() -> AuditExport {
         let agent_id = Uuid::new_v4();

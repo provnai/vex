@@ -8,309 +8,7 @@ use uuid::Uuid;
 use crate::backend::{StorageBackend, StorageError, StorageExt};
 use vex_core::{Hash, MerkleTree};
 
-/// Audit event types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AuditEventType {
-    AgentCreated,
-    AgentExecuted,
-    DebateStarted,
-    DebateRound,
-    DebateConcluded,
-    ConsensusReached,
-    ContextStored,
-    PaymentInitiated,
-    PaymentCompleted,
-    // ISO 42001 A.6 Lifecycle event types
-    PolicyUpdate,
-    ModelUpgrade,
-    AnomalousBehavior,
-    HumanOverride,
-    Custom(String),
-}
-
-/// Actor type for audit attribution (ISO 42001 A.6.2.8)
-///
-/// # Privacy Warning (MEDIUM-1)
-/// The `Human` variant stores user identifiers directly. When exporting to
-/// external SIEM systems (OCSF, Splunk, Datadog), consider:
-/// - GDPR/CCPA compliance for PII handling
-/// - Using pseudonymized identifiers instead of real names
-/// - Implementing consent checks before export
-///
-/// For privacy-sensitive deployments, use hashed or tokenized identifiers:
-/// ```ignore
-/// ActorType::Human(hash_user_id(user.id))
-/// ```
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub enum ActorType {
-    /// AI agent performed the action
-    Bot(Uuid),
-    /// Human user performed the action (PII - handle with care)
-    Human(String),
-    /// System/automated process
-    #[default]
-    System,
-}
-
-/// Cryptographic signature for multi-party authorization (ISO 42001 A.6.1.3)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Signature {
-    /// Signer identifier (user ID or key fingerprint)
-    pub signer_id: String,
-    /// Signature timestamp
-    pub signed_at: DateTime<Utc>,
-    /// Hex-encoded signature bytes (64 bytes for Ed25519)
-    pub signature_hex: String,
-}
-
-impl Signature {
-    /// Create a new signature for a message
-    ///
-    /// # Arguments
-    /// * `signer_id` - Identifier for the signer (username, key fingerprint)
-    /// * `message` - The message bytes to sign
-    /// * `signing_key` - The Ed25519 signing key
-    pub fn create(
-        signer_id: impl Into<String>,
-        message: &[u8],
-        signing_key: &ed25519_dalek::SigningKey,
-    ) -> Self {
-        use ed25519_dalek::Signer;
-        let signature = signing_key.sign(message);
-
-        Self {
-            signer_id: signer_id.into(),
-            signed_at: Utc::now(),
-            signature_hex: hex::encode(signature.to_bytes()),
-        }
-    }
-
-    /// Verify this signature against a message and public key
-    ///
-    /// Uses `verify_strict()` to prevent weak key attacks (CRITICAL-1 fix)
-    ///
-    /// # Arguments
-    /// * `message` - The message bytes that were signed
-    /// * `verifying_key` - The Ed25519 public key
-    ///
-    /// # Returns
-    /// * `Ok(true)` if signature is valid
-    /// * `Ok(false)` if signature format is invalid
-    /// * `Err` if verification fails (signature doesn't match)
-    pub fn verify(
-        &self,
-        message: &[u8],
-        verifying_key: &ed25519_dalek::VerifyingKey,
-    ) -> Result<bool, String> {
-        // Decode hex signature
-        let sig_bytes = match hex::decode(&self.signature_hex) {
-            Ok(bytes) => bytes,
-            Err(_) => return Ok(false), // Invalid hex = invalid signature
-        };
-
-        // Parse signature bytes
-        let sig_array: [u8; 64] = match sig_bytes.try_into() {
-            Ok(arr) => arr,
-            Err(_) => return Ok(false), // Wrong length = invalid signature
-        };
-
-        let signature = ed25519_dalek::Signature::from_bytes(&sig_array);
-
-        // Use verify_strict to prevent weak key attacks
-        match verifying_key.verify_strict(message, &signature) {
-            Ok(()) => Ok(true),
-            Err(e) => Err(format!("Signature verification failed: {}", e)),
-        }
-    }
-}
-
-/// Single audit event (ISO 42001 / EU AI Act compliant)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditEvent {
-    /// Unique event ID
-    pub id: Uuid,
-    /// Event type
-    pub event_type: AuditEventType,
-    /// Timestamp
-    pub timestamp: DateTime<Utc>,
-    /// Agent involved (if any)
-    pub agent_id: Option<Uuid>,
-    /// Event data (JSON)
-    pub data: serde_json::Value,
-    /// Hash of this event
-    pub hash: Hash,
-    /// Hash of previous event (chain)
-    pub previous_hash: Option<Hash>,
-    /// Monotonic sequence number for ordering verification
-    pub sequence_number: u64,
-
-    // === ISO 42001 / EU AI Act Compliance Fields ===
-    /// Who performed the action (ISO 42001 A.6.2.8)
-    #[serde(default)]
-    pub actor: ActorType,
-    /// Explanation for the decision (ISO 42001 A.9.2)
-    #[serde(default)]
-    pub rationale: Option<String>,
-    /// Version of the policy/instructions in effect (ISO 42001 A.6.1.3)
-    #[serde(default)]
-    pub policy_version: Option<String>,
-    /// Hash of input data used for this decision (ISO 42001 A.7)
-    #[serde(default)]
-    pub data_provenance_hash: Option<Hash>,
-    /// Whether this event requires human review (EU AI Act Article 14)
-    #[serde(default)]
-    pub human_review_required: bool,
-    /// Multi-party authorization signatures (ISO 42001 A.6.1.3 / EU AI Act Article 14)
-    #[serde(default)]
-    pub approval_signatures: Vec<Signature>,
-}
-
-impl AuditEvent {
-    /// Fields that should be redacted from audit log data for security
-    const SENSITIVE_FIELDS: &'static [&'static str] = &[
-        "password",
-        "secret",
-        "token",
-        "api_key",
-        "apikey",
-        "key",
-        "authorization",
-        "auth",
-        "credential",
-        "private_key",
-        "privatekey",
-    ];
-
-    /// Create a new audit event with sanitized data
-    /// Note: sequence_number should be provided by the AuditStore for proper ordering
-    pub fn new(
-        event_type: AuditEventType,
-        agent_id: Option<Uuid>,
-        data: serde_json::Value,
-        sequence_number: u64,
-    ) -> Self {
-        let id = Uuid::new_v4();
-        let timestamp = Utc::now();
-
-        // Sanitize sensitive fields from data
-        let data = Self::sanitize_data(data);
-
-        // Default ISO 42001 / EU AI Act fields
-        let actor = ActorType::System;
-        let rationale: Option<String> = None;
-        let policy_version: Option<String> = None;
-        let data_provenance_hash: Option<Hash> = None;
-        let human_review_required = false;
-        let approval_signatures: Vec<Signature> = Vec::new();
-
-        // Compute hash including ALL fields for tamper detection (CRITICAL-3 fix)
-        let hash = Self::compute_hash(HashParams {
-            event_type: &event_type,
-            timestamp,
-            sequence_number,
-            data: &data,
-            actor: &actor,
-            rationale: &rationale,
-            policy_version: &policy_version,
-            data_provenance_hash: &data_provenance_hash,
-            human_review_required,
-            approval_count: approval_signatures.len(),
-        });
-
-        Self {
-            id,
-            event_type,
-            timestamp,
-            agent_id,
-            data,
-            hash,
-            previous_hash: None,
-            sequence_number,
-            actor,
-            rationale,
-            policy_version,
-            data_provenance_hash,
-            human_review_required,
-            approval_signatures,
-        }
-    }
-}
-
-/// Parameters for consistent event hashing
-struct HashParams<'a> {
-    event_type: &'a AuditEventType,
-    timestamp: chrono::DateTime<Utc>,
-    sequence_number: u64,
-    data: &'a serde_json::Value,
-    actor: &'a ActorType,
-    rationale: &'a Option<String>,
-    policy_version: &'a Option<String>,
-    data_provenance_hash: &'a Option<Hash>,
-    human_review_required: bool,
-    approval_count: usize,
-}
-
-impl AuditEvent {
-    /// Compute event hash including all compliance-critical fields
-    /// Used by both new() and chained() to ensure consistent tamper detection
-    fn compute_hash(params: HashParams) -> Hash {
-        // Format includes ALL fields to prevent tampering (ISO 42001 compliance)
-        let content = format!(
-            "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
-            params.event_type,
-            params.timestamp.timestamp(),
-            params.sequence_number,
-            params.data,
-            params.actor,
-            params.rationale,
-            params.policy_version,
-            params.data_provenance_hash.as_ref().map(|h| h.to_hex()),
-            params.human_review_required,
-            params.approval_count,
-        );
-        Hash::digest(content.as_bytes())
-    }
-
-    /// Sanitize sensitive fields from audit data (HIGH-2 fix)
-    ///
-    /// This is public so export methods can apply sanitization before
-    /// sending data to external SIEM systems.
-    pub fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
-        match value {
-            serde_json::Value::Object(mut map) => {
-                for key in map.keys().cloned().collect::<Vec<_>>() {
-                    let lower_key = key.to_lowercase();
-                    if Self::SENSITIVE_FIELDS.iter().any(|f| lower_key.contains(f)) {
-                        map.insert(key, serde_json::Value::String("[REDACTED]".to_string()));
-                    } else if let Some(v) = map.remove(&key) {
-                        map.insert(key, Self::sanitize_data(v));
-                    }
-                }
-                serde_json::Value::Object(map)
-            }
-            serde_json::Value::Array(arr) => {
-                serde_json::Value::Array(arr.into_iter().map(Self::sanitize_data).collect())
-            }
-            other => other,
-        }
-    }
-
-    /// Create with chained previous hash
-    pub fn chained(
-        event_type: AuditEventType,
-        agent_id: Option<Uuid>,
-        data: serde_json::Value,
-        previous_hash: Hash,
-        sequence_number: u64,
-    ) -> Self {
-        let mut event = Self::new(event_type, agent_id, data, sequence_number);
-        event.previous_hash = Some(previous_hash.clone());
-        // Rehash including previous hash and sequence
-        let content = format!("{}:{}:{}", event.hash, previous_hash, sequence_number);
-        event.hash = Hash::digest(content.as_bytes());
-        event
-    }
-}
+use vex_core::audit::{ActorType, AuditEvent, AuditEventType, HashParams};
 
 /// Per-tenant chain state for proper multi-tenancy isolation
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -379,17 +77,42 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         &self,
         tenant_id: &str,
         event_type: AuditEventType,
+        actor: ActorType,
         agent_id: Option<Uuid>,
         data: serde_json::Value,
     ) -> Result<AuditEvent, StorageError> {
+        // Pseudonymize actor to protect PII (Centralized in vex-core)
+        let actor = actor.pseudonymize();
+
         // Get per-tenant chain state
         let mut chain_state = self.get_chain_state(tenant_id).await?;
         let seq = chain_state.sequence;
 
-        let event = match &chain_state.last_hash {
+        let mut event = match &chain_state.last_hash {
             Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone(), seq),
             None => AuditEvent::new(event_type, agent_id, data, seq),
         };
+
+        // Set actor after creation to override default system actor
+        event.actor = actor;
+
+        // Rehash after setting actor
+        event.hash = AuditEvent::compute_hash(HashParams {
+            event_type: &event.event_type,
+            timestamp: event.timestamp,
+            sequence_number: event.sequence_number,
+            data: &event.data,
+            actor: &event.actor,
+            rationale: &event.rationale,
+            policy_version: &event.policy_version,
+            data_provenance_hash: &event.data_provenance_hash,
+            human_review_required: event.human_review_required,
+            approval_count: event.approval_signatures.len(),
+        });
+
+        if let Some(prev) = &event.previous_hash {
+            event.hash = AuditEvent::compute_chained_hash(&event.hash, prev, event.sequence_number);
+        }
 
         // Store event
         self.backend
@@ -717,6 +440,7 @@ mod tests {
             .log(
                 t1,
                 AuditEventType::AgentCreated,
+                ActorType::System,
                 None,
                 serde_json::json!({}),
             )
@@ -728,6 +452,7 @@ mod tests {
             .log(
                 t2,
                 AuditEventType::AgentExecuted,
+                ActorType::System,
                 None,
                 serde_json::json!({}),
             )

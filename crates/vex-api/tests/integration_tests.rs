@@ -42,6 +42,7 @@ async fn setup_state() -> AppState {
         Arc::new(db),
         Arc::new(worker_pool),
         a2a_state,
+        Arc::new(vex_llm::MockProvider::new(vec![])),
     )
 }
 

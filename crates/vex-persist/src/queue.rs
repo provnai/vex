@@ -113,6 +113,7 @@ impl QueueBackend for SqliteQueueBackend {
                 run_at: run_at_naive.and_utc(),
                 attempts: retries as u32,
                 last_error,
+                result: None, // populated after completion via set_result
             }))
         } else {
             Ok(None)
@@ -135,8 +136,7 @@ impl QueueBackend for SqliteQueueBackend {
         };
 
         if let JobStatus::Failed(_) = status {
-            // Calculate run_at for retry with delay
-            let delay = delay_secs.unwrap_or(60); // Default 60 second delay
+            let delay = delay_secs.unwrap_or(60);
             sqlx::query(
                 r#"
                 UPDATE jobs 
@@ -196,5 +196,68 @@ impl QueueBackend for SqliteQueueBackend {
             }
             None => Err(QueueError::NotFound),
         }
+    }
+
+    async fn get_job(&self, id: Uuid) -> Result<JobEntry, QueueError> {
+        use chrono::NaiveDateTime;
+        use sqlx::Row;
+
+        let row = sqlx::query(
+            "SELECT id, tenant_id, job_type, payload, status, created_at, run_at, retries, last_error, result FROM jobs WHERE id = ?"
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| QueueError::Backend(e.to_string()))?
+        .ok_or(QueueError::NotFound)?;
+
+        let id_str: String = row.try_get("id").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let job_id = Uuid::parse_str(&id_str).map_err(|_| QueueError::Backend("Invalid UUID".into()))?;
+        let tenant_id: String = row.try_get("tenant_id").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let job_type: String = row.try_get("job_type").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let payload: Value = row.try_get("payload").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let status_str: String = row.try_get("status").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let retries: i64 = row.try_get("retries").unwrap_or(0);
+        let last_error: Option<String> = row.try_get("last_error").ok().flatten();
+        let result: Option<Value> = row.try_get::<Option<String>, _>("result")
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
+        let run_at_naive: NaiveDateTime = row.try_get("run_at").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let created_at_naive: NaiveDateTime = row.try_get("created_at").map_err(|e| QueueError::Backend(e.to_string()))?;
+
+        let status = match status_str.as_str() {
+            "pending" => JobStatus::Pending,
+            "processing" | "running" => JobStatus::Running,
+            "completed" => JobStatus::Completed,
+            "failed" => JobStatus::Failed(retries as u32),
+            "dead_letter" => JobStatus::DeadLetter,
+            _ => JobStatus::Pending,
+        };
+
+        Ok(JobEntry {
+            id: job_id,
+            tenant_id,
+            job_type,
+            payload,
+            status,
+            created_at: created_at_naive.and_utc(),
+            run_at: run_at_naive.and_utc(),
+            attempts: retries as u32,
+            last_error,
+            result,
+        })
+    }
+
+    async fn set_result(&self, id: Uuid, result: Value) -> Result<(), QueueError> {
+        let result_str = serde_json::to_string(&result)
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        sqlx::query("UPDATE jobs SET result = ?, status = 'completed' WHERE id = ?")
+            .bind(result_str)
+            .bind(id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        Ok(())
     }
 }

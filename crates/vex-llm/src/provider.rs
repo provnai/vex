@@ -106,3 +106,10 @@ pub trait LlmProvider: Send + Sync + std::fmt::Debug {
         Ok(response.content)
     }
 }
+
+/// Trait for embedding providers (text-to-vector)
+#[async_trait]
+pub trait EmbeddingProvider: Send + Sync + std::fmt::Debug {
+    /// Generate an embedding vector for the given text
+    async fn embed(&self, text: &str) -> Result<Vec<f32>, LlmError>;
+}

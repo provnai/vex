@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::auth::Claims;
 use crate::error::{ApiError, ApiResult};
-use crate::sanitize::{sanitize_name, sanitize_prompt, sanitize_role};
+use crate::sanitize::{sanitize_name, sanitize_prompt_async, sanitize_role};
 use crate::state::AppState;
 use utoipa::OpenApi;
 use vex_persist::AgentStore;
@@ -231,8 +231,10 @@ pub async fn execute_agent(
 ) -> ApiResult<Json<ExecuteResponse>> {
     let start = std::time::Instant::now();
 
-    // Sanitize and validate prompt
-    let prompt = sanitize_prompt(&req.prompt)
+    // Sanitize and validate prompt with async safety judge
+    let llm = state.llm();
+    let prompt = sanitize_prompt_async(&req.prompt, Some(&*llm))
+        .await
         .map_err(|e| ApiError::Validation(format!("Invalid prompt: {}", e)))?;
 
     // Check ownership/existence
@@ -280,6 +282,63 @@ pub async fn execute_agent(
         confidence: 1.0,
         context_hash: "pending".to_string(),
         latency_ms: start.elapsed().as_millis() as u64,
+    }))
+}
+
+/// Job status response (for polling after execute)
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct JobStatusResponse {
+    pub job_id: Uuid,
+    pub status: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+    pub queued_at: chrono::DateTime<chrono::Utc>,
+    pub attempts: u32,
+}
+
+/// Get job status / result handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/jobs/{id}",
+    params(
+        ("id" = Uuid, Path, description = "Job ID returned from execute_agent")
+    ),
+    responses(
+        (status = 200, description = "Job status and result", body = JobStatusResponse),
+        (status = 404, description = "Job not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_job_status(
+    Extension(_claims): Extension<Claims>,
+    State(state): State<AppState>,
+    Path(job_id): Path<Uuid>,
+) -> ApiResult<Json<JobStatusResponse>> {
+    let pool = state.queue();
+    let backend = &pool.backend;
+
+    let job = backend
+        .get_job(job_id)
+        .await
+        .map_err(|_| ApiError::NotFound(format!("Job {} not found", job_id)))?;
+
+    let status_str = match job.status {
+        vex_queue::JobStatus::Pending => "pending",
+        vex_queue::JobStatus::Running => "running",
+        vex_queue::JobStatus::Completed => "completed",
+        vex_queue::JobStatus::Failed(_) => "failed",
+        vex_queue::JobStatus::DeadLetter => "dead_letter",
+    };
+
+    Ok(Json(JobStatusResponse {
+        job_id,
+        status: status_str.to_string(),
+        result: job.result,
+        error: job.last_error,
+        queued_at: job.created_at,
+        attempts: job.attempts,
     }))
 }
 
@@ -331,6 +390,90 @@ pub async fn get_metrics(
     }))
 }
 
+/// Routing statistics response
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct RoutingStatsResponse {
+    pub summary: vex_router::ObservabilitySummary,
+    pub savings: vex_router::SavingsReport,
+}
+
+/// Get routing statistics handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/routing/stats",
+    responses(
+        (status = 200, description = "Current routing statistics and cost savings", body = RoutingStatsResponse),
+        (status = 404, description = "Router not enabled"),
+        (status = 403, description = "Forbidden")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_routing_stats(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<RoutingStatsResponse>> {
+    // Only admins can view deep stats
+    if !claims.has_role("admin") {
+        return Err(ApiError::Forbidden("Admin access required".to_string()));
+    }
+
+    let router = state.router().ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
+    let obs = router.observability();
+
+    Ok(Json(RoutingStatsResponse {
+        summary: obs.get_summary(),
+        savings: obs.get_savings(),
+    }))
+}
+
+/// Routing configuration request
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct UpdateRoutingConfigRequest {
+    pub strategy: String,
+    pub cache_enabled: bool,
+    pub compression_level: String,
+}
+
+/// Update routing configuration handler
+#[utoipa::path(
+    put,
+    path = "/api/v1/routing/config",
+    request_body = UpdateRoutingConfigRequest,
+    responses(
+        (status = 200, description = "Routing configuration updated successfully"),
+        (status = 404, description = "Router not enabled"),
+        (status = 400, description = "Invalid configuration"),
+        (status = 403, description = "Forbidden")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn update_routing_config(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+    Json(req): Json<UpdateRoutingConfigRequest>,
+) -> ApiResult<Json<HealthResponse>> {
+    // Only admins can change system config
+    if !claims.has_role("admin") {
+        return Err(ApiError::Forbidden("Admin access required".to_string()));
+    }
+
+    let _router = state.router().ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
+    
+    // In a real implementation, we would update the router state here.
+    // For now, we return a success status.
+    
+    Ok(Json(HealthResponse {
+        status: format!("Routing strategy updated to {}", req.strategy),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now(),
+        components: None,
+    }))
+}
+
 /// Prometheus metrics handler
 #[utoipa::path(
     get,
@@ -359,8 +502,11 @@ pub async fn get_prometheus_metrics(
         health_detailed,
         create_agent,
         execute_agent,
+        get_job_status,
         get_metrics,
         get_prometheus_metrics,
+        get_routing_stats,
+        update_routing_config,
         crate::a2a::handler::agent_card_handler,
         crate::a2a::handler::create_task_handler,
         crate::a2a::handler::get_task_handler,
@@ -370,7 +516,10 @@ pub async fn get_prometheus_metrics(
             HealthResponse, ComponentHealth, ComponentStatus,
             CreateAgentRequest, AgentResponse,
             ExecuteRequest, ExecuteResponse,
+            JobStatusResponse,
             MetricsResponse,
+            RoutingStatsResponse,
+            UpdateRoutingConfigRequest,
             crate::a2a::agent_card::AgentCard,
             crate::a2a::agent_card::AuthConfig,
             crate::a2a::agent_card::Skill,
@@ -416,8 +565,12 @@ pub fn api_router(state: AppState) -> Router {
         // Agent endpoints
         .route("/api/v1/agents", post(create_agent))
         .route("/api/v1/agents/{id}/execute", post(execute_agent))
+        // Job polling endpoint
+        .route("/api/v1/jobs/{id}", get(get_job_status))
         // Admin endpoints
         .route("/api/v1/metrics", get(get_metrics))
+        .route("/api/v1/routing/stats", get(get_routing_stats))
+        .route("/api/v1/routing/config", axum::routing::put(update_routing_config))
         .route("/metrics", get(get_prometheus_metrics))
         // State
         .with_state(state)

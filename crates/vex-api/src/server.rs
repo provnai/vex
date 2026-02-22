@@ -144,7 +144,7 @@ impl VexServer {
         );
 
         // Initialize Intelligence (LLM) with resilience and caching
-        let llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("DEEPSEEK_API_KEY") {
+        let _base_llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("DEEPSEEK_API_KEY") {
             tracing::info!("Initializing Resilient+Cached DeepSeek Provider");
             let base = DeepSeekProvider::chat(&key);
             // Wrap with resilience first, then caching
@@ -155,6 +155,13 @@ impl VexServer {
             tracing::warn!("DEEPSEEK_API_KEY not found. Using Mock Provider.");
             Arc::new(MockProvider::smart())
         };
+
+        // Initialize Router (Smart Routing Layer)
+        let router = vex_router::Router::builder()
+            .strategy(vex_router::RoutingStrategy::Auto)
+            .build();
+        let router_arc = Arc::new(router);
+        let llm: Arc<dyn LlmProvider> = router_arc.clone();
 
         // Create shared result store for job results
         let result_store = crate::jobs::new_result_store();
@@ -187,6 +194,8 @@ impl VexServer {
             Arc::new(db),
             Arc::new(worker_pool),
             a2a_state,
+            llm.clone(),
+            Some(router_arc),
         );
 
         Ok(Self { config, app_state })

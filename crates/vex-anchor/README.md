@@ -26,11 +26,13 @@ async fn main() {
 }
 ```
 
-## Planned Backends
+## Supported Backends
 
-- EIP-4844 (Ethereum blobs)
-- Celestia
-- OpenTimestamps
+- **Ethereum** (EIP-4844 Calldata)
+- **Celestia** (Blobstream/DA)
+- **OpenTimestamps** (Bitcoin-backed)
+- **FileAnchor** (JSON Lines for local dev)
+- **GitAnchor** (Tamper-evident Git commits)
 
 ## License
 

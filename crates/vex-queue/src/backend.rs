@@ -40,4 +40,10 @@ pub trait QueueBackend: Send + Sync {
 
     /// Get job status
     async fn get_status(&self, id: Uuid) -> Result<JobStatus, QueueError>;
+
+    /// Get full job entry (for polling endpoint)
+    async fn get_job(&self, id: Uuid) -> Result<JobEntry, QueueError>;
+
+    /// Store the result of a completed job
+    async fn set_result(&self, id: Uuid, result: serde_json::Value) -> Result<(), QueueError>;
 }

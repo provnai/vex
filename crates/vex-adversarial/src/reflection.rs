@@ -3,6 +3,7 @@
 //! The ReflectionAgent analyzes agent performance and suggests genome
 //! improvements based on statistical correlations and LLM-based analysis.
 
+
 use std::sync::Arc;
 
 use vex_core::{
@@ -181,9 +182,16 @@ STATISTICAL INSIGHTS:
 
 INSTRUCTIONS:
 1. Based on this data, suggest specific trait adjustments to improve performance.
-2. Format each suggestion as: TRAIT: CHANGE (e.g., "exploration: +0.1" or "precision: -0.05")
-3. Include brief reasoning for each change.
-4. If no changes needed, say "NO_CHANGES"."#,
+2. Output your suggestions PURELY in the following JSON format:
+{{
+  "adjustments": [
+    {{ "trait": "exploration", "delta": 0.1, "reasoning": "..." }},
+    {{ "trait": "precision", "delta": -0.05, "reasoning": "..." }}
+  ],
+  "reasoning": "Overall summary of changes"
+}}
+3. If no changes are needed, return an empty adjustments list.
+4. ONLY output the JSON object."#,
             Self::sanitize_input(task),
             Self::sanitize_input(response),
             agent.genome.get_trait("exploration").unwrap_or(0.5),
@@ -201,53 +209,47 @@ INSTRUCTIONS:
 
         let llm_response = self.llm.ask(&prompt).await.map_err(|e| e.to_string())?;
 
-        // Parse LLM response
+        // Parse JSON response
         let adjustments = self.parse_llm_response(&llm_response);
 
         Ok((adjustments, llm_response))
     }
 
-    /// Parse LLM response into trait adjustments
+    /// Parse JSON response into trait adjustments
     fn parse_llm_response(&self, response: &str) -> Vec<(String, f64)> {
-        let mut adjustments = Vec::new();
-
-        if response.to_uppercase().contains("NO_CHANGES") {
-            return adjustments;
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        struct LlmAdjustment {
+            #[serde(rename = "trait")]
+            trait_name: String,
+            delta: f64,
+        }
+        #[derive(serde::Deserialize)]
+        struct LlmResponse {
+            adjustments: Vec<LlmAdjustment>,
         }
 
-        for line in response.lines() {
-            let line = line.trim().to_lowercase();
-            for trait_name in &[
-                "exploration",
-                "precision",
-                "creativity",
-                "skepticism",
-                "verbosity",
-            ] {
-                if line.contains(trait_name) {
-                    // Parse delta from line
-                    let delta = if line.contains("+0.15") || line.contains("+ 0.15") {
-                        0.15
-                    } else if line.contains("-0.15") || line.contains("- 0.15") {
-                        -0.15
-                    } else if line.contains("+0.1") || line.contains("+ 0.1") {
-                        0.1
-                    } else if line.contains("-0.1") || line.contains("- 0.1") {
-                        -0.1
-                    } else if line.contains("+0.05") || line.contains("+ 0.05") {
-                        0.05
-                    } else if line.contains("-0.05") || line.contains("- 0.05") {
-                        -0.05
-                    } else {
-                        continue;
-                    };
+        // Find JSON block if it's wrapped in other text
+        let json_str = if let Some(start) = response.find('{') {
+            if let Some(end) = response.rfind('}') {
+                &response[start..=end]
+            } else {
+                response
+            }
+        } else {
+            response
+        };
 
-                    adjustments.push((trait_name.to_string(), delta));
-                }
+        match serde_json::from_str::<LlmResponse>(json_str) {
+            Ok(res) => res
+                .adjustments
+                .into_iter()
+                .map(|a| (a.trait_name, a.delta))
+                .collect(),
+            Err(e) => {
+                tracing::warn!("Failed to parse JSON adjustments: {}", e);
+                Vec::new()
             }
         }
-
-        adjustments
     }
 
     /// Merge statistical and LLM suggestions
@@ -399,7 +401,12 @@ mod tests {
         let llm = Arc::new(MockProvider::new(vec!["mock response".to_string()]));
         let agent = ReflectionAgent::new(llm);
 
-        let response = "Based on analysis:\nexploration: +0.1 (more creative responses needed)\nprecision: -0.05 (too focused)";
+        let response = r#"{
+            "adjustments": [
+                { "trait": "exploration", "delta": 0.1, "reasoning": "more creative" },
+                { "trait": "precision", "delta": -0.05, "reasoning": "too focused" }
+            ]
+        }"#;
         let adjustments = agent.parse_llm_response(response);
 
         assert_eq!(adjustments.len(), 2);
@@ -416,7 +423,7 @@ mod tests {
         let llm = Arc::new(MockProvider::new(vec!["mock response".to_string()]));
         let agent = ReflectionAgent::new(llm);
 
-        let response = "The current traits are optimal. NO_CHANGES recommended.";
+        let response = r#"{ "adjustments": [], "reasoning": "optimal" }"#;
         let adjustments = agent.parse_llm_response(response);
 
         assert!(adjustments.is_empty());

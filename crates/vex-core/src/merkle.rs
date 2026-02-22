@@ -1,6 +1,7 @@
-//! Merkle tree implementation for context verification
-//!
 //! Provides cryptographic verification of context packet hierarchies.
+
+#[cfg(feature = "algoswitch")]
+use vex_algoswitch as algoswitch;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -249,6 +250,40 @@ impl MerkleTree {
                     || Self::contains_node(left, target)
                     || Self::contains_node(right, target)
             }
+        }
+    }
+
+    /// Optimized search using iterative traversal (prevents stack overflow for deep trees)
+    pub fn contains_iterative(&self, target_hash: &Hash) -> bool {
+        let mut stack = Vec::new();
+        if let Some(root) = &self.root {
+            stack.push(root);
+        }
+
+        while let Some(node) = stack.pop() {
+            match node {
+                MerkleNode::Leaf { hash, .. } => {
+                    if hash == target_hash { return true; }
+                }
+                MerkleNode::Internal { hash, left, right } => {
+                    if hash == target_hash { return true; }
+                    stack.push(right);
+                    stack.push(left);
+                }
+            }
+        }
+        false
+    }
+    
+    /// AlgoSwitch Select - picks the best search strategy based on tree size
+    #[cfg(feature = "algoswitch")]
+    pub fn contains_optimized(&self, target_hash: &Hash) -> bool {
+        // For small trees, recursive is overhead-free (no stack allocation)
+        // For large trees, iterative is safer and often faster
+        if self.leaf_count < 128 {
+            self.contains(target_hash)
+        } else {
+            self.contains_iterative(target_hash)
         }
     }
 

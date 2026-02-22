@@ -46,6 +46,7 @@ impl LlmProvider for MockLlm {
                 model: "mock".to_string(),
                 tokens_used: Some(10),
                 latency_ms: 10,
+                trace_root: None,
             });
         }
         Ok(LlmResponse {
@@ -53,6 +54,7 @@ impl LlmProvider for MockLlm {
             model: "mock".to_string(),
             tokens_used: Some(10),
             latency_ms: 10,
+            trace_root: None,
         })
     }
 }

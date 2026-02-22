@@ -20,6 +20,7 @@ tracing = { workspace = true }
 reqwest = { version = "0.12", features = ["json"] }
 chrono = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
+rand = { workspace = true }
 meval = "0.2"
 futures = "0.3"
 sha2 = { workspace = true }
@@ -29,6 +30,7 @@ async-stream = "0.3"
 tokio-stream = "0.1"
 pin-project-lite = "0.2"
 jsonschema = { workspace = true }
+tokio-tungstenite = "0.24"
 
 # High-performance caching
 moka = { version = "0.12", features = ["future"] }

@@ -42,15 +42,13 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v0.1.4
+## ✨ What's New in v0.1.5
 
-- 🔒 **Tenant-Scoped Rate Limiting** - Per-tenant quotas with JWT-based enforcement
-- 🤝 **A2A Protocol** - Agent-to-Agent communication with task queueing
-- 💾 **LLM Caching & Circuit Breakers** - Response caching + fault tolerance
-- 📖 **OpenAPI Documentation** - Auto-generated Swagger UI at `/swagger-ui`
-- 🔐 **HTTPS Enforcement** - Production mode requires TLS certificates
-- ⚡ **Parallel Evolution** - Multi-threaded genome processing with rayon
-- ✅ **Property-Based Testing** - Proptest coverage for cryptographic primitives
+- � **Persistent Semantic Memory** - SQLite-backed VectorStore with cosine similarity search (`vex-persist`).
+- � **Blockchain Anchoring Backends** - Real-world anchoring to Ethereum (EIP-4844), OpenTimestamps, and Celestia.
+- � **WebSocket MCP Client** - Secure JSON-RPC over WebSocket client with TLS enforcement.
+- 🏁 **Job Result Retrieval** - Persistent endpoint for polling background task results.
+- 🛡️ **Adaptive Sanitization** - 2025-aware dynamic prompt injection detection.
 
 ---
 
@@ -112,7 +110,10 @@ Then visit:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  vex-api       │ HTTPS API, JWT Auth, Tenant Rate Limiting      │
-│                │ OpenAPI Docs, A2A Protocol, Swagger UI         │
+│                │ OpenAPI Docs, A2A Protocol, Routing Stats      │
+├────────────────┼────────────────────────────────────────────────┤
+│  vex-router    │ Intelligent LLM Routing, Semantic Caching,     │
+│                │ Adversarial Detection, Cost Optimization       │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-llm       │ Providers: DeepSeek, Mistral, OpenAI, Ollama  │
 │                │ Caching + Circuit Breakers + 6 Built-in Tools  │
@@ -122,8 +123,9 @@ Then visit:
 │  vex-queue     │ Async Worker Pool, Job Processing              │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-core      │ Agent, Genome, Merkle Tree, Evolution (Rayon) │
-│  vex-temporal  │ Episodic Memory, 5-Horizon Decay               │
+│  vex-algoswitch│ Runtime Algorithm Selection / Self-Optimization │
 ├────────────────┼────────────────────────────────────────────────┤
+│  vex-temporal  │ Episodic Memory, 5-Horizon Decay               │
 │  vex-persist   │ SQLite, Audit Logs, Merkle Hash Chains         │
 │  vex-anchor    │ Blockchain Anchoring (Optional)                │
 └────────────────┴────────────────────────────────────────────────┘
@@ -173,6 +175,7 @@ Then visit:
 | `/api/v1/agents/{id}/execute` | POST | Execute agent with verification |
 | `/api/v1/metrics` | GET | JSON metrics |
 | `/metrics` | GET | Prometheus metrics |
+| `/api/v1/routing/stats` | GET | Real-time routing performance & cost savings |
 
 ---
 
@@ -202,8 +205,22 @@ DEEPSEEK_API_KEY="sk-..." cargo test --package vex-llm -- --ignored
 | **API Reference (Rustdoc)** | [provnai.dev/rustdoc](https://www.provnai.dev/rustdoc) |
 | **API Reference (OpenAPI)** | Run server → `/swagger-ui` |
 | **Architecture** | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Roadmap** | [ROADMAP.md](ROADMAP.md) |
+| **Open Issues** | [OPEN_ISSUES.md](OPEN_ISSUES.md) |
 | **Benchmarks** | [BENCHMARKS.md](BENCHMARKS.md) |
 | **Contributing** | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+---
+
+## 🔗 The ProvnAI Ecosystem
+VEX is the central pillar of a multi-layered trust stack designed for the agentic era:
+
+- **1. Identity** ([Provn-SDK](https://github.com/provnai/provn-sdk)): Sovereign Ed25519 signing (no_std).
+- **2. Cognition** (VEX Protocol - This repo): Adversarial verification and temporal memory.
+- **3. Safety Brake** ([Vex-Halt](https://github.com/provnai/vex-halt)): Emergency circuit breaker and verification benchmark.
+- **4. Demonstration** ([VexEvolve](https://www.vexevolve.com)): Production AI newsroom swarm (Live).
+- **5. Marketing** ([provnai.com](https://provnai.com)): Global Open Research Initiative portal.
+- **6. Developer** ([provnai.dev](https://provnai.dev)): Documentation & Rustdoc portal.
 
 ---
 

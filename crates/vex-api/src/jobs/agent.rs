@@ -95,9 +95,9 @@ impl Job for AgentExecutionJob {
                     error: None,
                 };
 
-                self.result_store.write().await.insert(self.job_id, result);
+                self.result_store.write().await.insert(self.job_id, result.clone());
 
-                JobResult::Success
+                JobResult::Success(Some(serde_json::to_value(&result).unwrap()))
             }
             Err(e) => {
                 error!(job_id = %self.job_id, error = %e, "LLM call failed");

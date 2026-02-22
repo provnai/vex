@@ -11,7 +11,8 @@ use vex_core::{
     StandardOperator,
 };
 
-use crate::executor::{AgentExecutor, ExecutionResult, ExecutorConfig, LlmBackend};
+use crate::executor::{AgentExecutor, ExecutionResult, ExecutorConfig};
+use vex_llm::LlmProvider;
 
 /// Configuration for the orchestrator
 #[derive(Debug, Clone)]
@@ -52,6 +53,8 @@ impl Default for OrchestratorConfig {
     }
 }
 
+use vex_anchor::{AnchorBackend, AnchorMetadata, AnchorReceipt};
+
 /// Result from orchestrated execution
 #[derive(Debug)]
 pub struct OrchestrationResult {
@@ -65,6 +68,8 @@ pub struct OrchestrationResult {
     pub trace_root: Option<Hash>,
     /// All execution results (agent_id -> result)
     pub agent_results: HashMap<Uuid, ExecutionResult>,
+    /// Anchor receipts from blockchain backends
+    pub anchor_receipts: Vec<AnchorReceipt>,
     /// Total levels processed
     pub levels_processed: u8,
     /// Overall confidence
@@ -80,13 +85,15 @@ struct TrackedAgent {
 }
 
 /// Orchestrator manages hierarchical agent execution
-pub struct Orchestrator<L: LlmBackend + vex_llm::LlmProvider> {
+pub struct Orchestrator<L: LlmProvider> {
     /// Configuration
     pub config: OrchestratorConfig,
     /// All agents (id -> tracked agent with timestamp)
     agents: RwLock<HashMap<Uuid, TrackedAgent>>,
     /// Executor
     executor: AgentExecutor<L>,
+    /// Anchoring backends (Blockchain, Cloud, etc)
+    anchors: Vec<Arc<dyn AnchorBackend>>,
     /// LLM backend (stored for future use)
     #[allow(dead_code)]
     llm: Arc<L>,
@@ -98,7 +105,7 @@ pub struct Orchestrator<L: LlmBackend + vex_llm::LlmProvider> {
     persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
 }
 
-impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
+impl<L: LlmProvider + 'static> Orchestrator<L> {
     /// Create a new orchestrator
     pub fn new(
         llm: Arc<L>,
@@ -120,11 +127,17 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             config,
             agents: RwLock::new(HashMap::new()),
             executor,
+            anchors: Vec::new(),
             llm,
             evolution_memory,
             reflection_agent,
             persistence_layer,
         }
+    }
+
+    /// Add an anchoring backend
+    pub fn add_anchor(&mut self, anchor: Arc<dyn AnchorBackend>) {
+        self.anchors.push(anchor);
     }
 
     /// Cleanup expired agents to prevent memory leaks
@@ -276,6 +289,18 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
             .collect();
         let trace_merkle = MerkleTree::from_leaves(trace_leaves);
 
+        // Anchoring Step
+        let mut anchor_receipts = Vec::new();
+        if let Some(root_hash) = merkle_tree.root_hash() {
+            let metadata = AnchorMetadata::new(tenant_id, all_results.len() as u64);
+            for anchor in &self.anchors {
+                match anchor.anchor(root_hash, metadata.clone()).await {
+                    Ok(receipt) => anchor_receipts.push(receipt),
+                    Err(e) => tracing::warn!("Anchoring to {} failed: {}", anchor.name(), e),
+                }
+            }
+        }
+
         Ok(OrchestrationResult {
             root_agent_id: root_id,
             response: root_result.response,
@@ -285,6 +310,7 @@ impl<L: LlmBackend + vex_llm::LlmProvider + 'static> Orchestrator<L> {
                 .unwrap_or(Hash::digest(b"empty")),
             trace_root: trace_merkle.root_hash().cloned(),
             agent_results: all_results,
+            anchor_receipts,
             levels_processed: 2,
             confidence: avg_confidence,
         })
@@ -611,6 +637,7 @@ mod tests {
                 model: "mock".to_string(),
                 tokens_used: Some(10),
                 latency_ms: 10,
+                trace_root: None,
             })
         }
     }

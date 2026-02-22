@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 
 use crate::compression::TemporalCompressor;
 use crate::horizon::HorizonConfig;
+use vex_persist::VectorStoreBackend;
 
 /// An episode in memory
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,7 +250,12 @@ impl EpisodicMemory {
 
     /// Compress old episodes using LLM for intelligent summarization
     /// Returns the number of episodes that were compressed
-    pub async fn compress_old_with_llm<L: vex_llm::LlmProvider>(&mut self, llm: &L) -> usize {
+    pub async fn compress_old_with_llm<L: vex_llm::LlmProvider + vex_llm::EmbeddingProvider>(
+        &mut self,
+        llm: &L,
+        vector_store: Option<&dyn VectorStoreBackend>,
+        tenant_id: Option<&str>,
+    ) -> usize {
         if !self.config.auto_compress {
             return 0;
         }
@@ -264,7 +270,7 @@ impl EpisodicMemory {
             if ratio > 0.1 {
                 match self
                     .compressor
-                    .compress_with_llm(&episode.content, ratio, llm)
+                    .compress_with_llm(&episode.content, ratio, llm, vector_store, tenant_id)
                     .await
                 {
                     Ok(compressed) => {

@@ -23,13 +23,14 @@ vex-llm = { version = "0.1", features = ["openai"] }
 ## Quick Start
 
 ```rust
-use vex_llm::{LlmProvider, OllamaProvider};
+use vex_llm::{LlmProvider, OllamaProvider, LlmRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let provider = OllamaProvider::new("http://localhost:11434");
-    let response = provider.complete("Hello, world!").await?;
-    println!("{}", response);
+    let request = LlmRequest::new("Hello, world!");
+    let response = provider.complete(request).await?;
+    println!("{}", response.content);
     Ok(())
 }
 ```

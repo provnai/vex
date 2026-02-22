@@ -8,7 +8,9 @@ Persistence layer for the VEX Protocol.
 - **PostgreSQL Backend** - Production-ready scaling
 - **Agent Store** - Persist agent state and history
 - **Context Store** - Store and retrieve context packets
-- **Audit Trail** - Full audit logging
+- **Vector Store** - SQLite-backed semantic memory (Cosine similarity)
+- **Job Store** - Persistent background task results
+- **Audit Trail** - Full audit logging with tamper-evident chains
 
 ## Installation
 

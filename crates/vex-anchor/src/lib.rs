@@ -5,11 +5,13 @@
 //! Provides cryptographic anchoring of Merkle roots to external systems for
 //! tamper-evident, publicly-verifiable audit trails.
 //!
-//! ## Supported Backends (2025)
+//! ## Supported Backends (2026)
 //!
 //! - **FileAnchor**: Local append-only JSON log (default, for development)
 //! - **GitAnchor**: Commits roots to a Git repository
-//! - *Future*: EIP-4844 blobs (Ethereum), Celestia, OpenTimestamps
+//! - **OpenTimestampsAnchor**: Bitcoin calendar anchoring via the public OTS protocol
+//! - **EthereumAnchor**: Ethereum calldata anchoring via JSON-RPC
+//! - **CelestiaAnchor**: Celestia DA blob anchoring
 //!
 //! ## Quick Start
 //!
@@ -40,6 +42,15 @@ mod file;
 #[cfg(feature = "git")]
 mod git;
 
+#[cfg(feature = "opentimestamps")]
+mod opentimestamps;
+
+#[cfg(feature = "ethereum")]
+mod ethereum;
+
+#[cfg(feature = "celestia")]
+mod celestia;
+
 pub use backend::{AnchorBackend, AnchorMetadata, AnchorReceipt};
 pub use error::AnchorError;
 
@@ -48,3 +59,12 @@ pub use file::FileAnchor;
 
 #[cfg(feature = "git")]
 pub use git::GitAnchor;
+
+#[cfg(feature = "opentimestamps")]
+pub use opentimestamps::OpenTimestampsAnchor;
+
+#[cfg(feature = "ethereum")]
+pub use ethereum::EthereumAnchor;
+
+#[cfg(feature = "celestia")]
+pub use celestia::CelestiaAnchor;

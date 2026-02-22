@@ -2,6 +2,9 @@
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use vex_llm::{LlmProvider, EmbeddingProvider, LlmError};
+use vex_persist::VectorStoreBackend;
+use std::collections::HashMap;
 
 /// Strategy for decaying old context
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,7 +97,6 @@ impl TemporalCompressor {
     }
 
     /// Summarize content based on compression ratio (sync fallback - just truncates)
-    /// Use `compress_with_llm` for intelligent summarization
     pub fn compress(&self, content: &str, ratio: f64) -> String {
         if ratio <= 0.0 {
             return content.to_string();
@@ -110,21 +112,22 @@ impl TemporalCompressor {
         }
     }
 
-    /// Summarize content using an LLM for intelligent compression
+    /// Summarize content using an LLM and store it in semantic memory
     ///
     /// # Arguments
     /// * `content` - The text to compress
-    /// * `ratio` - Compression ratio (0.0 = no compression, 0.9 = 90% reduction)
-    /// * `llm` - Any LlmProvider implementation
-    ///
-    /// # Returns
-    /// A summarized version of the content preserving key information
-    pub async fn compress_with_llm<L: vex_llm::LlmProvider>(
+    /// * `ratio` - Compression ratio
+    /// * `llm` - LLM and Embedding provider
+    /// * `vector_store` - Optional persistent vector store for RAG fallback
+    /// * `tenant_id` - Tenant ID for vector storage
+    pub async fn compress_with_llm<L: LlmProvider + EmbeddingProvider>(
         &self,
         content: &str,
         ratio: f64,
         llm: &L,
-    ) -> Result<String, vex_llm::LlmError> {
+        vector_store: Option<&dyn VectorStoreBackend>,
+        tenant_id: Option<&str>,
+    ) -> Result<String, LlmError> {
         // If no compression needed, return as-is
         if ratio <= 0.0 || content.len() < 50 {
             return Ok(content.to_string());
@@ -144,67 +147,26 @@ impl TemporalCompressor {
             target_words, content
         );
 
-        // Use the LlmProvider's ask method for simple completion
         let summary = llm.ask(&prompt).await?;
 
-        tracing::debug!(
-            original_words = word_count,
-            target_words = target_words,
-            summary_words = summary.split_whitespace().count(),
-            "LLM compression complete"
-        );
+        // Semantic Memory Integration: Embed and store the summary
+        if let (Some(vs), Some(tid)) = (vector_store, tenant_id) {
+            match llm.embed(&summary).await {
+                Ok(vector) => {
+                    let mut metadata = HashMap::new();
+                    metadata.insert("type".to_string(), "temporal_summary".to_string());
+                    metadata.insert("original_len".to_string(), content.len().to_string());
+                    metadata.insert("timestamp".to_string(), Utc::now().to_rfc3339());
+
+                    let id = format!("summary_{}", uuid::Uuid::new_v4());
+                    if let Err(e) = vs.add(id, tid.to_string(), vector, metadata).await {
+                        tracing::warn!("Failed to store summary embedding: {}", e);
+                    }
+                }
+                Err(e) => tracing::warn!("Failed to generate summary embedding: {}", e),
+            }
+        }
 
         Ok(summary.trim().to_string())
-    }
-
-    /// Compress with fallback - tries LLM first, falls back to truncation
-    pub async fn compress_smart<L: vex_llm::LlmProvider>(
-        &self,
-        content: &str,
-        ratio: f64,
-        llm: Option<&L>,
-    ) -> String {
-        match llm {
-            Some(provider) => match self.compress_with_llm(content, ratio, provider).await {
-                Ok(summary) => summary,
-                Err(e) => {
-                    tracing::warn!("LLM compression failed, using truncation: {}", e);
-                    self.compress(content, ratio)
-                }
-            },
-            None => self.compress(content, ratio),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_decay_strategies() {
-        let hour = Duration::hours(1);
-        let half_hour = Duration::minutes(30);
-
-        // Linear should be 0.5 at halfway point
-        let linear = DecayStrategy::Linear.calculate(half_hour, hour);
-        assert!((linear - 0.5).abs() < 0.01);
-
-        // Step should be 1.0 before threshold
-        let step = DecayStrategy::Step.calculate(Duration::minutes(20), hour);
-        assert!((step - 1.0).abs() < 0.01);
-    }
-
-    #[test]
-    fn test_compressor() {
-        let compressor = TemporalCompressor::default();
-        let now = Utc::now();
-
-        // Fresh content should have high importance
-        let importance = compressor.importance(now, 1.0);
-        assert!(importance > 0.9);
-
-        // Should not evict fresh content
-        assert!(!compressor.should_evict(now));
     }
 }

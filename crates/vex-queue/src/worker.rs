@@ -121,7 +121,10 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                                 let result = job.execute().await;
 
                                 match result {
-                                    JobResult::Success => {
+                                    JobResult::Success(value) => {
+                                        if let Some(val) = value {
+                                            let _ = backend.set_result(entry.id, val).await;
+                                        }
                                         let _ = backend
                                             .update_status(
                                                 entry.id,

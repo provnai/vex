@@ -48,6 +48,7 @@
 //! ```
 
 pub mod agent;
+pub mod audit;
 pub mod context;
 pub mod evolution;
 pub mod evolution_memory;
@@ -66,3 +67,4 @@ pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicE
 pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
+pub use audit::{ActorType, AuditEvent, AuditEventType, HashParams, Signature};

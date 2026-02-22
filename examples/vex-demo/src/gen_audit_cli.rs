@@ -5,8 +5,8 @@ use chrono::Utc;
 use std::fs::File;
 use std::io::Write;
 use uuid::Uuid;
-use vex_core::{Hash, MerkleTree};
-use vex_persist::audit_store::{AuditEvent, AuditEventType, AuditExport};
+use vex_core::{AuditEvent, AuditEventType, Hash, MerkleTree};
+use vex_persist::audit_store::AuditExport;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = Uuid::new_v4();

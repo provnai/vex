@@ -129,6 +129,7 @@ cargo doc --workspace --no-deps
 | `vex-persist` | Storage backends (Redis, PostgreSQL, etc.) |
 | `vex-queue` | Job processing, worker pool |
 | `vex-runtime` | Agent orchestration, execution |
+| `vex-anchor` | Blockchain anchoring backends (Solana, EIP-4844, etc.) |
 | `vex-macros` | Procedural macros |
 
 ### Adding a New LLM Provider

@@ -1,6 +1,5 @@
 //! Agent executor - runs individual agents with LLM backend
 
-use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -13,9 +12,9 @@ use vex_core::{Agent, ContextPacket, Hash};
 #[derive(Debug, Deserialize)]
 struct ChallengeResponse {
     is_challenge: bool,
-    #[serde(default)]
-    #[allow(dead_code)]
+    confidence: f64,
     reasoning: String,
+    suggested_revision: Option<String>,
 }
 
 /// Configuration for agent execution
@@ -58,21 +57,17 @@ pub struct ExecutionResult {
     pub debate: Option<Debate>,
 }
 
-/// Trait for LLM provider (re-exported for convenience)
-#[async_trait]
-pub trait LlmBackend: Send + Sync {
-    async fn complete(&self, system: &str, prompt: &str) -> Result<String, String>;
-}
+use vex_llm::{LlmProvider, LlmRequest};
 
 /// Agent executor - runs agents with LLM backends
-pub struct AgentExecutor<L: LlmBackend> {
+pub struct AgentExecutor<L: LlmProvider> {
     /// Configuration
     pub config: ExecutorConfig,
     /// LLM backend
     llm: Arc<L>,
 }
 
-impl<L: LlmBackend> Clone for AgentExecutor<L> {
+impl<L: LlmProvider> Clone for AgentExecutor<L> {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
@@ -81,7 +76,7 @@ impl<L: LlmBackend> Clone for AgentExecutor<L> {
     }
 }
 
-impl<L: LlmBackend> AgentExecutor<L> {
+impl<L: LlmProvider> AgentExecutor<L> {
     /// Create a new executor
     pub fn new(llm: Arc<L>, config: ExecutorConfig) -> Self {
         Self { config, llm }
@@ -103,7 +98,12 @@ impl<L: LlmBackend> AgentExecutor<L> {
             prompt.to_string()
         };
 
-        let blue_response = self.llm.complete(&agent.config.role, &full_prompt).await?;
+        let blue_response = self
+            .llm
+            .complete(LlmRequest::with_role(&agent.config.role, &full_prompt))
+            .await
+            .map_err(|e| e.to_string())?
+            .content;
 
         // Step 2: If adversarial is enabled, run debate
         let (final_response, verified, confidence, debate) = if self.config.enable_adversarial {
@@ -146,58 +146,52 @@ impl<L: LlmBackend> AgentExecutor<L> {
         // Create debate
         let mut debate = Debate::new(blue_agent.id, shadow.agent.id, blue_response);
 
+        // Initialize weighted consensus
+        let mut consensus = Consensus::new(ConsensusProtocol::WeightedConfidence);
+
         // Run debate rounds
         for round_num in 1..=self.config.max_debate_rounds {
             // Red agent challenges
             let mut challenge_prompt = shadow.challenge_prompt(blue_response);
-            challenge_prompt.push_str("\n\nIMPORTANT: Respond in valid JSON format: {\"is_challenge\": boolean, \"reasoning\": \"string\"}. If you agree with the statement, set is_challenge to false.");
+            challenge_prompt.push_str("\n\nIMPORTANT: Respond in valid JSON format: {\"is_challenge\": boolean, \"confidence\": float (0.0-1.0), \"reasoning\": \"string\", \"suggested_revision\": \"string\" | null}. If you agree with the statement, set is_challenge to false.");
 
-            let red_challenge = self
+            let red_output = self
                 .llm
-                .complete(&shadow.agent.config.role, &challenge_prompt)
-                .await?;
+                .complete(LlmRequest::with_role(&shadow.agent.config.role, &challenge_prompt))
+                .await
+                .map_err(|e| e.to_string())?
+                .content;
 
             // Try to parse JSON response
-            let is_challenge = if let Ok(json_start) = red_challenge.find('{').ok_or(()) {
-                if let Ok(json_end) = red_challenge.rfind('}').ok_or(()) {
-                    if let Ok(response) = serde_json::from_str::<ChallengeResponse>(
-                        &red_challenge[json_start..=json_end],
-                    ) {
-                        response.is_challenge
+            let (is_challenge, red_confidence, red_reasoning, _suggested_revision) = 
+                if let Some(start) = red_output.find('{') {
+                    if let Some(end) = red_output.rfind('}') {
+                        if let Ok(res) = serde_json::from_str::<ChallengeResponse>(&red_output[start..=end]) {
+                            (res.is_challenge, res.confidence, res.reasoning, res.suggested_revision)
+                        } else {
+                            (red_output.to_lowercase().contains("disagree"), 0.5, red_output.clone(), None)
+                        }
                     } else {
-                        // Fallback to heuristic
-                        red_challenge.contains("[CHALLENGE]")
-                            || red_challenge.to_lowercase().contains("disagree")
-                            || red_challenge.to_lowercase().contains("issue")
-                            || red_challenge.to_lowercase().contains("concern")
-                            || red_challenge.to_lowercase().contains("incorrect")
-                            || red_challenge.to_lowercase().contains("flaw")
+                        (false, 0.0, "Parsing failed".to_string(), None)
                     }
                 } else {
-                    false
-                }
-            } else {
-                // Fallback to heuristic if no JSON found
-                red_challenge.contains("[CHALLENGE]")
-                    || red_challenge.to_lowercase().contains("disagree")
-                    || red_challenge.to_lowercase().contains("issue")
-                    || red_challenge.to_lowercase().contains("concern")
-                    || red_challenge.to_lowercase().contains("incorrect")
-                    || red_challenge.to_lowercase().contains("flaw")
-            };
+                    (false, 0.0, "No JSON found".to_string(), None)
+                };
 
             let rebuttal = if is_challenge {
                 let rebuttal_prompt = format!(
-                    "Your previous response was challenged:\n\n\
+                    "Your previous response was challenged by a Red agent:\n\n\
                      Original: \"{}\"\n\n\
                      Challenge: \"{}\"\n\n\
-                     Please address these concerns or revise your response.",
-                    blue_response, red_challenge
+                     Please address these concerns or provide a revised response.",
+                    blue_response, red_reasoning
                 );
                 Some(
                     self.llm
-                        .complete(&blue_agent.config.role, &rebuttal_prompt)
-                        .await?,
+                        .complete(LlmRequest::with_role(&blue_agent.config.role, &rebuttal_prompt))
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .content,
                 )
             } else {
                 None
@@ -206,66 +200,29 @@ impl<L: LlmBackend> AgentExecutor<L> {
             debate.add_round(DebateRound {
                 round: round_num,
                 blue_claim: blue_response.to_string(),
-                red_challenge,
+                red_challenge: red_reasoning.clone(),
                 blue_rebuttal: rebuttal,
             });
 
-            // Check if we've reached consensus (Red agreed)
-            if debate
-                .rounds
-                .last()
-                .map(|r| r.red_challenge.to_lowercase().contains("agree"))
-                .unwrap_or(false)
-            {
+            // Vote: Red votes based on whether it found a challenge
+            consensus.add_vote(Vote {
+                agent_id: shadow.agent.id,
+                agrees: !is_challenge,
+                confidence: red_confidence,
+                reasoning: Some(red_reasoning),
+            });
+
+            if !is_challenge {
                 break;
             }
         }
 
-        // Evaluate consensus
-        let mut consensus = Consensus::new(self.config.consensus_protocol);
-
-        // Blue's confidence depends on whether it successfully rebutted Red's challenges
-        // If Blue had to make a rebuttal, confidence is reduced
-        // If Red found issues Blue couldn't address, confidence is low
-        let blue_confidence = if let Some(last_round) = debate.rounds.last() {
-            let red_found_issues = last_round.red_challenge.to_lowercase().contains("issue")
-                || last_round.red_challenge.to_lowercase().contains("concern")
-                || last_round.red_challenge.to_lowercase().contains("disagree")
-                || last_round.red_challenge.to_lowercase().contains("flaw");
-
-            if red_found_issues {
-                // Red found issues - Blue's confidence depends on rebuttal quality
-                if last_round.blue_rebuttal.is_some() {
-                    0.6 // Reduced confidence - had to defend
-                } else {
-                    0.3 // Very low - couldn't defend
-                }
-            } else {
-                0.85 // Red agreed - high confidence
-            }
-        } else {
-            0.5 // No debate rounds - neutral
-        };
-
+        // Blue votes with its evolved fitness as confidence (floor 0.5 for new agents)
         consensus.add_vote(Vote {
             agent_id: blue_agent.id,
             agrees: true,
-            confidence: blue_confidence,
-            reasoning: Some(format!("Blue confidence: {:.0}%", blue_confidence * 100.0)),
-        });
-
-        // Red votes based on final challenge
-        let red_agrees = debate
-            .rounds
-            .last()
-            .map(|r| !r.red_challenge.to_lowercase().contains("disagree"))
-            .unwrap_or(true);
-
-        consensus.add_vote(Vote {
-            agent_id: shadow.agent.id,
-            agrees: red_agrees,
-            confidence: 0.7,
-            reasoning: debate.rounds.last().map(|r| r.red_challenge.clone()),
+            confidence: blue_agent.fitness.max(0.5),
+            reasoning: Some(format!("Blue agent fitness: {:.0}%", blue_agent.fitness * 100.0)),
         });
 
         consensus.evaluate();
@@ -297,22 +254,10 @@ mod tests {
     use super::*;
     use vex_core::AgentConfig;
 
-    struct MockLlm;
-
-    #[async_trait]
-    impl LlmBackend for MockLlm {
-        async fn complete(&self, _system: &str, prompt: &str) -> Result<String, String> {
-            if prompt.contains("challenge") {
-                Ok("I agree with this assessment. The logic is sound.".to_string())
-            } else {
-                Ok("This is a test response.".to_string())
-            }
-        }
-    }
-
     #[tokio::test]
     async fn test_executor() {
-        let llm = Arc::new(MockLlm);
+        use vex_llm::MockProvider;
+        let llm = Arc::new(MockProvider::smart());
         let executor = AgentExecutor::new(llm, ExecutorConfig::default());
         let mut agent = Agent::new(AgentConfig::default());
 

@@ -12,11 +12,13 @@ categories = ["algorithms", "asynchronous"]
 [dependencies]
 vex-core = { workspace = true }
 vex-llm = { workspace = true }
+vex-persist = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.5"

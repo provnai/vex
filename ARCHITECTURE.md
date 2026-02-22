@@ -2,7 +2,7 @@
 
 ## Overview
 
-VEX (Verified Evolutionary Xenogenesis) is a multi-layered Rust framework for building adversarial, temporal, cryptographically-verified AI agents.
+VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnAI "Immune System for AI". It is a multi-layered Rust framework for building adversarial, temporal, and cryptographically-verified AI agents.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -32,6 +32,7 @@ VEX (Verified Evolutionary Xenogenesis) is a multi-layered Rust framework for bu
 │                   Persistence Layer                         │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ vex-persist: SQLite + Migrations + Audit Logs          ││
+│  │ Semantic VectorStore + Job Result Persistence           ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -221,10 +222,11 @@ Cryptographically-verified tool execution with Merkle audit integration.
 
 | Capability | Description |
 |------------|-------------|
-| `PureComputation` | No I/O, safe for any sandbox |
-| `Network` | Requires HTTP access |
-| `FileSystem` | Requires file access |
+| `PureComputation` | No I/O, safe for WASM isolation |
+| `Network` | Requires HTTP/WebSocket access |
+| `FileSystem` | Requires local file access |
 | `Cryptography` | Uses crypto operations |
+| `Subprocess` | Can spawn child processes |
 
 ---
 

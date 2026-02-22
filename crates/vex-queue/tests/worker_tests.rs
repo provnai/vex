@@ -48,7 +48,7 @@ impl Job for CounterJob {
         if self.should_fail && count < self.fail_times {
             JobResult::Retry(format!("Failing on attempt {}", count + 1))
         } else {
-            JobResult::Success
+            JobResult::Success(None)
         }
     }
 
@@ -150,11 +150,11 @@ mod tests {
     #[tokio::test]
     async fn test_job_result_variants() {
         // Just ensuring the enum variants exist and can be matched
-        let success = JobResult::Success;
+        let success = JobResult::Success(None);
         let retry = JobResult::Retry("error".to_string());
         let fatal = JobResult::Fatal("error".to_string());
 
-        assert!(matches!(success, JobResult::Success));
+        assert!(matches!(success, JobResult::Success(_)));
         assert!(matches!(retry, JobResult::Retry(_)));
         assert!(matches!(fatal, JobResult::Fatal(_)));
     }
