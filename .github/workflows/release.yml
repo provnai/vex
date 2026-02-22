@@ -11,70 +11,70 @@ jobs:
   publish:
     name: Publish to Crates.io
     runs-on: ubuntu-latest
-    # steps use an explicit ordering because of workspace dependencies
+    # Steps MUST be ordered by dependency graph — leaves first, roots last.
     steps:
       - uses: actions/checkout@v4
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # 1. Macros (Proc macros usually standalone)
+      # 1. Standalone crates (no internal VEX dependencies)
       - name: Publish vex-macros
         run: cargo publish -p vex-macros || echo "Already published or error, continuing..."
-      - run: sleep 20 # Wait for index propagation
+      - run: sleep 30
 
-      # 2. Core (Foundational types)
+      # 2. AlgoSwitch MUST come before vex-core (vex-core has optional dep on it)
+      - name: Publish vex-algoswitch
+        run: cargo publish -p vex-algoswitch || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      # 3. Core (depends on vex-macros, optional: vex-algoswitch)
       - name: Publish vex-core
         run: cargo publish -p vex-core || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 3. Base Utilities
+      # 4. Base layer (depends on vex-core)
       - name: Publish vex-temporal
         run: cargo publish -p vex-temporal || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 4. Persistence & LLM (Mid-layer)
       - name: Publish vex-persist
         run: cargo publish -p vex-persist || echo "Already published or error, continuing..."
-      - run: sleep 20
-      
+      - run: sleep 30
+
       - name: Publish vex-llm
         run: cargo publish -p vex-llm || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 5. Logic Layers
+      # 5. Logic layer (depends on vex-core, vex-llm)
       - name: Publish vex-adversarial
         run: cargo publish -p vex-adversarial || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
       - name: Publish vex-queue
         run: cargo publish -p vex-queue || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 6. Higher Level
-      - name: Publish vex-runtime
-        run: cargo publish -p vex-runtime || echo "Already published or error, continuing..."
-      - run: sleep 20
-
-      # 7. Anchoring (depends on vex-core)
+      # 6. Anchoring (depends on vex-core)
       - name: Publish vex-anchor
         run: cargo publish -p vex-anchor || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 8. Optimization & Routing (New Phase 5 Crates)
-      - name: Publish vex-algoswitch
-        run: cargo publish -p vex-algoswitch || echo "Already published or error, continuing..."
-      - run: sleep 20
-
+      # 7. Router (depends on vex-llm)
       - name: Publish vex-router
         run: cargo publish -p vex-router || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 10. Gateway (Top Level)
+      # 8. Runtime (depends on vex-adversarial, vex-llm, vex-router)
+      - name: Publish vex-runtime
+        run: cargo publish -p vex-runtime || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      # 9. Gateway/API (top-level, depends on almost everything)
       - name: Publish vex-api
         run: cargo publish -p vex-api || echo "Already published or error, continuing..."
-      - run: sleep 20
+      - run: sleep 30
 
-      # 11. CLI (depends on vex-core, vex-persist)
+      # 10. CLI (depends on vex-core, vex-persist)
       - name: Publish vex-cli
         run: cargo publish -p vex-cli || echo "Already published or error, continuing..."
