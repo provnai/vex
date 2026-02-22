@@ -61,11 +61,20 @@ jobs:
         run: cargo publish -p vex-anchor || echo "Already published or error, continuing..."
       - run: sleep 20
 
-      # 8. Gateway (Top Level)
+      # 8. Optimization & Routing (New Phase 5 Crates)
+      - name: Publish vex-algoswitch
+        run: cargo publish -p vex-algoswitch || echo "Already published or error, continuing..."
+      - run: sleep 20
+
+      - name: Publish vex-router
+        run: cargo publish -p vex-router || echo "Already published or error, continuing..."
+      - run: sleep 20
+
+      # 10. Gateway (Top Level)
       - name: Publish vex-api
         run: cargo publish -p vex-api || echo "Already published or error, continuing..."
       - run: sleep 20
 
-      # 9. CLI (depends on vex-core, vex-persist)
+      # 11. CLI (depends on vex-core, vex-persist)
       - name: Publish vex-cli
         run: cargo publish -p vex-cli || echo "Already published or error, continuing..."
