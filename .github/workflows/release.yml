@@ -11,70 +11,70 @@ jobs:
   publish:
     name: Publish to Crates.io
     runs-on: ubuntu-latest
-    # Steps MUST be ordered by dependency graph — leaves first, roots last.
+    # Order strictly follows the dependency graph (leaves first)
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # 1. Standalone crates (no internal VEX dependencies)
+      # Layer 0: Fully standalone (no internal VEX deps)
       - name: Publish vex-macros
         run: cargo publish -p vex-macros || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 2. AlgoSwitch MUST come before vex-core (vex-core has optional dep on it)
       - name: Publish vex-algoswitch
         run: cargo publish -p vex-algoswitch || echo "Already published or error, continuing..."
-      - run: sleep 30
-
-      # 3. Core (depends on vex-macros, optional: vex-algoswitch)
-      - name: Publish vex-core
-        run: cargo publish -p vex-core || echo "Already published or error, continuing..."
-      - run: sleep 30
-
-      # 4. Base layer (depends on vex-core)
-      - name: Publish vex-temporal
-        run: cargo publish -p vex-temporal || echo "Already published or error, continuing..."
-      - run: sleep 30
-
-      - name: Publish vex-persist
-        run: cargo publish -p vex-persist || echo "Already published or error, continuing..."
-      - run: sleep 30
-
-      - name: Publish vex-llm
-        run: cargo publish -p vex-llm || echo "Already published or error, continuing..."
-      - run: sleep 30
-
-      # 5. Logic layer (depends on vex-core, vex-llm)
-      - name: Publish vex-adversarial
-        run: cargo publish -p vex-adversarial || echo "Already published or error, continuing..."
       - run: sleep 30
 
       - name: Publish vex-queue
         run: cargo publish -p vex-queue || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 6. Anchoring (depends on vex-core)
+      # Layer 1: Depends only on Layer 0
+      # vex-core optionally depends on vex-algoswitch (already published above)
+      - name: Publish vex-core
+        run: cargo publish -p vex-core || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      # Layer 2: Depends on vex-core
+      - name: Publish vex-llm
+        run: cargo publish -p vex-llm || echo "Already published or error, continuing..."
+      - run: sleep 30
+
       - name: Publish vex-anchor
         run: cargo publish -p vex-anchor || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 7. Router (depends on vex-llm)
+      # Layer 3: Depends on vex-core + vex-queue (both published)
+      - name: Publish vex-persist
+        run: cargo publish -p vex-persist || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      # Layer 4: Depends on vex-core + vex-llm + vex-persist
+      - name: Publish vex-temporal
+        run: cargo publish -p vex-temporal || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      - name: Publish vex-adversarial
+        run: cargo publish -p vex-adversarial || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      # Layer 5: Depends on vex-llm
       - name: Publish vex-router
         run: cargo publish -p vex-router || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 8. Runtime (depends on vex-adversarial, vex-llm, vex-router)
+      # Layer 6: Depends on vex-adversarial + vex-anchor + vex-persist + vex-llm
       - name: Publish vex-runtime
         run: cargo publish -p vex-runtime || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 9. Gateway/API (top-level, depends on almost everything)
+      # Layer 7: Top Level Gateway (depends on almost everything above)
       - name: Publish vex-api
         run: cargo publish -p vex-api || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # 10. CLI (depends on vex-core, vex-persist)
+      # Layer 8: CLI — NOTE: if this fails with 403, rename to vex-protocol-cli in Cargo.toml
       - name: Publish vex-cli
         run: cargo publish -p vex-cli || echo "Already published or error, continuing..."
