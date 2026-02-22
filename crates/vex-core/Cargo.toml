@@ -32,8 +32,8 @@ ed25519-dalek = { workspace = true }
 vex-algoswitch = { workspace = true, optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
-proptest = "1.4"
+criterion = "0.8"
+proptest = "1.10"
 
 [[bench]]
 name = "merkle_benchmark"
