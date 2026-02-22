@@ -71,7 +71,7 @@ vex-macros = { path = "crates/vex-macros", version = "0.1.5" }
 vex-api = { path = "crates/vex-api", version = "0.1.5" }
 vex-anchor = { path = "crates/vex-anchor", version = "0.1.5" }
 vex-temporal = { path = "crates/vex-temporal", version = "0.1.5" }
-vex-cli = { path = "crates/vex-cli", version = "0.1.5" }
+vex-protocol-cli = { path = "crates/vex-cli", version = "0.1.5" }
 
 # Release profile with security-hardened settings
 [profile.release]

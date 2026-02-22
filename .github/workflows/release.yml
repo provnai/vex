@@ -75,6 +75,6 @@ jobs:
         run: cargo publish -p vex-api || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # Layer 8: CLI — NOTE: if this fails with 403, rename to vex-protocol-cli in Cargo.toml
-      - name: Publish vex-cli
-        run: cargo publish -p vex-cli || echo "Already published or error, continuing..."
+      # Layer 8: CLI (Renamed to avoid conflict)
+      - name: Publish vex-protocol-cli
+        run: cargo publish -p vex-protocol-cli || echo "Already published or error, continuing..."

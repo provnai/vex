@@ -1,11 +1,11 @@
-# vex-cli
+# vex-protocol-cli
 
 Command-line interface for VEX — verified AI agent tooling.
 
 ## Installation
 
 ```bash
-cargo install vex-cli
+cargo install vex-protocol-cli
 ```
 
 ## Commands
