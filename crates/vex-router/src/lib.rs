@@ -9,13 +9,14 @@
 //! use vex_router::{Router, RoutingStrategy};
 //!
 //! #[tokio::main]
-//! async fn main() {
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let router = Router::builder()
 //!         .strategy(RoutingStrategy::Auto)
 //!         .build();
 //!
 //!     let response = router.ask("What is 2+2?").await?;
 //!     println!("{}", response);
+//!     Ok(())
 //! }
 //! ```
 //!

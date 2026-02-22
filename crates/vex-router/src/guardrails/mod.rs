@@ -230,7 +230,7 @@ struct InjectionDetector {
 impl InjectionDetector {
     fn new() -> Self {
         let patterns = vec![
-            Regex::new(r"(?i)(ignore\s+(previous|all|above)\s+(instructions?|rules?|prompt))")
+            Regex::new(r"(?i)ignore\s+(?:all\s+|previous\s+|above\s+)*(?:instructions?|rules?|prompt)")
                 .unwrap(),
             Regex::new(r"(?i)(disregard\s+(your\s+)?(instructions?|rules?))").unwrap(),
             Regex::new(r"(?i)(forget\s+(everything|all)\s+(you|i)\s+(know|were\s+told))").unwrap(),

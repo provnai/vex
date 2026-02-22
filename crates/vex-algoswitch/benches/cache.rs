@@ -14,11 +14,9 @@ fn bench_cache_get(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("cache_get");
 
-    for _ in 0..1000 {
-        group.bench_function("hit", |b: &mut criterion::Bencher| {
-            b.iter(|| get_cached(&DataPattern::Sorted));
-        });
-    }
+    group.bench_function("hit", |b: &mut criterion::Bencher| {
+        b.iter(|| get_cached(&DataPattern::Sorted));
+    });
 
     group.finish();
 }
@@ -41,11 +39,9 @@ fn bench_cache_miss(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_miss");
 
     // Test non-existent patterns
-    for _ in 0..1000 {
-        group.bench_function("miss", |b| {
-            b.iter(|| get_cached(&DataPattern::Sorted));
-        });
-    }
+    group.bench_function("miss", |b| {
+        b.iter(|| get_cached(&DataPattern::Sorted));
+    });
 
     group.finish();
 }
