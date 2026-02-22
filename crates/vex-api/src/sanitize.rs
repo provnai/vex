@@ -118,7 +118,8 @@ impl AdvancedSanitizer {
         INJECTION_RE.get_or_init(|| {
             let mut patterns = vec![
                 r"(?i)(ignore|disregard|forget)\s+.*?(all\s+)?previous".to_string(),
-                r"(?i)(reveal|show|print|repeat)\s+.*?(your\s+)?(instructions|prompt|rules)".to_string(),
+                r"(?i)(reveal|show|print|repeat)\s+.*?(your\s+)?(instructions|prompt|rules)"
+                    .to_string(),
             ];
 
             for p in INJECTION_PATTERNS {
@@ -144,8 +145,11 @@ impl AdvancedSanitizer {
             input
         );
 
-        let response = llm.ask(&prompt).await.map_err(|e| SanitizeError::SystemError(e.to_string()))?;
-        
+        let response = llm
+            .ask(&prompt)
+            .await
+            .map_err(|e| SanitizeError::SystemError(e.to_string()))?;
+
         if response.to_uppercase().contains("REJECTED") {
             tracing::error!(reason = %response, "Safety judge rejected input");
             return Err(SanitizeError::SafetyRejection {
@@ -312,7 +316,10 @@ pub fn sanitize(input: &str, config: &SanitizeConfig) -> Result<String, Sanitize
     // Check for injection patterns using robust regex
     if config.check_injection {
         if let Some(mat) = AdvancedSanitizer::injection_regex().find(text) {
-            tracing::warn!(pattern = mat.as_str(), "Potential prompt injection detected via regex");
+            tracing::warn!(
+                pattern = mat.as_str(),
+                "Potential prompt injection detected via regex"
+            );
             return Err(SanitizeError::ForbiddenPattern {
                 pattern: mat.as_str().to_string(),
             });

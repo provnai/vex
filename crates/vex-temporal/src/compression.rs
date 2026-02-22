@@ -2,9 +2,9 @@
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use vex_llm::{LlmProvider, EmbeddingProvider, LlmError};
-use vex_persist::VectorStoreBackend;
 use std::collections::HashMap;
+use vex_llm::{EmbeddingProvider, LlmError, LlmProvider};
+use vex_persist::VectorStoreBackend;
 
 /// Strategy for decaying old context
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,10 +1,10 @@
 //! Semantic Caching - Cache responses using vector embeddings
 
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use sha2::{Sha256, Digest};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedResponse {
@@ -40,18 +40,19 @@ impl SemanticCache {
     pub fn get(&self, query: &str) -> Option<CachedResponse> {
         let query_embedding = self.compute_embedding(query);
         let entries = self.entries.read();
-        
+
         let mut best_match: Option<(f32, &CacheEntry)> = None;
-        
+
         for (_key, entry) in entries.iter() {
             let similarity = cosine_similarity(&query_embedding, &entry.embedding);
-            
-            if similarity >= self.similarity_threshold 
-                && (best_match.is_none() || similarity > best_match.as_ref().unwrap().0) {
+
+            if similarity >= self.similarity_threshold
+                && (best_match.is_none() || similarity > best_match.as_ref().unwrap().0)
+            {
                 best_match = Some((similarity, entry));
             }
         }
-        
+
         if let Some((similarity, entry)) = best_match {
             let now = chrono::Utc::now().timestamp();
             if now - entry.response.cached_at < self.ttl_seconds {
@@ -60,34 +61,38 @@ impl SemanticCache {
                 return Some(response);
             }
         }
-        
+
         None
     }
 
     pub fn store(&self, query: &str, response: String, token_count: u32) {
         let key = self.compute_key(query);
         let embedding = self.compute_embedding(query);
-        
+
         let mut entries = self.entries.write();
-        
+
         if entries.len() >= self.max_cache_size {
-            if let Some(oldest_key) = entries.iter()
+            if let Some(oldest_key) = entries
+                .iter()
                 .min_by_key(|(_, e)| e.response.cached_at)
                 .map(|(k, _)| k.clone())
             {
                 entries.remove(&oldest_key);
             }
         }
-        
-        entries.insert(key, CacheEntry {
-            response: CachedResponse {
-                response,
-                similarity: 1.0,
-                cached_at: chrono::Utc::now().timestamp(),
-                token_count,
+
+        entries.insert(
+            key,
+            CacheEntry {
+                response: CachedResponse {
+                    response,
+                    similarity: 1.0,
+                    cached_at: chrono::Utc::now().timestamp(),
+                    token_count,
+                },
+                embedding,
             },
-            embedding,
-        });
+        );
     }
 
     fn compute_key(&self, query: &str) -> String {
@@ -103,15 +108,17 @@ impl SemanticCache {
     pub fn stats(&self) -> CacheStats {
         let entries = self.entries.read();
         let now = chrono::Utc::now().timestamp();
-        
-        let valid_entries = entries.values()
+
+        let valid_entries = entries
+            .values()
             .filter(|e| now - e.response.cached_at < self.ttl_seconds)
             .count();
-        
+
         CacheStats {
             total_entries: entries.len(),
             valid_entries,
-            cache_size_bytes: entries.values()
+            cache_size_bytes: entries
+                .values()
                 .map(|e| e.response.response.len() + e.embedding.len() * 4)
                 .sum(),
         }
@@ -127,36 +134,36 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
     }
-    
+
     let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    
+
     if norm_a == 0.0 || norm_b == 0.0 {
         return 0.0;
     }
-    
+
     dot / (norm_a * norm_b)
 }
 
 fn simple_embedding(text: &str) -> Vec<f32> {
     let text_lower = text.to_lowercase();
     let words: Vec<&str> = text_lower.split_whitespace().collect();
-    
+
     let mut embedding = vec![0.0f32; 64];
-    
+
     for (i, word) in words.iter().take(64).enumerate() {
         let hash = simple_hash(word);
         embedding[i % 64] += (hash as f32) / (words.len() as f32).sqrt();
     }
-    
+
     let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
     if norm > 0.0 {
         for x in &mut embedding {
             *x /= norm;
         }
     }
-    
+
     embedding
 }
 

@@ -147,7 +147,8 @@ impl ShadowAgent {
         }
 
         // Check for linguistic complexity
-        let avg_words_per_sentence = claim.split_whitespace().count() / claim.matches('.').count().max(1);
+        let avg_words_per_sentence =
+            claim.split_whitespace().count() / claim.matches('.').count().max(1);
         if avg_words_per_sentence > 30 {
             areas_of_interest.push("Complexity: The high sentence length may obscure specific errors or contradictions.".to_string());
         }

@@ -1,9 +1,9 @@
 //! Comprehensive Sorting Benchmarks
-//! 
+//!
 //! Tests different algorithms with various data patterns and sizes
 
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use algoswitch::{sort, detect_pattern};
+use algoswitch::{detect_pattern, sort};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 // ============================================================================
 // Data Generation Helpers
@@ -12,11 +12,13 @@ use algoswitch::{sort, detect_pattern};
 fn generate_random(size: usize) -> Vec<i64> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    (0..size).map(|i| {
-        let mut hasher = DefaultHasher::new();
-        hasher.write_usize(i);
-        (hasher.finish() % 100000) as i64
-    }).collect()
+    (0..size)
+        .map(|i| {
+            let mut hasher = DefaultHasher::new();
+            hasher.write_usize(i);
+            (hasher.finish() % 100000) as i64
+        })
+        .collect()
 }
 
 fn generate_sorted(size: usize) -> Vec<i64> {
@@ -43,7 +45,7 @@ fn generate_few_unique(size: usize) -> Vec<i64> {
 
 fn bench_quicksort_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("quicksort_random");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -58,7 +60,7 @@ fn bench_quicksort_random(c: &mut Criterion) {
 
 fn bench_mergesort_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("mergesort_random");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -73,7 +75,7 @@ fn bench_mergesort_random(c: &mut Criterion) {
 
 fn bench_heapsort_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("heapsort_random");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -88,7 +90,7 @@ fn bench_heapsort_random(c: &mut Criterion) {
 
 fn bench_insertionsort_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("insertionsort_random");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -103,7 +105,7 @@ fn bench_insertionsort_random(c: &mut Criterion) {
 
 fn bench_radixsort_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("radixsort_random");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_random(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -122,7 +124,7 @@ fn bench_radixsort_random(c: &mut Criterion) {
 
 fn bench_insertionsort_sorted(c: &mut Criterion) {
     let mut group = c.benchmark_group("insertionsort_sorted");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_sorted(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -137,7 +139,7 @@ fn bench_insertionsort_sorted(c: &mut Criterion) {
 
 fn bench_quicksort_sorted(c: &mut Criterion) {
     let mut group = c.benchmark_group("quicksort_sorted");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_sorted(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -156,7 +158,7 @@ fn bench_quicksort_sorted(c: &mut Criterion) {
 
 fn bench_insertionsort_nearly(c: &mut Criterion) {
     let mut group = c.benchmark_group("insertionsort_nearly_sorted");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_nearly_sorted(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -175,7 +177,7 @@ fn bench_insertionsort_nearly(c: &mut Criterion) {
 
 fn bench_radixsort_few_unique(c: &mut Criterion) {
     let mut group = c.benchmark_group("radixsort_few_unique");
-    
+
     for size in [100, 1000, 10000].iter() {
         let data = generate_few_unique(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
@@ -194,10 +196,10 @@ fn bench_radixsort_few_unique(c: &mut Criterion) {
 
 fn bench_pattern_detection(c: &mut Criterion) {
     let mut group = c.benchmark_group("pattern_detection");
-    
+
     for size in [100, 1000, 10000, 100000].iter() {
         let data = generate_random(*size);
-        
+
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
             b.iter(|| {
                 detect_pattern(&data);

@@ -1,10 +1,10 @@
 //! Observability - Metrics, tracing, and cost tracking
 
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use parking_lot::RwLock;
-use std::collections::HashMap;
 use chrono::Utc;
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestMetrics {
@@ -62,47 +62,47 @@ impl Observability {
             max_metrics_stored,
         }
     }
-    
+
     pub fn record(&self, metric: RequestMetrics) {
         let mut metrics = self.metrics.write();
-        
+
         if metrics.len() >= self.max_metrics_stored {
             metrics.remove(0);
         }
-        
+
         metrics.push(metric.clone());
-        
+
         let mut daily = self.daily_stats.write();
         daily.record(&metric);
     }
-    
+
     pub fn get_metrics(&self, limit: usize) -> Vec<RequestMetrics> {
         let metrics = self.metrics.read();
         metrics.iter().rev().take(limit).cloned().collect()
     }
-    
+
     pub fn get_summary(&self) -> ObservabilitySummary {
         let metrics = self.metrics.read();
-        
+
         if metrics.is_empty() {
             return ObservabilitySummary::default();
         }
-        
+
         let total_requests = metrics.len();
         let total_cost: f64 = metrics.iter().map(|m| m.cost_usd).sum();
         let total_tokens_input: u64 = metrics.iter().map(|m| m.tokens_input as u64).sum();
         let total_tokens_output: u64 = metrics.iter().map(|m| m.tokens_output as u64).sum();
         let cache_hits = metrics.iter().filter(|m| m.cache_hit).count();
         let errors = metrics.iter().filter(|m| m.error.is_some()).count();
-        
+
         let mut latencies: Vec<u64> = metrics.iter().map(|m| m.latency_ms).collect();
         latencies.sort();
-        
+
         let avg_latency = latencies.iter().sum::<u64>() as f64 / latencies.len() as f64;
         let p50_latency = latencies[latencies.len() / 2];
         let p95_latency = latencies[(latencies.len() * 95) / 100];
         let p99_latency = latencies[(latencies.len() * 99) / 100];
-        
+
         ObservabilitySummary {
             total_requests,
             total_cost_usd: total_cost,
@@ -117,33 +117,41 @@ impl Observability {
             error_rate: errors as f64 / total_requests as f64,
         }
     }
-    
+
     pub fn get_cost_by_model(&self) -> HashMap<String, f64> {
         let metrics = self.metrics.read();
         let mut costs: HashMap<String, f64> = HashMap::new();
-        
+
         for m in metrics.iter() {
             *costs.entry(m.model_used.clone()).or_insert(0.0) += m.cost_usd;
         }
-        
+
         costs
     }
-    
+
     pub fn get_savings(&self) -> SavingsReport {
         let metrics = self.metrics.read();
-        
-        let baseline_cost: f64 = metrics.iter()
-            .map(|m| m.tokens_input as f64 * 15.0 / 1_000_000.0 + m.tokens_output as f64 * 15.0 / 1_000_000.0)
+
+        let baseline_cost: f64 = metrics
+            .iter()
+            .map(|m| {
+                m.tokens_input as f64 * 15.0 / 1_000_000.0
+                    + m.tokens_output as f64 * 15.0 / 1_000_000.0
+            })
             .sum();
-        
+
         let actual_cost: f64 = metrics.iter().map(|m| m.cost_usd).sum();
-        
+
         let routing_savings = baseline_cost * 0.6;
-        let cache_savings = baseline_cost * metrics.iter().filter(|m| m.cache_hit).count() as f64 / metrics.len().max(1) as f64;
-        let compression_savings = baseline_cost * metrics.iter()
-            .filter_map(|m| m.compression_ratio)
-            .sum::<f64>() / metrics.len().max(1) as f64;
-        
+        let cache_savings = baseline_cost * metrics.iter().filter(|m| m.cache_hit).count() as f64
+            / metrics.len().max(1) as f64;
+        let compression_savings = baseline_cost
+            * metrics
+                .iter()
+                .filter_map(|m| m.compression_ratio)
+                .sum::<f64>()
+            / metrics.len().max(1) as f64;
+
         SavingsReport {
             baseline_cost,
             actual_cost,
@@ -158,11 +166,11 @@ impl Observability {
             compression_savings,
         }
     }
-    
+
     pub fn clear(&self) {
         let mut metrics = self.metrics.write();
         metrics.clear();
-        
+
         let mut daily = self.daily_stats.write();
         *daily = DailyStats::new();
     }
@@ -219,26 +227,31 @@ impl DailyStats {
             errors: 0,
         }
     }
-    
+
     fn record(&mut self, metric: &RequestMetrics) {
         let today = Utc::now().format("%Y-%m-%d").to_string();
-        
+
         if self.date != today {
             *self = Self::new();
             self.date = today;
         }
-        
+
         self.total_requests += 1;
         self.total_cost += metric.cost_usd;
         self.total_tokens += (metric.tokens_input + metric.tokens_output) as u64;
-        
+
         if metric.error.is_some() {
             self.errors += 1;
         }
     }
 }
 
-pub fn calculate_cost(tokens: u32, input_cost_per_million: f64, output_cost_per_million: f64, is_output: bool) -> f64 {
+pub fn calculate_cost(
+    tokens: u32,
+    input_cost_per_million: f64,
+    output_cost_per_million: f64,
+    is_output: bool,
+) -> f64 {
     if is_output {
         tokens as f64 * output_cost_per_million / 1_000_000.0
     } else {

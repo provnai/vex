@@ -23,4 +23,6 @@ pub use audit_store::AuditStore;
 pub use backend::{StorageBackend, StorageError, StorageExt};
 pub use context_store::ContextStore;
 pub use evolution_store::{EvolutionStore, EvolutionStoreError, SqliteEvolutionStore};
-pub use vector_store::{VectorEmbedding, VectorError, VectorStoreBackend, MemoryVectorStore, SqliteVectorStore};
+pub use vector_store::{
+    MemoryVectorStore, SqliteVectorStore, VectorEmbedding, VectorError, VectorStoreBackend,
+};

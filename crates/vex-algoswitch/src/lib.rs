@@ -1,14 +1,14 @@
 //! AlgoSwitch - Self-Optimizing Algorithm Runtime
-//! 
+//!
 //! A runtime library that automatically selects the optimal algorithm for your data patterns.
-//! 
+//!
 //! # Quick Start
-//! 
+//!
 //! ```rust,ignore
 //! use algoswitch::{sort, select, Config};
-//! 
+//!
 //! let mut data = vec![3, 1, 4, 1, 5, 9, 2, 6];
-//! 
+//!
 //! let result = select(
 //!     vec![
 //!         ("quicksort", sort::quicksort),
@@ -19,15 +19,15 @@
 //!     &mut data,
 //!     Config::default(),
 //! );
-//! 
+//!
 //! println!("Winner: {} ({}ns)", result.winner, result.time_ns);
 //! ```
 
-use std::time::Instant;
-use std::fmt::Debug;
-use std::collections::HashMap;
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Mutex;
+use std::time::Instant;
 
 // ============================================================================
 // Core Types
@@ -58,11 +58,25 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn new() -> Self { Self::default() }
-    pub fn with_warmup(mut self, runs: u32) -> Self { self.warmup_runs = runs; self }
-    pub fn with_cache(mut self, enabled: bool) -> Self { self.cache_enabled = enabled; self }
-    pub fn with_debug(mut self, enabled: bool) -> Self { self.debug = enabled; self }
-    pub fn with_smart_detection(mut self, enabled: bool) -> Self { self.smart_detection = enabled; self }
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn with_warmup(mut self, runs: u32) -> Self {
+        self.warmup_runs = runs;
+        self
+    }
+    pub fn with_cache(mut self, enabled: bool) -> Self {
+        self.cache_enabled = enabled;
+        self
+    }
+    pub fn with_debug(mut self, enabled: bool) -> Self {
+        self.debug = enabled;
+        self
+    }
+    pub fn with_smart_detection(mut self, enabled: bool) -> Self {
+        self.smart_detection = enabled;
+        self
+    }
 }
 
 /// Selection result
@@ -138,12 +152,12 @@ pub fn detect_pattern(data: &[i64]) -> DataPattern {
     }
 
     let n = data.len();
-    
+
     // For large data, use sampling for everything
     let use_full_check = n <= 1000;
     let sample_size = n.min(1000);
     let step = if use_full_check { 1 } else { n / sample_size };
-    
+
     // Check for few unique values (sampled)
     let mut unique_count = 0usize;
     let mut seen = std::collections::HashSet::new();
@@ -155,41 +169,47 @@ pub fn detect_pattern(data: &[i64]) -> DataPattern {
             }
         }
     }
-    
+
     let checked = (n / step).max(1);
     let unique_ratio = unique_count as f64 / checked as f64;
-    
+
     if unique_ratio < 0.30 {
         return DataPattern::FewUnique;
     }
-    
+
     // Check for sorted (sampled)
     let mut sorted_count = 0usize;
     let mut reverse_count = 0usize;
     let mut sorted_checked = 0usize;
-    
+
     for i in (0..n.saturating_sub(1)).step_by(step) {
-        if data[i] <= data[i + 1] { sorted_count += 1; }
-        if data[i] >= data[i + 1] { reverse_count += 1; }
+        if data[i] <= data[i + 1] {
+            sorted_count += 1;
+        }
+        if data[i] >= data[i + 1] {
+            reverse_count += 1;
+        }
         sorted_checked += 1;
     }
-    
-    if sorted_checked == 0 { sorted_checked = 1; }
+
+    if sorted_checked == 0 {
+        sorted_checked = 1;
+    }
     let sorted_ratio = sorted_count as f64 / sorted_checked as f64;
     let reverse_ratio = reverse_count as f64 / sorted_checked as f64;
-    
+
     if sorted_ratio > 0.99 {
         return DataPattern::Sorted;
     }
-    
+
     if reverse_ratio > 0.99 {
         return DataPattern::ReverseSorted;
     }
-    
+
     if sorted_ratio > 0.80 {
         return DataPattern::NearlySorted;
     }
-    
+
     DataPattern::Random
 }
 
@@ -217,7 +237,7 @@ struct CacheEntry {
 }
 
 /// Global algorithm cache (pattern -> winner)
-static ALGORITHM_CACHE: Lazy<Mutex<HashMap<String, CacheEntry>>> = 
+static ALGORITHM_CACHE: Lazy<Mutex<HashMap<String, CacheEntry>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Get cached winner for pattern
@@ -231,10 +251,13 @@ pub fn get_cached(pattern: &DataPattern) -> Option<String> {
 pub fn cache_winner(pattern: &DataPattern, winner: &str) {
     if let Ok(mut cache) = ALGORITHM_CACHE.lock() {
         let key = pattern_name(pattern);
-        cache.insert(key.to_string(), CacheEntry {
-            winner: winner.to_string(),
-            count: 1,
-        });
+        cache.insert(
+            key.to_string(),
+            CacheEntry {
+                winner: winner.to_string(),
+                count: 1,
+            },
+        );
     }
 }
 
@@ -251,7 +274,8 @@ pub fn cache_stats() -> (usize, Vec<(String, String, u32)>) {
         Ok(c) => c,
         Err(c) => c.into_inner(),
     };
-    let entries: Vec<_> = cache.iter()
+    let entries: Vec<_> = cache
+        .iter()
         .map(|(k, v)| (k.clone(), v.winner.clone(), v.count))
         .collect();
     (cache.len(), entries)
@@ -266,7 +290,9 @@ pub mod sort {
 
     /// QuickSort algorithm
     pub fn quicksort(data: &mut [i64]) {
-        if data.len() <= 1 { return; }
+        if data.len() <= 1 {
+            return;
+        }
         let pivot = data.len() / 2;
         data.swap(pivot, data.len() - 1);
         let mut i = 0;
@@ -283,13 +309,15 @@ pub mod sort {
 
     /// MergeSort algorithm  
     pub fn mergesort(data: &mut [i64]) {
-        if data.len() <= 1 { return; }
+        if data.len() <= 1 {
+            return;
+        }
         let mid = data.len() / 2;
         let mut left = data[..mid].to_vec();
         let mut right = data[mid..].to_vec();
         mergesort(&mut left);
         mergesort(&mut right);
-        
+
         let mut i = 0;
         let mut j = 0;
         let mut k = 0;
@@ -303,8 +331,16 @@ pub mod sort {
             }
             k += 1;
         }
-        while i < left.len() { data[k] = left[i]; i += 1; k += 1; }
-        while j < right.len() { data[k] = right[j]; j += 1; k += 1; }
+        while i < left.len() {
+            data[k] = left[i];
+            i += 1;
+            k += 1;
+        }
+        while j < right.len() {
+            data[k] = right[j];
+            j += 1;
+            k += 1;
+        }
     }
 
     /// HeapSort algorithm
@@ -323,10 +359,14 @@ pub mod sort {
         let mut largest = root;
         let left = 2 * root + 1;
         let right = 2 * root + 2;
-        
-        if left < heap_size && data[left] > data[largest] { largest = left; }
-        if right < heap_size && data[right] > data[largest] { largest = right; }
-        
+
+        if left < heap_size && data[left] > data[largest] {
+            largest = left;
+        }
+        if right < heap_size && data[right] > data[largest] {
+            largest = right;
+        }
+
         if largest != root {
             data.swap(root, largest);
             heapify(data, heap_size, largest);
@@ -346,11 +386,15 @@ pub mod sort {
 
     /// RadixSort algorithm (for positive integers)
     pub fn radixsort(data: &mut [i64]) {
-        if data.is_empty() { return; }
-        
+        if data.is_empty() {
+            return;
+        }
+
         let max = *data.iter().max().unwrap_or(&0);
-        if max < 0 { return; }
-        
+        if max < 0 {
+            return;
+        }
+
         let mut exp = 1;
         while max / exp > 0 {
             counting_sort(data, exp);
@@ -362,22 +406,22 @@ pub mod sort {
         let n = data.len();
         let mut output = vec![0i64; n];
         let mut count = [0i64; 10];
-        
+
         for x in data.iter() {
             let digit = ((x / exp) % 10) as usize;
             count[digit] += 1;
         }
-        
+
         for i in 1..10 {
             count[i] += count[i - 1];
         }
-        
+
         for i in (0..n).rev() {
             let digit = ((data[i] / exp) % 10) as usize;
             count[digit] -= 1;
             output[count[digit] as usize] = data[i];
         }
-        
+
         data.copy_from_slice(&output);
     }
 }
@@ -396,12 +440,16 @@ pub mod search {
 
     /// Binary search - O(log n) - requires sorted data
     pub fn binary(data: &[i64], target: i64) -> Option<usize> {
-        if !is_sorted(data) { return None; }
+        if !is_sorted(data) {
+            return None;
+        }
         binary_helper(data, target, 0, data.len())
     }
 
     fn binary_helper(data: &[i64], target: i64, left: usize, right: usize) -> Option<usize> {
-        if left >= right { return None; }
+        if left >= right {
+            return None;
+        }
         let mid = left + (right - left) / 2;
         if data[mid] == target {
             Some(mid)
@@ -414,16 +462,22 @@ pub mod search {
 
     /// Interpolation search - O(log log n) for uniform data
     pub fn interpolation(data: &[i64], target: i64) -> Option<usize> {
-        if data.is_empty() || !is_sorted(data) { return None; }
-        if data[0] == target { return Some(0); }
-        if target < data[0] || target > data[data.len() - 1] { return None; }
-        
+        if data.is_empty() || !is_sorted(data) {
+            return None;
+        }
+        if data[0] == target {
+            return Some(0);
+        }
+        if target < data[0] || target > data[data.len() - 1] {
+            return None;
+        }
+
         let low = 0;
         let high = data.len() - 1;
-        
-        let pos = low + (((target - data[low]) * (high - low) as i64) 
-            / (data[high] - data[low])) as usize;
-        
+
+        let pos = low
+            + (((target - data[low]) * (high - low) as i64) / (data[high] - data[low])) as usize;
+
         if data[pos] == target {
             Some(pos)
         } else if data[pos] < target {
@@ -479,7 +533,11 @@ pub mod hash {
 // ============================================================================
 
 /// Select the best algorithm with smart pattern detection
-pub fn select(algos: Vec<(&str, fn(&mut [i64]))>, data: &mut [i64], config: Config) -> SelectResult<Vec<i64>> {
+pub fn select(
+    algos: Vec<(&str, fn(&mut [i64]))>,
+    data: &mut [i64],
+    config: Config,
+) -> SelectResult<Vec<i64>> {
     // Phase 3: Detect pattern
     let pattern = if config.smart_detection {
         Some(detect_pattern(data))
@@ -504,11 +562,11 @@ pub fn select(algos: Vec<(&str, fn(&mut [i64]))>, data: &mut [i64], config: Conf
                         let start = Instant::now();
                         algo_fn(&mut d);
                         let elapsed = start.elapsed().as_nanos() as u64;
-                        
+
                         if config.debug {
                             println!("Using cached winner: {}", cached_winner);
                         }
-                        
+
                         return SelectResult {
                             output: d,
                             winner: cached_winner.to_string(),
@@ -530,44 +588,44 @@ pub fn select(algos: Vec<(&str, fn(&mut [i64]))>, data: &mut [i64], config: Conf
     let mut best_time = u64::MAX;
     let mut best_name = "";
     let mut best_result = data.to_vec();
-    
+
     for (name, algo_fn) in &algos {
         let mut d = data.to_vec();
-        
+
         // Warmup runs
         for _ in 0..config.warmup_runs {
             let mut warmup = data.to_vec();
             algo_fn(&mut warmup);
         }
-        
+
         // Timed run
         let start = Instant::now();
         algo_fn(&mut d);
         let elapsed = start.elapsed().as_nanos() as u64;
-        
+
         timings.push(AlgoTiming {
             name: name.to_string(),
             time_ns: elapsed,
         });
-        
+
         if config.debug {
             println!("  {}: {}ns", name, elapsed);
         }
-        
+
         if elapsed < best_time {
             best_time = elapsed;
             best_name = name;
             best_result = d;
         }
     }
-    
+
     // Cache the winner
     if config.cache_enabled {
         if let Some(p) = &pattern {
             cache_winner(p, best_name);
         }
     }
-    
+
     SelectResult {
         output: best_result,
         winner: best_name.to_string(),
@@ -584,23 +642,23 @@ pub fn select_search(data: &[i64], target: i64) -> (Option<usize>, String, u64) 
         ("binary", search::binary),
         ("interpolation", search::interpolation),
     ];
-    
+
     let mut best_time = u64::MAX;
     let mut best_result = None;
     let mut best_name = "";
-    
+
     for (name, algo_fn) in &algos {
         let start = Instant::now();
         let result = algo_fn(data, target);
         let elapsed = start.elapsed().as_nanos() as u64;
-        
+
         if elapsed < best_time {
             best_time = elapsed;
             best_result = result;
             best_name = name;
         }
     }
-    
+
     (best_result, best_name.to_string(), best_time)
 }
 
@@ -611,22 +669,22 @@ pub fn select_hash(data: &[u8]) -> (u64, String, u64) {
         ("djb2", hash::djb2),
         ("simple", hash::simple),
     ];
-    
+
     let mut best_time = u64::MAX;
     let mut best_result = 0u64;
     let mut best_name = "";
-    
+
     for (name, algo_fn) in &algos {
         let start = Instant::now();
         let result = algo_fn(data);
         let elapsed = start.elapsed().as_nanos() as u64;
-        
+
         if elapsed < best_time {
             best_time = elapsed;
             best_result = result;
             best_name = name;
         }
     }
-    
+
     (best_result, best_name.to_string(), best_time)
 }

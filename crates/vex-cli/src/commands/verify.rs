@@ -244,17 +244,24 @@ async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
     // In a real multi-tenant system, we'd need a list of tenants.
     // For the CLI tool, we'll try to find common tenants or verify the default ones.
     // For now, let's look for all unique tenant_ids in the database.
-    let pool = vex_persist::sqlite::SqliteBackend::new(&db_url).await?.pool().clone();
-    let tenants: Vec<String> = sqlx::query_as::<_, (String,)>("SELECT DISTINCT tenant_id FROM audit_events")
-        .fetch_all(&pool)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(t,)| t)
-        .collect();
+    let pool = vex_persist::sqlite::SqliteBackend::new(&db_url)
+        .await?
+        .pool()
+        .clone();
+    let tenants: Vec<String> =
+        sqlx::query_as::<_, (String,)>("SELECT DISTINCT tenant_id FROM audit_events")
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(t,)| t)
+            .collect();
 
     if tenants.is_empty() {
-        println!("  {}", "Warning: No audit events found in database".yellow());
+        println!(
+            "  {}",
+            "Warning: No audit events found in database".yellow()
+        );
         return Ok(());
     }
 
@@ -271,7 +278,12 @@ async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
 
         if detailed {
             let tree = store.build_merkle_tree(&tenant).await?;
-            println!("    Merkle Root: {}", tree.root_hash().map(|h| h.to_hex()).unwrap_or_else(|| "None".to_string()));
+            println!(
+                "    Merkle Root: {}",
+                tree.root_hash()
+                    .map(|h| h.to_hex())
+                    .unwrap_or_else(|| "None".to_string())
+            );
             let count = store.get_chain(&tenant).await?.len();
             println!("    Event Count: {}", count);
         }
@@ -288,8 +300,8 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use uuid::Uuid;
+    use vex_core::audit::{ActorType, AuditEvent, AuditEventType};
     use vex_core::{Hash, MerkleTree};
-    use vex_core::audit::{AuditEvent, AuditEventType, ActorType};
     use vex_persist::audit_store::AuditExport;
 
     fn create_test_audit() -> AuditExport {

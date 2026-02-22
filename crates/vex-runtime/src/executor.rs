@@ -157,19 +157,34 @@ impl<L: LlmProvider> AgentExecutor<L> {
 
             let red_output = self
                 .llm
-                .complete(LlmRequest::with_role(&shadow.agent.config.role, &challenge_prompt))
+                .complete(LlmRequest::with_role(
+                    &shadow.agent.config.role,
+                    &challenge_prompt,
+                ))
                 .await
                 .map_err(|e| e.to_string())?
                 .content;
 
             // Try to parse JSON response
-            let (is_challenge, red_confidence, red_reasoning, _suggested_revision) = 
+            let (is_challenge, red_confidence, red_reasoning, _suggested_revision) =
                 if let Some(start) = red_output.find('{') {
                     if let Some(end) = red_output.rfind('}') {
-                        if let Ok(res) = serde_json::from_str::<ChallengeResponse>(&red_output[start..=end]) {
-                            (res.is_challenge, res.confidence, res.reasoning, res.suggested_revision)
+                        if let Ok(res) =
+                            serde_json::from_str::<ChallengeResponse>(&red_output[start..=end])
+                        {
+                            (
+                                res.is_challenge,
+                                res.confidence,
+                                res.reasoning,
+                                res.suggested_revision,
+                            )
                         } else {
-                            (red_output.to_lowercase().contains("disagree"), 0.5, red_output.clone(), None)
+                            (
+                                red_output.to_lowercase().contains("disagree"),
+                                0.5,
+                                red_output.clone(),
+                                None,
+                            )
                         }
                     } else {
                         (false, 0.0, "Parsing failed".to_string(), None)
@@ -188,7 +203,10 @@ impl<L: LlmProvider> AgentExecutor<L> {
                 );
                 Some(
                     self.llm
-                        .complete(LlmRequest::with_role(&blue_agent.config.role, &rebuttal_prompt))
+                        .complete(LlmRequest::with_role(
+                            &blue_agent.config.role,
+                            &rebuttal_prompt,
+                        ))
                         .await
                         .map_err(|e| e.to_string())?
                         .content,
@@ -222,7 +240,10 @@ impl<L: LlmProvider> AgentExecutor<L> {
             agent_id: blue_agent.id,
             agrees: true,
             confidence: blue_agent.fitness.max(0.5),
-            reasoning: Some(format!("Blue agent fitness: {:.0}%", blue_agent.fitness * 100.0)),
+            reasoning: Some(format!(
+                "Blue agent fitness: {:.0}%",
+                blue_agent.fitness * 100.0
+            )),
         });
 
         consensus.evaluate();

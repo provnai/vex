@@ -186,10 +186,7 @@ pub fn default_models() -> Vec<ModelConfig> {
             output_cost: 0.90,
             latency_ms: 4000,
             quality_score: 0.88,
-            capabilities: vec![
-                ModelCapability::Code,
-                ModelCapability::General,
-            ],
+            capabilities: vec![ModelCapability::Code, ModelCapability::General],
             is_premium: false,
         },
     ]

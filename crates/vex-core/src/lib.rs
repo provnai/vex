@@ -58,6 +58,7 @@ pub mod merkle;
 pub mod rule;
 
 pub use agent::{Agent, AgentConfig, AgentHandle, AgentId};
+pub use audit::{ActorType, AuditEvent, AuditEventType, HashParams, Signature};
 pub use context::{CompressionLevel, ContextPacket};
 pub use evolution::{
     tournament_select, Fitness, GeneticOperator, Genome, LlmParams, StandardOperator,
@@ -67,4 +68,3 @@ pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicE
 pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
-pub use audit::{ActorType, AuditEvent, AuditEventType, HashParams, Signature};

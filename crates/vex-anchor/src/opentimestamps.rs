@@ -107,9 +107,9 @@ impl AnchorBackend for OpenTimestampsAnchor {
             return Ok(false);
         };
 
-        let proof_bytes = STANDARD.decode(proof_b64).map_err(|e| {
-            AnchorError::VerificationFailed(format!("Invalid base64 proof: {}", e))
-        })?;
+        let proof_bytes = STANDARD
+            .decode(proof_b64)
+            .map_err(|e| AnchorError::VerificationFailed(format!("Invalid base64 proof: {}", e)))?;
 
         // Non-empty proof means the OTS calendar acknowledged the submission
         Ok(!proof_bytes.is_empty())

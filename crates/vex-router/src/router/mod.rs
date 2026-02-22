@@ -1,13 +1,13 @@
 //! Router - Core routing logic for VEX
 
+use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::classifier::{QueryClassifier, QueryComplexity};
-use crate::models::{ModelPool, Model};
 use crate::compress::CompressionLevel;
+use crate::models::{Model, ModelPool};
 use crate::observability::Observability;
 
 /// Routing strategy (re-exported from config)
@@ -100,11 +100,14 @@ impl Router {
     /// Route a query and return a decision (without executing)
     pub fn route(&self, prompt: &str, system: &str) -> Result<RoutingDecision, RouterError> {
         let mut complexity = self.classifier.classify(prompt);
-        
+
         // ADVERSARIAL ROUTING: If system prompt implies an attacker/shadow role,
         // bump the complexity/quality requirements to ensure a strong adversary.
         let system_lower = system.to_lowercase();
-        if system_lower.contains("shadow") || system_lower.contains("adversarial") || system_lower.contains("red agent") {
+        if system_lower.contains("shadow")
+            || system_lower.contains("adversarial")
+            || system_lower.contains("red agent")
+        {
             complexity.score = (complexity.score + 0.4).min(1.0);
             complexity.capabilities.push("adversarial".to_string());
         }
@@ -113,24 +116,19 @@ impl Router {
     }
 
     /// Route with pre-computed complexity
-    pub fn route_with_complexity(&self, complexity: &QueryComplexity) -> Result<RoutingDecision, RouterError> {
+    pub fn route_with_complexity(
+        &self,
+        complexity: &QueryComplexity,
+    ) -> Result<RoutingDecision, RouterError> {
         if self.pool.is_empty() {
             return Err(RouterError::NoModelsAvailable);
         }
 
         match self.config.strategy {
-            RoutingStrategy::Auto | RoutingStrategy::Balanced => {
-                self.route_auto(complexity)
-            }
-            RoutingStrategy::CostOptimized => {
-                self.route_cost_optimized(complexity)
-            }
-            RoutingStrategy::QualityOptimized => {
-                self.route_quality_optimized(complexity)
-            }
-            RoutingStrategy::LatencyOptimized => {
-                self.route_latency_optimized(complexity)
-            }
+            RoutingStrategy::Auto | RoutingStrategy::Balanced => self.route_auto(complexity),
+            RoutingStrategy::CostOptimized => self.route_cost_optimized(complexity),
+            RoutingStrategy::QualityOptimized => self.route_quality_optimized(complexity),
+            RoutingStrategy::LatencyOptimized => self.route_latency_optimized(complexity),
             RoutingStrategy::Custom => {
                 // Fall back to auto for custom
                 self.route_auto(complexity)
@@ -141,7 +139,7 @@ impl Router {
     /// Execute a query through the router
     pub async fn execute(&self, prompt: &str, system: &str) -> Result<String, RouterError> {
         let decision = self.route(prompt, system)?;
-        
+
         // For now, return a mock response
         // In VEX integration, this would call the actual LLM
         Ok(format!(
@@ -187,14 +185,25 @@ impl Router {
             estimated_cost: model.config.input_cost,
             estimated_latency_ms: model.config.latency_ms,
             estimated_savings: savings,
-            reason: format!("Auto-selected based on complexity score: {:.2}", complexity.score),
+            reason: format!(
+                "Auto-selected based on complexity score: {:.2}",
+                complexity.score
+            ),
         })
     }
 
-    fn route_cost_optimized(&self, _complexity: &QueryComplexity) -> Result<RoutingDecision, RouterError> {
+    fn route_cost_optimized(
+        &self,
+        _complexity: &QueryComplexity,
+    ) -> Result<RoutingDecision, RouterError> {
         // Find cheapest model that meets quality threshold
         let mut models: Vec<&Model> = self.pool.models.iter().collect();
-        models.sort_by(|a, b| a.config.input_cost.partial_cmp(&b.config.input_cost).unwrap());
+        models.sort_by(|a, b| {
+            a.config
+                .input_cost
+                .partial_cmp(&b.config.input_cost)
+                .unwrap()
+        });
 
         for model in models {
             let meets_quality = model.config.quality_score >= self.config.quality_threshold;
@@ -212,9 +221,11 @@ impl Router {
         Err(RouterError::NoModelsAvailable)
     }
 
-    fn route_quality_optimized(&self, _complexity: &QueryComplexity) -> Result<RoutingDecision, RouterError> {
-        let model = self.pool.get_best()
-            .ok_or(RouterError::NoModelsAvailable)?;
+    fn route_quality_optimized(
+        &self,
+        _complexity: &QueryComplexity,
+    ) -> Result<RoutingDecision, RouterError> {
+        let model = self.pool.get_best().ok_or(RouterError::NoModelsAvailable)?;
 
         Ok(RoutingDecision {
             model_id: model.id.clone(),
@@ -225,12 +236,14 @@ impl Router {
         })
     }
 
-    fn route_latency_optimized(&self, _complexity: &QueryComplexity) -> Result<RoutingDecision, RouterError> {
+    fn route_latency_optimized(
+        &self,
+        _complexity: &QueryComplexity,
+    ) -> Result<RoutingDecision, RouterError> {
         let mut models: Vec<&Model> = self.pool.models.iter().collect();
         models.sort_by(|a, b| a.config.latency_ms.cmp(&b.config.latency_ms));
 
-        let model = models.first()
-            .ok_or(RouterError::NoModelsAvailable)?;
+        let model = models.first().ok_or(RouterError::NoModelsAvailable)?;
 
         Ok(RoutingDecision {
             model_id: model.id.clone(),
@@ -340,22 +353,25 @@ impl Default for RouterBuilder {
 // =============================================================================
 
 // Re-using official VEX LLM types
-use vex_llm::{LlmProvider, LlmRequest, LlmResponse, LlmError};
 use async_trait::async_trait;
+use vex_llm::{LlmError, LlmProvider, LlmRequest, LlmResponse};
 
 #[async_trait]
 impl LlmProvider for Router {
     /// Complete a request (implements vex_llm::LlmProvider::complete)
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
         let start = std::time::Instant::now();
-        
-        let response = self.execute(&request.prompt, &request.system).await
+
+        let response = self
+            .execute(&request.prompt, &request.system)
+            .await
             .map_err(|e| LlmError::RequestFailed(e.to_string()))?;
-        
+
         let response_len = response.len();
         let latency = start.elapsed().as_millis() as u64;
-        
-        let decision = self.route(&request.prompt, &request.system)
+
+        let decision = self
+            .route(&request.prompt, &request.system)
             .map_err(|e| LlmError::RequestFailed(e.to_string()))?;
 
         Ok(LlmResponse {
@@ -384,9 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_auto() {
-        let router = Router::builder()
-            .strategy(RoutingStrategy::Auto)
-            .build();
+        let router = Router::builder().strategy(RoutingStrategy::Auto).build();
 
         let decision = router.route("What is 2+2?").unwrap();
         assert!(!decision.model_id.is_empty());

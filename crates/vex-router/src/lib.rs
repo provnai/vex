@@ -25,28 +25,30 @@
 //! for drop-in replacement with vex-llm providers.
 
 // Public modules
-pub mod config;
-pub mod classifier;
 pub mod cache;
+pub mod classifier;
 pub mod compress;
+pub mod config;
 pub mod guardrails;
-pub mod observability;
 pub mod models;
+pub mod observability;
 pub mod router;
 
 // Re-export key types for easy use
-pub use config::{Config, RoutingStrategy, ModelConfig, ModelCapability};
 pub use classifier::{QueryClassifier, QueryComplexity};
-pub use models::{ModelPool, Model};
-pub use router::{Router, RouterBuilder, RouterConfig, RouterError, RoutingDecision, 
-                RoutingStrategy as RouterStrategy};
-pub use vex_llm::{LlmRequest, LlmResponse, LlmError, LlmProvider};
+pub use config::{Config, ModelCapability, ModelConfig, RoutingStrategy};
+pub use models::{Model, ModelPool};
+pub use router::{
+    Router, RouterBuilder, RouterConfig, RouterError, RoutingDecision,
+    RoutingStrategy as RouterStrategy,
+};
+pub use vex_llm::{LlmError, LlmProvider, LlmRequest, LlmResponse};
 
 // Re-export compression types
-pub use compress::{CompressionLevel, PromptCompressor, CompressedPrompt};
+pub use compress::{CompressedPrompt, CompressionLevel, PromptCompressor};
 
 // Re-export guardrails types
-pub use guardrails::{Guardrails, GuardrailResult, Violation, ViolationCategory};
+pub use guardrails::{GuardrailResult, Guardrails, Violation, ViolationCategory};
 
 // Re-export observability types
 pub use observability::{Observability, ObservabilitySummary, SavingsReport};

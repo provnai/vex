@@ -78,8 +78,8 @@ impl EthereumAnchor {
             .await
             .map_err(|e| AnchorError::Network(e.to_string()))?;
 
-        let resp: JsonRpcResponse<String> = serde_json::from_slice(&resp_bytes)
-            .map_err(|e| AnchorError::Network(e.to_string()))?;
+        let resp: JsonRpcResponse<String> =
+            serde_json::from_slice(&resp_bytes).map_err(|e| AnchorError::Network(e.to_string()))?;
 
         if let Some(err) = resp.error {
             return Err(AnchorError::Network(format!(

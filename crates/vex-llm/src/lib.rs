@@ -88,7 +88,7 @@ pub use mistral::MistralProvider;
 pub use mock::MockProvider;
 pub use ollama::OllamaProvider;
 pub use openai::OpenAIProvider;
-pub use provider::{LlmError, LlmProvider, LlmRequest, LlmResponse, EmbeddingProvider};
+pub use provider::{EmbeddingProvider, LlmError, LlmProvider, LlmRequest, LlmResponse};
 pub use rate_limit::{RateLimitConfig, RateLimitError, RateLimitedProvider, RateLimiter};
 pub use resilient_provider::{CircuitState, LlmCircuitConfig, ResilientProvider};
 pub use streaming_tool::{StreamConfig, StreamingTool, ToolChunk, ToolStream};

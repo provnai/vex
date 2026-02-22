@@ -1,9 +1,9 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use thiserror::Error;
-use async_trait::async_trait;
 
 #[derive(Error, Debug)]
 pub enum VectorError {
@@ -171,13 +171,14 @@ impl VectorStoreBackend for SqliteVectorStore {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
         }
 
-        // In a real high-perf vector DB we'd use HNSW/IVF. 
+        // In a real high-perf vector DB we'd use HNSW/IVF.
         // For VEX P2, we perform a brute-force scan of the tenant's embeddings.
-        let rows = sqlx::query("SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?")
-            .bind(tenant_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
+        let rows =
+            sqlx::query("SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?")
+                .bind(tenant_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
 
         let mut scores = Vec::new();
 
@@ -201,7 +202,14 @@ impl VectorStoreBackend for SqliteVectorStore {
                 .map_err(|e| VectorError::SerializationError(e.to_string()))?;
 
             let score = cosine_similarity(query, &vector);
-            scores.push((score, VectorEmbedding { id, vector, metadata }));
+            scores.push((
+                score,
+                VectorEmbedding {
+                    id,
+                    vector,
+                    metadata,
+                },
+            ));
         }
 
         scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));

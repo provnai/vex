@@ -3,7 +3,6 @@
 //! The ReflectionAgent analyzes agent performance and suggests genome
 //! improvements based on statistical correlations and LLM-based analysis.
 
-
 use std::sync::Arc;
 
 use vex_core::{

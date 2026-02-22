@@ -211,20 +211,36 @@ impl QueueBackend for SqliteQueueBackend {
         .map_err(|e| QueueError::Backend(e.to_string()))?
         .ok_or(QueueError::NotFound)?;
 
-        let id_str: String = row.try_get("id").map_err(|e| QueueError::Backend(e.to_string()))?;
-        let job_id = Uuid::parse_str(&id_str).map_err(|_| QueueError::Backend("Invalid UUID".into()))?;
-        let tenant_id: String = row.try_get("tenant_id").map_err(|e| QueueError::Backend(e.to_string()))?;
-        let job_type: String = row.try_get("job_type").map_err(|e| QueueError::Backend(e.to_string()))?;
-        let payload: Value = row.try_get("payload").map_err(|e| QueueError::Backend(e.to_string()))?;
-        let status_str: String = row.try_get("status").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let id_str: String = row
+            .try_get("id")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let job_id =
+            Uuid::parse_str(&id_str).map_err(|_| QueueError::Backend("Invalid UUID".into()))?;
+        let tenant_id: String = row
+            .try_get("tenant_id")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let job_type: String = row
+            .try_get("job_type")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let payload: Value = row
+            .try_get("payload")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let status_str: String = row
+            .try_get("status")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
         let retries: i64 = row.try_get("retries").unwrap_or(0);
         let last_error: Option<String> = row.try_get("last_error").ok().flatten();
-        let result: Option<Value> = row.try_get::<Option<String>, _>("result")
+        let result: Option<Value> = row
+            .try_get::<Option<String>, _>("result")
             .ok()
             .flatten()
             .and_then(|s| serde_json::from_str(&s).ok());
-        let run_at_naive: NaiveDateTime = row.try_get("run_at").map_err(|e| QueueError::Backend(e.to_string()))?;
-        let created_at_naive: NaiveDateTime = row.try_get("created_at").map_err(|e| QueueError::Backend(e.to_string()))?;
+        let run_at_naive: NaiveDateTime = row
+            .try_get("run_at")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let created_at_naive: NaiveDateTime = row
+            .try_get("created_at")
+            .map_err(|e| QueueError::Backend(e.to_string()))?;
 
         let status = match status_str.as_str() {
             "pending" => JobStatus::Pending,
@@ -250,8 +266,8 @@ impl QueueBackend for SqliteQueueBackend {
     }
 
     async fn set_result(&self, id: Uuid, result: Value) -> Result<(), QueueError> {
-        let result_str = serde_json::to_string(&result)
-            .map_err(|e| QueueError::Backend(e.to_string()))?;
+        let result_str =
+            serde_json::to_string(&result).map_err(|e| QueueError::Backend(e.to_string()))?;
         sqlx::query("UPDATE jobs SET result = ?, status = 'completed' WHERE id = ?")
             .bind(result_str)
             .bind(id.to_string())

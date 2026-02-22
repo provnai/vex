@@ -419,7 +419,9 @@ pub async fn get_routing_stats(
         return Err(ApiError::Forbidden("Admin access required".to_string()));
     }
 
-    let router = state.router().ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
+    let router = state
+        .router()
+        .ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
     let obs = router.observability();
 
     Ok(Json(RoutingStatsResponse {
@@ -461,11 +463,13 @@ pub async fn update_routing_config(
         return Err(ApiError::Forbidden("Admin access required".to_string()));
     }
 
-    let _router = state.router().ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
-    
+    let _router = state
+        .router()
+        .ok_or_else(|| ApiError::NotFound("Router not enabled".to_string()))?;
+
     // In a real implementation, we would update the router state here.
     // For now, we return a success status.
-    
+
     Ok(Json(HealthResponse {
         status: format!("Routing strategy updated to {}", req.strategy),
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -570,7 +574,10 @@ pub fn api_router(state: AppState) -> Router {
         // Admin endpoints
         .route("/api/v1/metrics", get(get_metrics))
         .route("/api/v1/routing/stats", get(get_routing_stats))
-        .route("/api/v1/routing/config", axum::routing::put(update_routing_config))
+        .route(
+            "/api/v1/routing/config",
+            axum::routing::put(update_routing_config),
+        )
         .route("/metrics", get(get_prometheus_metrics))
         // State
         .with_state(state)

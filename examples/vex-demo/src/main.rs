@@ -35,7 +35,6 @@ impl LlmProvider for Llm {
     }
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load API key from environment or use empty string (which will trigger Mock provider fallback in logic)

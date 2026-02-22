@@ -1,22 +1,25 @@
 //! Gateway - HTTP API Server with all enhanced features
 
 use axum::{
-    Router, routing::{post, get}, extract::State, response::Json,
+    extract::State,
     http::StatusCode,
+    response::Json,
+    routing::{get, post},
+    Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-use crate::config::{Config, RoutingStrategy};
-use crate::classifier::QueryClassifier;
-use crate::models::ModelPool;
-use crate::router::{Router as RoutingEngine, RoutingDecision, RouterConfig};
 use crate::cache::SemanticCache;
-use crate::compress::{PromptCompressor, CompressionLevel};
+use crate::classifier::QueryClassifier;
+use crate::compress::{CompressionLevel, PromptCompressor};
+use crate::config::{Config, RoutingStrategy};
 use crate::guardrails::Guardrails;
-use crate::observability::{Observability, ObservabilitySummary, SavingsReport, RequestMetrics};
+use crate::models::ModelPool;
+use crate::observability::{Observability, ObservabilitySummary, RequestMetrics, SavingsReport};
+use crate::router::{Router as RoutingEngine, RouterConfig, RoutingDecision};
 
 /// Application state with all new features
 pub struct AppState {
@@ -40,17 +43,13 @@ impl Server {
         let pool = ModelPool::new(config.models.clone());
         let classifier = QueryClassifier::new();
         let engine = crate::router::Router::new();
-        
-        let cache = SemanticCache::new(
-            0.85,
-            config.cache_enabled as usize * 10000,
-            86400,
-        );
-        
+
+        let cache = SemanticCache::new(0.85, config.cache_enabled as usize * 10000, 86400);
+
         let compressor = PromptCompressor::new(CompressionLevel::Balanced);
         let guardrails = Guardrails::new(true);
         let observability = Observability::new(10000);
-        
+
         let state = Arc::new(AppState {
             config,
             pool,
@@ -61,10 +60,10 @@ impl Server {
             guardrails,
             observability,
         });
-        
+
         Self { state }
     }
-    
+
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         let app = Router::new()
             .route("/v1/chat/completions", post(chat_completions))
@@ -82,15 +81,18 @@ impl Server {
                     .into_inner(),
             )
             .with_state(self.state.clone());
-        
-        let addr = format!("{}:{}", self.state.config.server.host, self.state.config.server.port);
-        
+
+        let addr = format!(
+            "{}:{}",
+            self.state.config.server.host, self.state.config.server.port
+        );
+
         println!("🔀 VEX Router starting on http://{}", addr);
         println!("📦 Features: Semantic Cache, Prompt Compression, Guardrails, Observability");
-        
+
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         axum::serve(listener, app).await?;
-        
+
         Ok(())
     }
 }
@@ -126,7 +128,7 @@ async fn chat_completions(
 ) -> Result<Json<ChatResponse>, StatusCode> {
     let request_id = uuid::Uuid::new_v4().to_string();
     let start_time = std::time::Instant::now();
-    
+
     let enable_cache = request.cache.unwrap_or(true);
     let enable_guardrails = request.guardrails.unwrap_or(true);
     let compression_level = match request.compression.as_deref() {
@@ -135,39 +137,41 @@ async fn chat_completions(
         Some("aggressive") => CompressionLevel::Aggressive,
         _ => CompressionLevel::Balanced,
     };
-    
+
     let compressor = PromptCompressor::new(compression_level);
-    
-    let query_text: String = request.messages.iter()
+
+    let query_text: String = request
+        .messages
+        .iter()
         .filter_map(|m| m.get("content").and_then(|c| c.as_str()))
         .collect::<Vec<_>>()
         .join(" ");
-    
+
     if enable_guardrails {
         let guard_result = state.guardrails.check_input(&query_text);
         if !guard_result.passed {
             return Err(StatusCode::BAD_REQUEST);
         }
     }
-    
+
     let compressed = compressor.compress(&query_text);
     let processed_query = if compressed.compression_ratio > 0.0 {
         compressed.compressed.clone()
     } else {
         query_text.clone()
     };
-    
+
     let mut cache_hit = false;
     let mut cache_similarity = None;
-    
+
     if enable_cache {
         if let Some(cached) = state.cache.get(&processed_query) {
             cache_hit = true;
             cache_similarity = Some(cached.similarity);
-            
+
             let latency = start_time.elapsed().as_millis() as u64;
             let cost = calculate_request_cost(&state.pool, "gpt-4o-mini", 50, 50);
-            
+
             let metrics = build_metrics(
                 &request_id,
                 "gpt-4o-mini",
@@ -184,7 +188,7 @@ async fn chat_completions(
                 None,
             );
             state.observability.record(metrics);
-            
+
             return Ok(Json(build_response(
                 request_id,
                 "gpt-4o-mini".to_string(),
@@ -204,27 +208,42 @@ async fn chat_completions(
             )));
         }
     }
-    
+
     let complexity = state.classifier.classify(&processed_query);
-    
-    let decision = state.engine.route(&processed_query)
+
+    let decision = state
+        .engine
+        .route(&processed_query)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let response_text = format!(
         "[VEX Router: {}] Query complexity: {:.2}, Savings: {:.0}%\n\nProcessed: {}",
         decision.model_id,
         0.5,
         decision.estimated_savings,
-        if query_text != processed_query { format!("(compressed from {} tokens) ", compressed.original_tokens) } else { String::new() }
+        if query_text != processed_query {
+            format!("(compressed from {} tokens) ", compressed.original_tokens)
+        } else {
+            String::new()
+        }
     );
-    
+
     if enable_cache {
-        state.cache.store(&processed_query, response_text.clone(), compressed.compressed_tokens + 50);
+        state.cache.store(
+            &processed_query,
+            response_text.clone(),
+            compressed.compressed_tokens + 50,
+        );
     }
-    
+
     let latency = start_time.elapsed().as_millis() as u64;
-    let cost = calculate_request_cost(&state.pool, &decision.model_id, compressed.compressed_tokens, 50);
-    
+    let cost = calculate_request_cost(
+        &state.pool,
+        &decision.model_id,
+        compressed.compressed_tokens,
+        50,
+    );
+
     let metrics = build_metrics(
         &request_id,
         &decision.model_id,
@@ -241,7 +260,7 @@ async fn chat_completions(
         None,
     );
     state.observability.record(metrics);
-    
+
     let smartrouter_info = build_smartrouter_info(
         &decision.reason,
         complexity.score,
@@ -252,7 +271,7 @@ async fn chat_completions(
         latency,
         true,
     );
-    
+
     Ok(Json(build_response(
         request_id,
         decision.model_id,
@@ -279,9 +298,11 @@ async fn route_query(
     Json(request): Json<RouteRequest>,
 ) -> Result<Json<RouteResponse>, StatusCode> {
     let complexity = state.classifier.classify(&request.query);
-    let decision = state.engine.route(&request.query)
+    let decision = state
+        .engine
+        .route(&request.query)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let response = RouteResponse {
         decision: serde_json::to_value(decision).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
         complexity: serde_json::json!({
@@ -290,7 +311,7 @@ async fn route_query(
             "confidence": complexity.confidence
         }),
     };
-    
+
     Ok(Json(response))
 }
 
@@ -311,9 +332,7 @@ async fn submit_feedback(
     })))
 }
 
-async fn cache_stats(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn cache_stats(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let stats = state.cache.stats();
     Json(serde_json::json!({
         "total_entries": stats.total_entries,
@@ -322,32 +341,24 @@ async fn cache_stats(
     }))
 }
 
-async fn clear_cache(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn clear_cache(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     state.cache.clear();
     Json(serde_json::json!({
         "status": "cache_cleared"
     }))
 }
 
-async fn analytics_summary(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn analytics_summary(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let summary = state.observability.get_summary();
     Json(serde_json::to_value(summary).unwrap())
 }
 
-async fn analytics_savings(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn analytics_savings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let savings = state.observability.get_savings();
     Json(serde_json::to_value(savings).unwrap())
 }
 
-async fn analytics_costs(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn analytics_costs(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let costs = state.observability.get_cost_by_model();
     Json(serde_json::to_value(costs).unwrap())
 }
@@ -414,7 +425,7 @@ fn build_smartrouter_info(
     if cache_hit {
         routing_reason = format!("{} + semantic_cache_hit", routing_reason);
     }
-    
+
     serde_json::json!({
         "model_used": "gpt-4o-mini",
         "routing_reason": routing_reason,
@@ -456,13 +467,22 @@ fn build_metrics(
         first_token_ms: None,
         cache_hit,
         cache_similarity,
-        compression_ratio: if compression_ratio > 0.0 { Some(compression_ratio) } else { None },
+        compression_ratio: if compression_ratio > 0.0 {
+            Some(compression_ratio)
+        } else {
+            None
+        },
         guardrails_passed,
         error,
     }
 }
 
-fn calculate_request_cost(pool: &ModelPool, model_id: &str, input_tokens: u32, output_tokens: u32) -> f64 {
+fn calculate_request_cost(
+    pool: &ModelPool,
+    model_id: &str,
+    input_tokens: u32,
+    output_tokens: u32,
+) -> f64 {
     if let Some(model) = pool.get(model_id) {
         let input_cost = input_tokens as f64 * model.config.input_cost / 1_000_000.0;
         let output_cost = output_tokens as f64 * model.config.output_cost / 1_000_000.0;

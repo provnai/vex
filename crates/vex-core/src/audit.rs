@@ -1,9 +1,9 @@
 //! Audit log types with Merkle verification (ISO 42001 / EU AI Act compliant)
 
+use crate::merkle::Hash;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::merkle::Hash;
 
 #[cfg(feature = "algoswitch")]
 use vex_algoswitch as algoswitch;

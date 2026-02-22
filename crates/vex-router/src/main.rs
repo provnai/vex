@@ -18,25 +18,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .add_directive(tracing::Level::INFO.into()),
         )
         .init();
-    
+
     println!("\n🔀 VEX Router - Intelligent LLM Routing for VEX Protocol");
     println!("============================================================\n");
-    
+
     #[cfg(feature = "standalone")]
     {
         let config = Config::default();
-        
+
         println!("Configuration:");
         println!("  - Models: {}", config.models.len());
         println!("  - Default strategy: {:?}", config.default_strategy);
-        println!("  - Quality threshold: {:.0}%", config.quality_threshold * 100.0);
+        println!(
+            "  - Quality threshold: {:.0}%",
+            config.quality_threshold * 100.0
+        );
         println!("  - Learning enabled: {}", config.learning_enabled);
         println!();
-        
+
         let server = Server::new(config);
         server.run().await?;
     }
-    
+
     #[cfg(not(feature = "standalone"))]
     {
         // Library mode - show usage
@@ -51,6 +54,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
         println!("  let response = router.ask(\"Hello\").await?;");
     }
-    
+
     Ok(())
 }

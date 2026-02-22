@@ -263,10 +263,14 @@ impl MerkleTree {
         while let Some(node) = stack.pop() {
             match node {
                 MerkleNode::Leaf { hash, .. } => {
-                    if hash == target_hash { return true; }
+                    if hash == target_hash {
+                        return true;
+                    }
                 }
                 MerkleNode::Internal { hash, left, right } => {
-                    if hash == target_hash { return true; }
+                    if hash == target_hash {
+                        return true;
+                    }
                     stack.push(right);
                     stack.push(left);
                 }
@@ -274,7 +278,7 @@ impl MerkleTree {
         }
         false
     }
-    
+
     /// AlgoSwitch Select - picks the best search strategy based on tree size
     #[cfg(feature = "algoswitch")]
     pub fn contains_optimized(&self, target_hash: &Hash) -> bool {

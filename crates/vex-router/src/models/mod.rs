@@ -2,8 +2,8 @@
 
 use crate::config::ModelConfig;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// A model in our pool
 #[derive(Debug, Clone)]
@@ -15,7 +15,10 @@ pub struct Model {
 impl Model {
     pub fn new(config: ModelConfig) -> Self {
         let id = config.id.clone();
-        Self { config: Arc::new(config), id }
+        Self {
+            config: Arc::new(config),
+            id,
+        }
     }
 }
 
@@ -28,76 +31,103 @@ pub struct ModelPool {
 
 impl ModelPool {
     pub fn new(configs: Vec<ModelConfig>) -> Self {
-        let by_id: HashMap<String, usize> = configs.iter()
+        let by_id: HashMap<String, usize> = configs
+            .iter()
             .enumerate()
             .map(|(i, c)| (c.id.clone(), i))
             .collect();
-        
-        let models = configs.into_iter()
-            .map(Model::new)
-            .collect();
-        
+
+        let models = configs.into_iter().map(Model::new).collect();
+
         Self { models, by_id }
     }
-    
+
     pub fn get(&self, id: &str) -> Option<&Model> {
         self.by_id.get(id).and_then(|&i| self.models.get(i))
     }
-    
+
     pub fn get_all(&self) -> &[Model] {
         &self.models
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.models.is_empty()
     }
-    
+
     pub fn len(&self) -> usize {
         self.models.len()
     }
-    
+
     pub fn get_by_capability(&self, capability: &str) -> Vec<&Model> {
-        self.models.iter()
-            .filter(|m| m.config.capabilities.iter().any(|c| format!("{:?}", c).contains(capability)))
+        self.models
+            .iter()
+            .filter(|m| {
+                m.config
+                    .capabilities
+                    .iter()
+                    .any(|c| format!("{:?}", c).contains(capability))
+            })
             .collect()
     }
-    
+
     pub fn get_cheapest(&self) -> Option<&Model> {
-        self.models.iter()
-            .min_by(|a, b| a.config.input_cost.partial_cmp(&b.config.input_cost).unwrap())
+        self.models.iter().min_by(|a, b| {
+            a.config
+                .input_cost
+                .partial_cmp(&b.config.input_cost)
+                .unwrap()
+        })
     }
-    
+
     pub fn get_medium(&self) -> Option<&Model> {
         let mut models: Vec<_> = self.models.iter().collect();
-        models.sort_by(|a, b| a.config.input_cost.partial_cmp(&b.config.input_cost).unwrap());
+        models.sort_by(|a, b| {
+            a.config
+                .input_cost
+                .partial_cmp(&b.config.input_cost)
+                .unwrap()
+        });
         models.get(models.len() / 2).copied()
     }
-    
+
     pub fn get_best(&self) -> Option<&Model> {
-        self.models.iter()
-            .max_by(|a, b| a.config.quality_score.partial_cmp(&b.config.quality_score).unwrap())
+        self.models.iter().max_by(|a, b| {
+            a.config
+                .quality_score
+                .partial_cmp(&b.config.quality_score)
+                .unwrap()
+        })
     }
-    
+
     pub fn get_fastest(&self) -> Option<&Model> {
-        self.models.iter()
-            .min_by_key(|m| m.config.latency_ms)
+        self.models.iter().min_by_key(|m| m.config.latency_ms)
     }
-    
+
     pub fn get_best_quality(&self) -> Option<&Model> {
         self.get_best()
     }
-    
+
     /// Get models sorted by cost (ascending)
     pub fn get_sorted_by_cost(&self) -> Vec<&Model> {
         let mut models: Vec<_> = self.models.iter().collect();
-        models.sort_by(|a, b| a.config.input_cost.partial_cmp(&b.config.input_cost).unwrap());
+        models.sort_by(|a, b| {
+            a.config
+                .input_cost
+                .partial_cmp(&b.config.input_cost)
+                .unwrap()
+        });
         models
     }
-    
+
     /// Get models sorted by quality (descending)
     pub fn get_sorted_by_quality(&self) -> Vec<&Model> {
         let mut models: Vec<_> = self.models.iter().collect();
-        models.sort_by(|a, b| b.config.quality_score.partial_cmp(&a.config.quality_score).unwrap());
+        models.sort_by(|a, b| {
+            b.config
+                .quality_score
+                .partial_cmp(&a.config.quality_score)
+                .unwrap()
+        });
         models
     }
 }
