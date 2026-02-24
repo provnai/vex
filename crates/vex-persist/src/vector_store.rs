@@ -73,7 +73,7 @@ impl VectorStoreBackend for MemoryVectorStore {
         }
 
         let mut data = self.embeddings.write().unwrap();
-        
+
         // Limit capacity to prevent memory DoS (Fix #12)
         if data.len() >= 100_000 {
             return Err(VectorError::StorageFull);

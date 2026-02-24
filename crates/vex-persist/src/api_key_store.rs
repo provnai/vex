@@ -243,7 +243,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
                 return Ok(Some(record.clone()));
             }
         }
-        
+
         Ok(None)
     }
 

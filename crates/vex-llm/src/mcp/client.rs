@@ -63,8 +63,8 @@ pub struct McpClient {
 impl McpClient {
     /// Connect to an MCP server.
     pub async fn connect(url: &str, config: McpConfig) -> Result<Self, McpError> {
-        let is_localhost = url.contains("localhost") 
-            || url.contains("127.0.0.1") 
+        let is_localhost = url.contains("localhost")
+            || url.contains("127.0.0.1")
             || url.contains("[::1]")
             || url.contains("0.0.0.0");
 

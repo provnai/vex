@@ -154,7 +154,9 @@ pub async fn create_agent(
 
     // Validate depth bounds (Fix #13)
     if req.max_depth > 10 {
-        return Err(ApiError::Validation("max_depth exceeds safety limit of 10".to_string()));
+        return Err(ApiError::Validation(
+            "max_depth exceeds safety limit of 10".to_string(),
+        ));
     }
 
     // Create agent with sanitized inputs

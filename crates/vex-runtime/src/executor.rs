@@ -247,7 +247,7 @@ impl<L: LlmProvider> AgentExecutor<L> {
             "You have just finished an adversarial debate about your original response.\n\n\
              Original Response: \"{}\"\n\n\
              Debate Rounds:\n",
-             blue_response
+            blue_response
         );
 
         for (i, round) in debate.rounds.iter().enumerate() {
@@ -273,19 +273,37 @@ impl<L: LlmProvider> AgentExecutor<L> {
         let (blue_agrees, blue_confidence, blue_reasoning) = if let Ok(resp) = blue_vote_res {
             if let Some(start) = resp.content.find('{') {
                 if let Some(end) = resp.content.rfind('}') {
-                    if let Ok(vote) = serde_json::from_str::<VoteResponse>(&resp.content[start..=end]) {
+                    if let Ok(vote) =
+                        serde_json::from_str::<VoteResponse>(&resp.content[start..=end])
+                    {
                         (vote.agrees, vote.confidence, vote.reflection)
                     } else {
-                        (true, blue_agent.fitness.max(0.5f64), "Failed to parse reflection JSON".to_string())
+                        (
+                            true,
+                            blue_agent.fitness.max(0.5f64),
+                            "Failed to parse reflection JSON".to_string(),
+                        )
                     }
                 } else {
-                    (true, blue_agent.fitness.max(0.5f64), "No JSON in reflection".to_string())
+                    (
+                        true,
+                        blue_agent.fitness.max(0.5f64),
+                        "No JSON in reflection".to_string(),
+                    )
                 }
             } else {
-                (true, blue_agent.fitness.max(0.5f64), "No reflection content".to_string())
+                (
+                    true,
+                    blue_agent.fitness.max(0.5f64),
+                    "No reflection content".to_string(),
+                )
             }
         } else {
-            (true, blue_agent.fitness.max(0.5f64), "Reflection LLM call failed".to_string())
+            (
+                true,
+                blue_agent.fitness.max(0.5f64),
+                "Reflection LLM call failed".to_string(),
+            )
         };
 
         consensus.add_vote(Vote {

@@ -33,7 +33,8 @@ pub struct WorkerPool<B: QueueBackend + ?Sized> {
     registry: Arc<JobRegistry>,
 }
 
-type JobFactory = Box<dyn Fn(serde_json::Value) -> Result<Box<dyn Job>, serde_json::Error> + Send + Sync>;
+type JobFactory =
+    Box<dyn Fn(serde_json::Value) -> Result<Box<dyn Job>, serde_json::Error> + Send + Sync>;
 
 struct JobRegistry {
     factories: RwLock<std::collections::HashMap<String, JobFactory>>,
@@ -80,7 +81,10 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
             .factories
             .write()
             .expect("Job registry RwLock poisoned")
-            .insert(name.to_string(), Box::new(move |payload| Ok(factory(payload))));
+            .insert(
+                name.to_string(),
+                Box::new(move |payload| Ok(factory(payload))),
+            );
     }
 
     pub async fn start(&self) {
@@ -126,11 +130,17 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                                                 let _ = backend.set_result(entry.id, val).await;
                                             }
                                             let _ = backend
-                                                .update_status(entry.id, JobStatus::Completed, None, None)
+                                                .update_status(
+                                                    entry.id,
+                                                    JobStatus::Completed,
+                                                    None,
+                                                    None,
+                                                )
                                                 .await;
                                         }
                                         JobResult::Retry(e) => {
-                                            let delay = job.backoff_strategy().delay(entry.attempts);
+                                            let delay =
+                                                job.backoff_strategy().delay(entry.attempts);
                                             let delay_secs = delay.as_secs();
 
                                             info!(
@@ -151,7 +161,12 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                                         }
                                         JobResult::Fatal(e) => {
                                             let _ = backend
-                                                .update_status(entry.id, JobStatus::DeadLetter, Some(e), None)
+                                                .update_status(
+                                                    entry.id,
+                                                    JobStatus::DeadLetter,
+                                                    Some(e),
+                                                    None,
+                                                )
                                                 .await;
                                         }
                                     }
@@ -159,7 +174,12 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                                 Some(Err(e)) => {
                                     error!(job_id = %entry.id, error = %e, "Job payload deserialization failed");
                                     let _ = backend
-                                        .update_status(entry.id, JobStatus::DeadLetter, Some(e.to_string()), None)
+                                        .update_status(
+                                            entry.id,
+                                            JobStatus::DeadLetter,
+                                            Some(e.to_string()),
+                                            None,
+                                        )
                                         .await;
                                 }
                                 None => {

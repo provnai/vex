@@ -8,8 +8,8 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Duration, Utc};
-use std::sync::Arc;
 use moka::future::Cache;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -41,12 +41,13 @@ impl NonceCache {
     ) -> Result<(), String> {
         let now = Utc::now();
         let age = now.signed_duration_since(timestamp);
-        
+
         // TTL enforcement
         if age > Duration::minutes(5) {
             return Err(format!("Timestamp too old: {}s", age.num_seconds()));
         }
-        if age < Duration::seconds(-30) { // Allow for some clock skew
+        if age < Duration::seconds(-30) {
+            // Allow for some clock skew
             return Err("Timestamp is in the future".to_string());
         }
 
@@ -116,10 +117,7 @@ pub async fn create_task_handler(
     // Sanitize skill field (Fix for #25)
     if let Err(e) = sanitize_name(&request.skill) {
         tracing::warn!(task_id = %request.id, error = %e, "Invalid skill in A2A task");
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!("Invalid skill: {}", e),
-        ));
+        return Err((StatusCode::BAD_REQUEST, format!("Invalid skill: {}", e)));
     }
 
     let response = TaskResponse::pending(request.id);
