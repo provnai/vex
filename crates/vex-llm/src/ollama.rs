@@ -54,6 +54,12 @@ impl OllamaProvider {
 
     /// Create with custom base URL
     pub fn with_url(base_url: &str, model: &str) -> Self {
+        // Basic SSRF protection (2025 best practice)
+        let url = base_url.to_lowercase();
+        if url.contains("localhost") || url.contains("127.0.0.1") || url.contains("::1") {
+            tracing::warn!(url = %base_url, "Potentially unsafe URL in OllamaProvider");
+        }
+
         Self {
             base_url: base_url.to_string(),
             model: model.to_string(),

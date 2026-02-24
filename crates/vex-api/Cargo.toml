@@ -67,4 +67,5 @@ regex = "1.10"
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 utoipa-axum = "0.2"
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
+moka = { version = "0.12.13", features = ["future"] }
 

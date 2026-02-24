@@ -2149,9 +2149,9 @@ dependencies = [
 
 [[package]]
 name = "moka"
-version = "0.12.12"
+version = "0.12.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3dec6bd31b08944e08b58fd99373893a6c17054d6f3ea5006cc894f4f4eee2a"
+checksum = "b4ac832c50ced444ef6be0767a008b02c106a909ba79d1d830501e94b96f6b7e"
 dependencies = [
  "async-lock",
  "crossbeam-channel",
@@ -4234,7 +4234,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vex-adversarial"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "metrics 0.22.4",
@@ -4251,7 +4251,7 @@ dependencies = [
 
 [[package]]
 name = "vex-algoswitch"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "criterion",
  "once_cell",
@@ -4259,7 +4259,7 @@ dependencies = [
 
 [[package]]
 name = "vex-anchor"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "base64",
@@ -4278,7 +4278,7 @@ dependencies = [
 
 [[package]]
 name = "vex-api"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "argon2",
@@ -4291,6 +4291,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "jsonwebtoken",
+ "moka",
  "rand 0.8.5",
  "regex",
  "rustls-pki-types",
@@ -4320,7 +4321,7 @@ dependencies = [
 
 [[package]]
 name = "vex-core"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4360,7 +4361,7 @@ dependencies = [
 
 [[package]]
 name = "vex-llm"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-openai",
  "async-stream",
@@ -4390,7 +4391,7 @@ dependencies = [
 
 [[package]]
 name = "vex-macros"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4400,7 +4401,7 @@ dependencies = [
 
 [[package]]
 name = "vex-persist"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "argon2",
  "async-trait",
@@ -4423,7 +4424,7 @@ dependencies = [
 
 [[package]]
 name = "vex-protocol-cli"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4443,7 +4444,7 @@ dependencies = [
 
 [[package]]
 name = "vex-queue"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4458,7 +4459,7 @@ dependencies = [
 
 [[package]]
 name = "vex-router"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4492,7 +4493,7 @@ dependencies = [
 
 [[package]]
 name = "vex-runtime"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "futures",
@@ -4512,7 +4513,7 @@ dependencies = [
 
 [[package]]
 name = "vex-temporal"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "chrono",

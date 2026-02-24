@@ -33,7 +33,7 @@ pub struct WorkerPool<B: QueueBackend + ?Sized> {
     registry: Arc<JobRegistry>,
 }
 
-type JobFactory = Box<dyn Fn(serde_json::Value) -> Box<dyn Job> + Send + Sync>;
+type JobFactory = Box<dyn Fn(serde_json::Value) -> Result<Box<dyn Job>, serde_json::Error> + Send + Sync>;
 
 struct JobRegistry {
     factories: RwLock<std::collections::HashMap<String, JobFactory>>,
@@ -60,9 +60,8 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
     /// Register a job type handler
     pub fn register_job_type<J: Job + DeserializeOwned + 'static>(&self, name: &str) {
         let factory = Box::new(|payload: serde_json::Value| {
-            let job: J =
-                serde_json::from_value(payload).expect("Job payload deserialization failed");
-            Box::new(job) as Box<dyn Job>
+            let job: J = serde_json::from_value(payload)?;
+            Ok(Box::new(job) as Box<dyn Job>)
         });
 
         self.registry
@@ -81,7 +80,7 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
             .factories
             .write()
             .expect("Job registry RwLock poisoned")
-            .insert(name.to_string(), Box::new(factory));
+            .insert(name.to_string(), Box::new(move |payload| Ok(factory(payload))));
     }
 
     pub async fn start(&self) {
@@ -115,67 +114,65 @@ impl<B: QueueBackend + ?Sized + 'static> WorkerPool<B> {
                                     .map(|f| f(entry.payload.clone()))
                             };
 
-                            if let Some(mut job) = job_opt {
-                                info!("Processing job {} ({})", entry.id, entry.job_type);
+                            match job_opt {
+                                Some(Ok(mut job)) => {
+                                    info!("Processing job {} ({})", entry.id, entry.job_type);
 
-                                let result = job.execute().await;
+                                    let result = job.execute().await;
 
-                                match result {
-                                    JobResult::Success(value) => {
-                                        if let Some(val) = value {
-                                            let _ = backend.set_result(entry.id, val).await;
+                                    match result {
+                                        JobResult::Success(value) => {
+                                            if let Some(val) = value {
+                                                let _ = backend.set_result(entry.id, val).await;
+                                            }
+                                            let _ = backend
+                                                .update_status(entry.id, JobStatus::Completed, None, None)
+                                                .await;
                                         }
-                                        let _ = backend
-                                            .update_status(
-                                                entry.id,
-                                                JobStatus::Completed,
-                                                None,
-                                                None,
-                                            )
-                                            .await;
-                                    }
-                                    JobResult::Retry(e) => {
-                                        // Calculate backoff delay from job's strategy
-                                        let delay = job.backoff_strategy().delay(entry.attempts);
-                                        let delay_secs = delay.as_secs();
+                                        JobResult::Retry(e) => {
+                                            let delay = job.backoff_strategy().delay(entry.attempts);
+                                            let delay_secs = delay.as_secs();
 
-                                        info!(
-                                            job_id = %entry.id,
-                                            attempt = entry.attempts + 1,
-                                            delay_secs = delay_secs,
-                                            "Job failed, scheduling retry with backoff"
-                                        );
+                                            info!(
+                                                job_id = %entry.id,
+                                                attempt = entry.attempts + 1,
+                                                delay_secs = delay_secs,
+                                                "Job failed, scheduling retry with backoff"
+                                            );
 
-                                        let _ = backend
-                                            .update_status(
-                                                entry.id,
-                                                JobStatus::Failed(entry.attempts + 1),
-                                                Some(e),
-                                                Some(delay_secs),
-                                            )
-                                            .await;
-                                    }
-                                    JobResult::Fatal(e) => {
-                                        let _ = backend
-                                            .update_status(
-                                                entry.id,
-                                                JobStatus::DeadLetter,
-                                                Some(e),
-                                                None,
-                                            )
-                                            .await;
+                                            let _ = backend
+                                                .update_status(
+                                                    entry.id,
+                                                    JobStatus::Failed(entry.attempts + 1),
+                                                    Some(e),
+                                                    Some(delay_secs),
+                                                )
+                                                .await;
+                                        }
+                                        JobResult::Fatal(e) => {
+                                            let _ = backend
+                                                .update_status(entry.id, JobStatus::DeadLetter, Some(e), None)
+                                                .await;
+                                        }
                                     }
                                 }
-                            } else {
-                                warn!("No handler registered for job type: {}", entry.job_type);
-                                let _ = backend
-                                    .update_status(
-                                        entry.id,
-                                        JobStatus::DeadLetter,
-                                        Some(format!("No handler for {}", entry.job_type)),
-                                        None,
-                                    )
-                                    .await;
+                                Some(Err(e)) => {
+                                    error!(job_id = %entry.id, error = %e, "Job payload deserialization failed");
+                                    let _ = backend
+                                        .update_status(entry.id, JobStatus::DeadLetter, Some(e.to_string()), None)
+                                        .await;
+                                }
+                                None => {
+                                    warn!("No handler registered for job type: {}", entry.job_type);
+                                    let _ = backend
+                                        .update_status(
+                                            entry.id,
+                                            JobStatus::DeadLetter,
+                                            Some(format!("No handler for {}", entry.job_type)),
+                                            None,
+                                        )
+                                        .await;
+                                }
                             }
 
                             drop(permit);

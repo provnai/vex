@@ -29,6 +29,7 @@ async fn test_deepseek_real_request() {
         system: "You are a helpful assistant. Be extremely concise.".to_string(),
         temperature: 0.0,
         max_tokens: 10,
+        tenant_id: None,
     };
 
     let response = provider.complete(request).await;

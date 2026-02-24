@@ -74,7 +74,7 @@ impl JwtAuth {
         let encoding_key = EncodingKey::from_secret(secret.as_bytes());
         let decoding_key = DecodingKey::from_secret(secret.as_bytes());
 
-        let mut validation = Validation::default();
+        let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
         validation.set_issuer(&["vex-api"]);
         validation.validate_exp = true;
 

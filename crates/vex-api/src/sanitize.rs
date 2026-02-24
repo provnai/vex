@@ -117,8 +117,8 @@ impl AdvancedSanitizer {
     fn injection_regex() -> &'static Regex {
         INJECTION_RE.get_or_init(|| {
             let mut patterns = vec![
-                r"(?i)(ignore|disregard|forget)\s+.*?(all\s+)?previous".to_string(),
-                r"(?i)(reveal|show|print|repeat)\s+.*?(your\s+)?(instructions|prompt|rules)"
+                r"(?i)(ignore|disregard|forget)\s+(all\s+)?previous".to_string(),
+                r"(?i)(reveal|show|print|repeat)\s+(your\s+)?(instructions|prompt|rules)"
                     .to_string(),
             ];
 

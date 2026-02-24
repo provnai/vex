@@ -144,14 +144,26 @@ impl QueueBackend for MemoryQueue {
         Ok(())
     }
 
-    async fn get_status(&self, id: Uuid) -> Result<JobStatus, QueueError> {
+    async fn get_status(&self, tenant_id: &str, id: Uuid) -> Result<JobStatus, QueueError> {
         let jobs = self.jobs.read().await;
-        jobs.get(&id).map(|j| j.status).ok_or(QueueError::NotFound)
+        let job = jobs.get(&id).ok_or(QueueError::NotFound)?;
+
+        if job.tenant_id != tenant_id {
+            return Err(QueueError::NotFound);
+        }
+
+        Ok(job.status)
     }
 
-    async fn get_job(&self, id: Uuid) -> Result<JobEntry, QueueError> {
+    async fn get_job(&self, tenant_id: &str, id: Uuid) -> Result<JobEntry, QueueError> {
         let jobs = self.jobs.read().await;
-        jobs.get(&id).cloned().ok_or(QueueError::NotFound)
+        let job = jobs.get(&id).ok_or(QueueError::NotFound)?;
+
+        if job.tenant_id != tenant_id {
+            return Err(QueueError::NotFound);
+        }
+
+        Ok(job.clone())
     }
 
     async fn set_result(&self, id: Uuid, result: serde_json::Value) -> Result<(), QueueError> {
@@ -181,7 +193,7 @@ mod tests {
             .await
             .unwrap();
 
-        let status = queue.get_status(id).await.unwrap();
+        let status = queue.get_status("test-tenant", id).await.unwrap();
         assert_eq!(status, JobStatus::Pending);
 
         // Dequeue

@@ -18,9 +18,9 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 authors = ["VEX Protocol Team <team@vexprotocol.org>"]
 repository = "https://github.com/provnai/vex"
 description = "The trust layer for AI agents - verification, memory, and cryptographic proofs"
@@ -59,19 +59,19 @@ curve25519-dalek = "4.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 
 # Internal VEX crates
-vex-core = { path = "crates/vex-core", version = "0.1.6" }
-vex-adversarial = { path = "crates/vex-adversarial", version = "0.1.6" }
-vex-llm = { path = "crates/vex-llm", version = "0.1.6" }
-vex-persist = { path = "crates/vex-persist", version = "0.1.6" }
-vex-router = { path = "crates/vex-router", version = "0.1.6" }
-vex-algoswitch = { path = "crates/vex-algoswitch", version = "0.1.6" }
-vex-queue = { path = "crates/vex-queue", version = "0.1.6" }
-vex-runtime = { path = "crates/vex-runtime", version = "0.1.6" }
-vex-macros = { path = "crates/vex-macros", version = "0.1.6" }
-vex-api = { path = "crates/vex-api", version = "0.1.6" }
-vex-anchor = { path = "crates/vex-anchor", version = "0.1.6" }
-vex-temporal = { path = "crates/vex-temporal", version = "0.1.6" }
-vex-protocol-cli = { path = "crates/vex-cli", version = "0.1.6" }
+vex-core = { path = "crates/vex-core", version = "0.1.7" }
+vex-adversarial = { path = "crates/vex-adversarial", version = "0.1.7" }
+vex-llm = { path = "crates/vex-llm", version = "0.1.7" }
+vex-persist = { path = "crates/vex-persist", version = "0.1.7" }
+vex-router = { path = "crates/vex-router", version = "0.1.7" }
+vex-algoswitch = { path = "crates/vex-algoswitch", version = "0.1.7" }
+vex-queue = { path = "crates/vex-queue", version = "0.1.7" }
+vex-runtime = { path = "crates/vex-runtime", version = "0.1.7" }
+vex-macros = { path = "crates/vex-macros", version = "0.1.7" }
+vex-api = { path = "crates/vex-api", version = "0.1.7" }
+vex-anchor = { path = "crates/vex-anchor", version = "0.1.7" }
+vex-temporal = { path = "crates/vex-temporal", version = "0.1.7" }
+vex-protocol-cli = { path = "crates/vex-cli", version = "0.1.7" }
 
 # Release profile with security-hardened settings
 [profile.release]

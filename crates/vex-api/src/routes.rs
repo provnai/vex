@@ -152,6 +152,11 @@ pub async fn create_agent(
     let role = sanitize_role(&req.role)
         .map_err(|e| ApiError::Validation(format!("Invalid role: {}", e)))?;
 
+    // Validate depth bounds (Fix #13)
+    if req.max_depth > 10 {
+        return Err(ApiError::Validation("max_depth exceeds safety limit of 10".to_string()));
+    }
+
     // Create agent with sanitized inputs
     let config = vex_core::AgentConfig {
         name: name.clone(),
@@ -312,15 +317,17 @@ pub struct JobStatusResponse {
     )
 )]
 pub async fn get_job_status(
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> ApiResult<Json<JobStatusResponse>> {
     let pool = state.queue();
     let backend = &pool.backend;
 
+    let tenant_id = claims.tenant_id.as_deref().unwrap_or(&claims.sub);
+
     let job = backend
-        .get_job(job_id)
+        .get_job(tenant_id, job_id)
         .await
         .map_err(|_| ApiError::NotFound(format!("Job {} not found", job_id)))?;
 

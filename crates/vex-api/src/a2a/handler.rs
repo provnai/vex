@@ -8,25 +8,27 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Duration, Utc};
-use std::collections::HashSet;
 use std::sync::Arc;
+use moka::future::Cache;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::agent_card::AgentCard;
 use super::task::{TaskRequest, TaskResponse};
+use crate::sanitize::sanitize_name;
 
 /// Nonce cache for replay protection (2025 best practice)
 pub struct NonceCache {
-    seen: RwLock<HashSet<String>>,
-    max_age: Duration,
+    cache: Cache<String, ()>,
 }
 
 impl Default for NonceCache {
     fn default() -> Self {
         Self {
-            seen: RwLock::new(HashSet::new()),
-            max_age: Duration::minutes(5),
+            cache: Cache::builder()
+                .max_capacity(100_000)
+                .time_to_live(std::time::Duration::from_secs(300)) // 5 minutes matches max_age
+                .build(),
         }
     }
 }
@@ -37,34 +39,22 @@ impl NonceCache {
         nonce: Option<&str>,
         timestamp: DateTime<Utc>,
     ) -> Result<(), String> {
-        let age = Utc::now().signed_duration_since(timestamp);
-        if age > self.max_age {
+        let now = Utc::now();
+        let age = now.signed_duration_since(timestamp);
+        
+        // TTL enforcement
+        if age > Duration::minutes(5) {
             return Err(format!("Timestamp too old: {}s", age.num_seconds()));
         }
-        if age < Duration::zero() {
+        if age < Duration::seconds(-30) { // Allow for some clock skew
             return Err("Timestamp is in the future".to_string());
         }
 
         if let Some(nonce) = nonce {
-            let mut seen = self.seen.write().await;
-            if seen.contains(nonce) {
+            if self.cache.contains_key(nonce) {
                 return Err("Replay detected".to_string());
             }
-            seen.insert(nonce.to_string());
-
-            // Cleanup: If cache grows too large, perform a partial cleanup
-            // of non-deterministic entries to prevent OOM while maintaining
-            // most replay protection. In v0.1.5, we will migrate to a
-            // proper TTL-based cache (e.g., moka).
-            if seen.len() > 20000 {
-                // Drop ~10% randomly if capacity exceeded to avoid total reset
-                let total = seen.len();
-                let to_remove = total / 10;
-                let keys: Vec<String> = seen.iter().take(to_remove).cloned().collect();
-                for key in keys {
-                    seen.remove(&key);
-                }
-            }
+            self.cache.insert(nonce.to_string(), ()).await;
         }
         Ok(())
     }
@@ -120,6 +110,15 @@ pub async fn create_task_handler(
         return Err((
             StatusCode::BAD_REQUEST,
             format!("Replay protection failed: {}", e),
+        ));
+    }
+
+    // Sanitize skill field (Fix for #25)
+    if let Err(e) = sanitize_name(&request.skill) {
+        tracing::warn!(task_id = %request.id, error = %e, "Invalid skill in A2A task");
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Invalid skill: {}", e),
         ));
     }
 

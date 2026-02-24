@@ -108,6 +108,11 @@ impl TenantRateLimiter {
 
     /// Check if a request is allowed for a tenant
     pub async fn check(&self, tenant_id: &str) -> Result<(), Duration> {
+        // Prevent bypass via empty tenant_id (Fix #11)
+        if tenant_id.trim().is_empty() {
+            return Err(Duration::from_secs(3600)); // Block for 1 hour
+        }
+
         let tier = self.get_tier(tenant_id).await;
 
         // Unlimited tier always passes

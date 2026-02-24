@@ -17,6 +17,13 @@ struct ChallengeResponse {
     suggested_revision: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct VoteResponse {
+    agrees: bool,
+    reflection: String,
+    confidence: f64,
+}
+
 /// Configuration for agent execution
 #[derive(Debug, Clone)]
 pub struct ExecutorConfig {
@@ -235,15 +242,57 @@ impl<L: LlmProvider> AgentExecutor<L> {
             }
         }
 
-        // Blue votes with its evolved fitness as confidence (floor 0.5 for new agents)
+        // Blue agent reflects on the debate and decides its final vote (Fix for #3 bias)
+        let mut reflection_prompt = format!(
+            "You have just finished an adversarial debate about your original response.\n\n\
+             Original Response: \"{}\"\n\n\
+             Debate Rounds:\n",
+             blue_response
+        );
+
+        for (i, round) in debate.rounds.iter().enumerate() {
+            reflection_prompt.push_str(&format!(
+                "Round {}: Red challenged: \"{}\" -> You rebutted: \"{}\"\n",
+                i + 1,
+                round.red_challenge,
+                round.blue_rebuttal.as_deref().unwrap_or("N/A")
+            ));
+        }
+
+        reflection_prompt.push_str("\nBased on this debate, do you still stand by your original response? \
+                                    Respond in valid JSON: {\"agrees\": boolean, \"confidence\": float (0.0-1.0), \"reasoning\": \"string\"}.");
+
+        let blue_vote_res = self
+            .llm
+            .complete(LlmRequest::with_role(
+                &blue_agent.config.role,
+                &reflection_prompt,
+            ))
+            .await;
+
+        let (blue_agrees, blue_confidence, blue_reasoning) = if let Ok(resp) = blue_vote_res {
+            if let Some(start) = resp.content.find('{') {
+                if let Some(end) = resp.content.rfind('}') {
+                    if let Ok(vote) = serde_json::from_str::<VoteResponse>(&resp.content[start..=end]) {
+                        (vote.agrees, vote.confidence, vote.reflection)
+                    } else {
+                        (true, blue_agent.fitness.max(0.5f64), "Failed to parse reflection JSON".to_string())
+                    }
+                } else {
+                    (true, blue_agent.fitness.max(0.5f64), "No JSON in reflection".to_string())
+                }
+            } else {
+                (true, blue_agent.fitness.max(0.5f64), "No reflection content".to_string())
+            }
+        } else {
+            (true, blue_agent.fitness.max(0.5f64), "Reflection LLM call failed".to_string())
+        };
+
         consensus.add_vote(Vote {
             agent_id: blue_agent.id,
-            agrees: true,
-            confidence: blue_agent.fitness.max(0.5),
-            reasoning: Some(format!(
-                "Blue agent fitness: {:.0}%",
-                blue_agent.fitness * 100.0
-            )),
+            agrees: blue_agrees,
+            confidence: blue_confidence.max(0.5f64),
+            reasoning: Some(blue_reasoning),
         });
 
         consensus.evaluate();

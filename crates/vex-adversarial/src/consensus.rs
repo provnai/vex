@@ -93,6 +93,12 @@ impl Consensus {
 
         let total = self.votes.len() as f64;
         let agrees: f64 = self.votes.iter().filter(|v| v.agrees).count() as f64;
+        if total == 0.0 {
+            self.reached = false;
+            self.decision = None;
+            return;
+        }
+
         let agree_ratio = agrees / total;
 
         let (reached, decision) = match self.protocol {
@@ -141,7 +147,11 @@ impl Consensus {
 
         self.reached = reached;
         self.decision = decision;
-        self.confidence = self.votes.iter().map(|v| v.confidence).sum::<f64>() / total;
+        if total == 0.0 {
+            self.confidence = 0.0;
+        } else {
+            self.confidence = self.votes.iter().map(|v| v.confidence).sum::<f64>() / total;
+        }
     }
 }
 

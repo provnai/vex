@@ -42,13 +42,13 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v0.1.5
+## ✨ What's New in v0.1.7
 
-- � **Persistent Semantic Memory** - SQLite-backed VectorStore with cosine similarity search (`vex-persist`).
-- � **Blockchain Anchoring Backends** - Real-world anchoring to Ethereum (EIP-4844), OpenTimestamps, and Celestia.
-- � **WebSocket MCP Client** - Secure JSON-RPC over WebSocket client with TLS enforcement.
-- 🏁 **Job Result Retrieval** - Persistent endpoint for polling background task results.
-- 🛡️ **Adaptive Sanitization** - 2025-aware dynamic prompt injection detection.
+- 🛡️ **Blue Agent Reflection** - Agents now reconsider their stances based on debate arguments, eliminating hardcoded bias.
+- ⚡ **O(1) API Key Verification** - Instant auth lookups using UUID prefixes to prevent DoS attacks.
+- 🔒 **Isolated Multi-Tenancy** - Strictly bounded context, storage, and rate-limiting per-tenant.
+- 🧊 **Fortified Replay Protection** - TTL-based nonce caching with `moka` and mandatory capacity bounds.
+- 🚀 **Worker Robustness** - Graceful handling of malformed job payloads without panicking worker threads.
 
 ---
 

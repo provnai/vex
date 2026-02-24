@@ -62,14 +62,9 @@ impl ApiKeyRecord {
     ) -> (Self, String) {
         let id = Uuid::new_v4();
 
-        // Generate a secure random key: vex_<uuid>_<random>
-        let random_part: String = (0..32)
-            .map(|_| {
-                let idx = rand::random::<usize>() % 62;
-                let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                chars.chars().nth(idx).unwrap()
-            })
-            .collect();
+        // Generate a secure random key: vex_<uuid>_<random> (2025 best practice)
+        use rand::distributions::{Alphanumeric, DistString};
+        let random_part = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let plaintext_key = format!("vex_{}_{}", id.to_string().replace("-", ""), random_part);
 
         // Hash the key for storage
@@ -155,7 +150,8 @@ pub trait ApiKeyStore: Send + Sync {
     /// Find a key by its hash (for legacy SHA-256 compatibility)
     async fn find_by_hash(&self, hash: &str) -> Result<Option<ApiKeyRecord>, ApiKeyError>;
 
-    /// Find and verify a key using Argon2 (iterate and verify each)
+    /// Find and verify a key using Argon2
+    /// Recommended approach: extract key ID from prefix for O(1) lookup
     async fn find_and_verify_key(
         &self,
         plaintext_key: &str,
@@ -218,12 +214,36 @@ impl ApiKeyStore for MemoryApiKeyStore {
         &self,
         plaintext_key: &str,
     ) -> Result<Option<ApiKeyRecord>, ApiKeyError> {
+        // Extract ID from key: vex_<uuid_compact>_<random>
+        let parts: Vec<&str> = plaintext_key.split('_').collect();
+        if parts.len() < 3 {
+            return Err(ApiKeyError::InvalidFormat);
+        }
+
+        let uuid_str = parts[1];
+        if uuid_str.len() != 32 {
+            return Err(ApiKeyError::InvalidFormat);
+        }
+
+        // Reconstruct UUID (with hyphens for parsing)
+        let formatted_uuid = format!(
+            "{}-{}-{}-{}-{}",
+            &uuid_str[0..8],
+            &uuid_str[8..12],
+            &uuid_str[12..16],
+            &uuid_str[16..20],
+            &uuid_str[20..32]
+        );
+
+        let id = Uuid::parse_str(&formatted_uuid).map_err(|_| ApiKeyError::InvalidFormat)?;
+
         let keys = self.keys.read().await;
-        for record in keys.values() {
+        if let Some(record) = keys.get(&id) {
             if ApiKeyRecord::verify_key(plaintext_key, &record.key_hash) {
                 return Ok(Some(record.clone()));
             }
         }
+        
         Ok(None)
     }
 

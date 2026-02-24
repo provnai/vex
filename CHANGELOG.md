@@ -5,6 +5,27 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-02-24
+
+### Added
+- **v0.1.7 Security Hardening**: Completed a comprehensive 28-point security audit and remediation sweep, making the VEX Protocol production-ready for multi-tenant environments.
+- **Blue Agent Reflection**: Introduced a dynamic "Reflection" phase for Blue agents. Agents now reconsider their stance based on debate arguments instead of having a hardcoded bias toward agreement.
+- **Fast API Key Verification**: Eliminated potential DoS vectors by implementing O(1) jump-lookups for API keys using UUID prefixes, ensuring verification remains instant regardless of user count.
+- **Fortified Nonce Caching**: Replaced manual tracking with a robust, TTL-based `moka` cache to prevent replay attacks while maintaining strictly bounded memory usage.
+- **Isolated Multi-Tenancy**: Hardened tenant isolation across the entire stack—from LLM cache keys to job queue retrieval—ensuring zero data leakage between different users.
+- **SSRF & Infrastructure Shielding**: Added active protection against internal network probing by blocking loopback and localhost connections in LLM and MCP providers.
+- **Bounded Vector Storage**: Implemented mandatory capacity limits (100k entries) on in-memory vector stores to prevent memory exhaustion attacks.
+
+### Changed
+- **JWT Protection Protocol**: Restricted supported JWT algorithms strictly to `HS256` to prevent algorithm confusion attacks.
+- **Worker Robustness**: Refactored the job processor loop to handle malformed payloads gracefully, ensuring worker threads stay alive while bad jobs are moved to `DeadLetter`.
+- **Consensus Engine Safety**: Added zero-vote guards to all consensus calculations to eliminate division-by-zero risks in confidence reporting.
+
+### Fixed
+- **Anti-Injection Refinement**: Flattened greedy regex patterns in the input sanitizer to eliminate ReDoS vulnerabilities.
+- **Git Anchor Sanitization**: Added strict filtering for branch names in the Git backend to prevent command manipulation.
+- **Clippy & Workspace Cleanup**: Resolved all remaining lints and unused imports, achieving a perfectly clean build across all 13 workspace crates.
+
 ## [0.1.6] - 2026-02-22
 
 ### Added

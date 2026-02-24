@@ -13,6 +13,8 @@ pub enum VectorError {
     SerializationError(String),
     #[error("Database error: {0}")]
     DatabaseError(String),
+    #[error("Storage full: capacity exceeded")]
+    StorageFull,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +73,12 @@ impl VectorStoreBackend for MemoryVectorStore {
         }
 
         let mut data = self.embeddings.write().unwrap();
+        
+        // Limit capacity to prevent memory DoS (Fix #12)
+        if data.len() >= 100_000 {
+            return Err(VectorError::StorageFull);
+        }
+
         data.push((
             id.clone(),
             tenant_id,

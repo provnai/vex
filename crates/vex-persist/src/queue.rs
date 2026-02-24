@@ -170,10 +170,11 @@ impl QueueBackend for SqliteQueueBackend {
         Ok(())
     }
 
-    async fn get_status(&self, id: Uuid) -> Result<JobStatus, QueueError> {
+    async fn get_status(&self, tenant_id: &str, id: Uuid) -> Result<JobStatus, QueueError> {
         use sqlx::Row;
-        let row = sqlx::query("SELECT status, retries FROM jobs WHERE id = ?")
+        let row = sqlx::query("SELECT status, retries FROM jobs WHERE id = ? AND tenant_id = ?")
             .bind(id.to_string())
+            .bind(tenant_id)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| QueueError::Backend(e.to_string()))?;
@@ -198,14 +199,15 @@ impl QueueBackend for SqliteQueueBackend {
         }
     }
 
-    async fn get_job(&self, id: Uuid) -> Result<JobEntry, QueueError> {
+    async fn get_job(&self, tenant_id: &str, id: Uuid) -> Result<JobEntry, QueueError> {
         use chrono::NaiveDateTime;
         use sqlx::Row;
 
         let row = sqlx::query(
-            "SELECT id, tenant_id, job_type, payload, status, created_at, run_at, retries, last_error, result FROM jobs WHERE id = ?"
+            "SELECT id, tenant_id, job_type, payload, status, created_at, run_at, retries, last_error, result FROM jobs WHERE id = ? AND tenant_id = ?"
         )
         .bind(id.to_string())
+        .bind(tenant_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| QueueError::Backend(e.to_string()))?

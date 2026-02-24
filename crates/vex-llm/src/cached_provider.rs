@@ -62,6 +62,10 @@ impl LlmCacheConfig {
 /// Calculate cache key from request
 fn cache_key(request: &LlmRequest) -> String {
     let mut hasher = Sha256::new();
+    if let Some(tenant_id) = &request.tenant_id {
+        hasher.update(tenant_id.as_bytes());
+        hasher.update(b"|");
+    }
     hasher.update(request.system.as_bytes());
     hasher.update(b"|");
     hasher.update(request.prompt.as_bytes());

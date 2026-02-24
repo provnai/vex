@@ -37,9 +37,14 @@ impl GitAnchor {
         }
     }
 
-    /// Set the branch to use for anchors
+    /// Set the branch to use for anchors (Sanitized to prevent injection)
     pub fn with_branch(mut self, branch: impl Into<String>) -> Self {
-        self.branch = branch.into();
+        let branch_name: String = branch.into();
+        self.branch = Self::sanitize_git_message(&branch_name)
+            .replace(' ', "-") // Branches cannot have spaces
+            .chars()
+            .filter(|c| c.is_alphanumeric() || "-_".contains(*c))
+            .collect();
         self
     }
 

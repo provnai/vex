@@ -29,6 +29,9 @@ pub const MAX_SYSTEM_SIZE: usize = 10 * 1024;
 /// A request to an LLM
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmRequest {
+    /// Tenant ID (for cache isolation)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
     /// System prompt (role/persona)
     pub system: String,
     /// User message
@@ -43,6 +46,7 @@ impl LlmRequest {
     /// Create a simple request with default settings
     pub fn simple(prompt: &str) -> Self {
         Self {
+            tenant_id: None,
             system: "You are a helpful assistant.".to_string(),
             prompt: prompt.to_string(),
             temperature: 0.7,
@@ -57,6 +61,7 @@ impl LlmRequest {
             prompt: prompt.to_string(),
             temperature: 0.7,
             max_tokens: 1024,
+            tenant_id: None,
         }
     }
 
