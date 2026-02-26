@@ -41,9 +41,9 @@ USER 1000:1000
 # Expose the port
 EXPOSE 8080
 
-# Healthcheck to aid orchestration
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+# Healthcheck to aid# Start correctly
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:${VEX_PORT:-8080}/health || exit 1
 
 # Start the VEX Server
 CMD ["vex-server"]
