@@ -14,6 +14,21 @@ async fn main() -> Result<()> {
 
     tracing::info!("🚀 Starting VEX Protocol Server...");
 
+    // Railway Compatibility: Map Railway's $PORT to VEX_PORT
+    if let Ok(port) = std::env::var("PORT") {
+        if std::env::var("VEX_PORT").is_err() {
+            tracing::info!("Railway detected: Mapping PORT {} to VEX_PORT", port);
+            std::env::set_var("VEX_PORT", port);
+        }
+    }
+
+    // Railway Compatibility: Ensure VEX_JWT_SECRET exists to prevent startup crash.
+    // In production, the user should override this in the Railway Dashboard for security.
+    if std::env::var("VEX_JWT_SECRET").is_err() {
+        tracing::warn!("VEX_JWT_SECRET not found! Using a temporary fallback secret.");
+        std::env::set_var("VEX_JWT_SECRET", "railway-default-fallback-secret-32-chars-long");
+    }
+
     // Load server configuration from environment variables (e.g., VEX_PORT)
     let config = ServerConfig::from_env();
 
