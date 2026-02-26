@@ -1,0 +1,17 @@
+[package]
+name = "vex-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Standalone server binary for VEX Protocol"
+
+[dependencies]
+vex-api = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+
+[[bin]]
+name = "vex-server"
+path = "src/main.rs"

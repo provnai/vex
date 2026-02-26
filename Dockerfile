@@ -12,7 +12,7 @@ RUN apt-get update && \
 COPY . .
 
 # Build the API server in release mode
-RUN cargo build --release -p vex-api
+RUN cargo build --release -p vex-server
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -25,7 +25,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/vex/target/release/vex-api /usr/local/bin/
+COPY --from=builder /usr/src/vex/target/release/vex-server /usr/local/bin/
 
 # Create a data directory for the persistent SQLite volume
 RUN mkdir -p /data && chown -R 1000:1000 /data
@@ -45,5 +45,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# Start the VEX API
-CMD ["vex-api"]
+# Start the VEX Server
+CMD ["vex-server"]
