@@ -2,9 +2,8 @@
     "version": "v1",
     "name": "VEX Protocol",
     "description": "The trust layer for AI agents - adversarial verification, temporal memory, and cryptographic proofs.",
-    "services": [
-        {
-            "name": "vex-api",
+    "services": {
+        "vex-api": {
             "source": {
                 "repo": "provnai/vex"
             },
@@ -12,8 +11,8 @@
                 "VEX_JWT_SECRET": "${{ secret }}",
                 "DATABASE_URL": "sqlite:///data/vex.db?mode=rwc",
                 "VEX_ENV": "production",
-                "DEEPSEEK_API_KEY": "@optional"
+                "DEEPSEEK_API_KEY": ""
             }
         }
-    ]
+    }
 }
