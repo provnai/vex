@@ -5,7 +5,7 @@ WORKDIR /usr/src/vex
 
 # Install required dependencies for building
 RUN apt-get update && \
-    apt-get install -y pkg-config libssl-dev build-essential && \
+    apt-get install -y pkg-config libssl-dev build-essential curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the entire workspace
