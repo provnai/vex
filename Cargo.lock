@@ -4512,6 +4512,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "vex-server"
+version = "0.1.7"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.8",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "tower-http 0.6.8",
+ "tracing",
+ "uuid",
+ "vex-api",
+ "vex-llm",
+ "vex-persist",
+ "vex-queue",
+ "vex-router",
+]
+
+[[package]]
 name = "vex-temporal"
 version = "0.1.7"
 dependencies = [
