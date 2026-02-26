@@ -12,6 +12,7 @@
     },
     "vars": {
         "VEX_PORT": "${{PORT}}",
-        "VEX_JWT_SECRET": "replace-with-secure-32-char-random-string-in-railway-ui"
+        "VEX_JWT_SECRET": "replace-with-secure-32-char-random-string-in-railway-ui",
+        "VEX_ENV": "railway"
     }
 }

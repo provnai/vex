@@ -32,7 +32,7 @@ RUN mkdir -p /data && chown -R 1000:1000 /data
 
 # Set secure defaults
 ENV VEX_PORT=8080
-ENV VEX_ENV=production
+ENV VEX_ENV=railway
 ENV DATABASE_URL="sqlite:///data/vex.db?mode=rwc"
 
 # Run as an unprivileged user for security
