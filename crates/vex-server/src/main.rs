@@ -22,6 +22,17 @@ use vex_llm::{
 };
 use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
+// ── CHORA A/B Test Imports ────────────────────────────────────────────────
+use axum::{
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    Json,
+};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+// ─────────────────────────────────────────────────────────────────────────
+
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing using the standard configuration from vex-api
@@ -124,7 +135,26 @@ async fn main() -> Result<()> {
     );
 
     // Build the router with middleware
-    let mut app = api_router(app_state.clone());
+    // ── CHORA Research Layer (see RESEARCH.md for removal guide) ─────────
+    // See: RESEARCH.md for full details, owner, and removal steps.
+    // Enable with env var: VEX_CHORA_RESEARCH_MODE=true
+    // Remove after CHORA A/B test data is collected.
+    let chora_research_enabled = std::env::var("VEX_CHORA_RESEARCH_MODE")
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    let mut app = if chora_research_enabled {
+        tracing::warn!("🔬 CHORA Research Mode ACTIVE — X-VEX-Bypass-Gate header enabled. See RESEARCH.md.");
+        let chora_research_router = axum::Router::new()
+            .route(
+                "/api/v1/agents/{id}/execute",
+                axum::routing::post(chora_bypass_execute),
+            )
+            .with_state(app_state.clone());
+        chora_research_router.merge(api_router(app_state.clone()))
+    } else {
+        api_router(app_state.clone())
+    };
 
     app = app
         .layer(CompressionLayer::new())
@@ -162,6 +192,111 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+// ── CHORA A/B Test Handler ────────────────────────────────────────────────
+//
+// RESEARCH ONLY — Not for production use.
+// Bypasses the VEX Gate (AdvancedSanitizer) when the
+// `X-VEX-Bypass-Gate: true` header is present.
+// This allows the CHORA team to do A/B comparisons:
+//   • Run A: Standard header → Gate ON
+//   • Run B: X-VEX-Bypass-Gate: true → Gate OFF
+// Compare 'trajectory geometry' deltas, stability attractors, false positives.
+// ─────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct ChoraExecuteRequest {
+    pub prompt: String,
+    #[serde(default)]
+    pub enable_adversarial: bool,
+    #[serde(default = "default_chora_rounds")]
+    pub max_debate_rounds: u32,
+}
+
+fn default_chora_rounds() -> u32 { 3 }
+
+#[derive(Debug, Serialize)]
+struct ChoraExecuteResponse {
+    pub agent_id: Uuid,
+    pub response: String,
+    pub gate_bypassed: bool,
+    pub verified: bool,
+    pub confidence: f64,
+    pub context_hash: String,
+    pub latency_ms: u64,
+}
+
+async fn chora_bypass_execute(
+    Path(agent_id): Path<Uuid>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(req): Json<ChoraExecuteRequest>,
+) -> Result<Json<ChoraExecuteResponse>, (StatusCode, String)> {
+    let start = std::time::Instant::now();
+    let bypass = headers
+        .get("X-VEX-Bypass-Gate")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    // If gate is NOT bypassed, fall through to the normal protected handler
+    // by returning a 404-style "not found here" so Axum tries the next route.
+    // In Axum, the first matching route wins, so instead we call the sanitizer
+    // ourselves here and log the mode clearly.
+    let prompt = if bypass {
+        tracing::warn!(
+            agent_id = %agent_id,
+            "⚠️  CHORA A/B TEST: VEX Gate BYPASSED — raw prompt injected without sanitization"
+        );
+        req.prompt.clone()
+    } else {
+        // Gate ON: run standard sanitization
+        let llm = state.llm();
+        vex_api::sanitize::sanitize_prompt_async(&req.prompt, Some(&*llm))
+            .await
+            .map_err(|e| (
+                StatusCode::BAD_REQUEST,
+                format!("VEX Gate rejected prompt: {}", e),
+            ))?
+    };
+
+    // Enqueue the job (raw or sanitized)
+    let payload = serde_json::json!({
+        "agent_id": agent_id,
+        "prompt": prompt,
+        "config": {
+            "enable_adversarial": req.enable_adversarial,
+            "max_rounds": req.max_debate_rounds
+        },
+        "chora_bypass": bypass
+    });
+
+    let pool = state.queue();
+    let backend = &pool.backend;
+    let job_id = backend
+        .enqueue("chora-researcher", "agent_execution", payload, None)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Queue error: {}", e)))?;
+
+    tracing::info!(
+        agent_id = %agent_id,
+        job_id = %job_id,
+        gate_bypassed = bypass,
+        "CHORA A/B job enqueued"
+    );
+
+    Ok(Json(ChoraExecuteResponse {
+        agent_id,
+        response: format!("Job queued: {}", job_id),
+        gate_bypassed: bypass,
+        verified: !bypass,
+        confidence: if bypass { 0.0 } else { 1.0 },
+        context_hash: "pending".to_string(),
+        latency_ms: start.elapsed().as_millis() as u64,
+    }))
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 
 async fn shutdown_signal() {
     let ctrl_c = async {
