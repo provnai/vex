@@ -266,6 +266,22 @@ async fn chora_intercept(
         "⚠️  CHORA A/B TEST: VEX Gate BYPASSED — raw prompt injected without sanitization"
     );
 
+    // Extract tenant_id from JWT early, before req is consumed
+    let auth_header = req
+        .headers()
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok());
+
+    let tenant_id = if let Some(header) = auth_header {
+        if let Ok(token) = vex_api::auth::JwtAuth::extract_from_header(header) {
+            if let Ok(claims) = state.jwt_auth().decode(token) {
+                Some(claims.tenant_id.unwrap_or(claims.sub))
+            } else { None }
+        } else { None }
+    } else { None };
+
+    let tenant_id = tenant_id.unwrap_or_else(|| "chora-researcher".to_string());
+
     // Consume the body
     let start = std::time::Instant::now();
     let bytes = match axum::body::to_bytes(req.into_body(), 1024 * 1024).await {
@@ -298,8 +314,9 @@ async fn chora_intercept(
 
     let pool = state.queue();
     let backend = &pool.backend;
+    
     let job_id = match backend
-        .enqueue("chora-researcher", "agent_execution", payload, None)
+        .enqueue(&tenant_id, "agent_execution", payload, None)
         .await
     {
         Ok(id) => id,
