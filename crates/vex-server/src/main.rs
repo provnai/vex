@@ -276,9 +276,15 @@ async fn chora_intercept(
         if let Ok(token) = vex_api::auth::JwtAuth::extract_from_header(header) {
             if let Ok(claims) = state.jwt_auth().decode(token) {
                 Some(claims.tenant_id.unwrap_or(claims.sub))
-            } else { None }
-        } else { None }
-    } else { None };
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     let tenant_id = tenant_id.unwrap_or_else(|| "chora-researcher".to_string());
 
@@ -314,7 +320,7 @@ async fn chora_intercept(
 
     let pool = state.queue();
     let backend = &pool.backend;
-    
+
     let job_id = match backend
         .enqueue(&tenant_id, "agent_execution", payload, None)
         .await
