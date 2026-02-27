@@ -107,27 +107,29 @@ Then visit:
 
 ## Architecture
 
-```
+```               
 ┌─────────────────────────────────────────────────────────────────┐
+│  vex-server    │ Production entry point (Railway, Middleware)   │
+├────────────────┼────────────────────────────────────────────────┤
 │  vex-api       │ HTTPS API, JWT Auth, Tenant Rate Limiting      │
 │                │ OpenAPI Docs, A2A Protocol, Routing Stats      │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-router    │ Intelligent LLM Routing, Semantic Caching,     │
-│                │ Adversarial Detection, Cost Optimization       │
+│                │ Adversarial Detection, Guardrails              │
 ├────────────────┼────────────────────────────────────────────────┤
-│  vex-llm       │ Providers: DeepSeek, Mistral, OpenAI, Ollama  │
-│                │ Caching + Circuit Breakers + 6 Built-in Tools  │
+│  vex-llm       │ Providers: DeepSeek, Mistral, OpenAI, Groq    │
+│                │ Rate Limits + MCP Client + 6 Built-in Tools    │
 │  vex-adversarial│ Red/Blue Debate, Consensus, Reflection       │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-runtime   │ Agent Orchestrator, Self-Correcting Genome     │
 │  vex-queue     │ Async Worker Pool, Job Processing              │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-core      │ Agent, Genome, Merkle Tree, Evolution (Rayon) │
-│  vex-algoswitch│ Runtime Algorithm Selection / Self-Optimization │
+│  vex-algoswitch│ Runtime Algorithm Selection / Pattern Detect   │
 ├────────────────┼────────────────────────────────────────────────┤
 │  vex-temporal  │ Episodic Memory, 5-Horizon Decay               │
-│  vex-persist   │ SQLite, Audit Logs, Merkle Hash Chains         │
-│  vex-anchor    │ Blockchain Anchoring (Optional)                │
+│  vex-persist   │ SQLite, Audit Logs, SQLite Vector Store        │
+│  vex-anchor    │ External Merkle Anchoring (File/Git/Ethereum)  │
 └────────────────┴────────────────────────────────────────────────┘
 ```
 

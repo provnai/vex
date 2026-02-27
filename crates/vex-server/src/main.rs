@@ -297,14 +297,11 @@ async fn chora_intercept(
     };
 
     // Enqueue directly — no sanitization
+    // MUST match `AgentJobPayload` struct in `vex-api::jobs::agent`
     let payload = serde_json::json!({
-        "agent_id": agent_id,
+        "agent_id": agent_id.to_string(),
         "prompt": chora_req.prompt,
-        "config": {
-            "enable_adversarial": chora_req.enable_adversarial,
-            "max_rounds": chora_req.max_debate_rounds
-        },
-        "chora_bypass": true
+        "context_id": None::<String>
     });
 
     let pool = state.queue();

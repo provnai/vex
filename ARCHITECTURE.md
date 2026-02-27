@@ -6,6 +6,12 @@ VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnA
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                      Server Layer                           │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ vex-server: Production binary entry point (Railway)     ││
+│  │             Groq provider, custom middleware              ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
 │                     Gateway Layer                           │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ vex-api: Axum HTTP + JWT + Rate Limiting + Circuit Break││
@@ -14,7 +20,12 @@ VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnA
 │                   Intelligence Layer                        │
 │  ┌───────────────────────┐  ┌─────────────────────────────┐│
 │  │ vex-llm               │  │ vex-adversarial             ││
-│  │ DeepSeek/OpenAI/Ollama│  │ Red/Blue Debate Engine      ││
+│  │ DeepSeek/OpenAI/Groq  │  │ Red/Blue Debate Engine      ││
+│  └───────────────────────┘  └─────────────────────────────┘│
+│  ┌───────────────────────┐  ┌─────────────────────────────┐│
+│  │ vex-router            │  │ vex-algoswitch              ││
+│  │ Intelligent LLM Router│  │ Self-Optimizing Algorithm   ││
+│  │ Semantic Cache + Cost │  │ Runtime (pattern detection) ││
 │  └───────────────────────┘  └─────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │                    Execution Layer                          │
@@ -34,6 +45,12 @@ VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnA
 │  │ vex-persist: SQLite + Migrations + Audit Logs          ││
 │  │ Semantic VectorStore + Job Result Persistence           ││
 │  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│                    Anchoring Layer                          │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ vex-anchor: Merkle root anchoring to external systems   ││
+│  │ File / Git / OpenTimestamps / Ethereum / Celestia       ││
+│  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -42,46 +59,80 @@ VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnA
 ## Data Flow
 
 ```
-User Request
-     │
-     ▼
-┌─────────────┐
-│  vex-api    │──── JWT Auth ──── Rate Limit ──── Circuit Breaker
-└─────────────┘
-     │
-     ▼
-┌─────────────┐
-│ vex-runtime │ Orchestrator creates agent hierarchy
-└─────────────┘
-     │
-     ├──────────────────────────────────┐
-     ▼                                  ▼
-┌─────────────┐                  ┌─────────────┐
-│ Blue Agent  │◄───── Debate ────│ Red Shadow  │
-│ (Primary)   │                  │ (Challenger)│
-└─────────────┘                  └─────────────┘
-     │                                  │
-     ▼                                  ▼
-┌─────────────┐                  ┌─────────────┐
-│  vex-llm    │                  │ Pattern     │
-│  Provider   │                  │ Heuristics  │
-└─────────────┘                  └─────────────┘
-     │                                  │
-     └──────────────┬───────────────────┘
-                    ▼
-             ┌─────────────┐
-             │  Consensus  │ Voting Protocol
-             └─────────────┘
-                    │
-                    ▼
-             ┌─────────────┐
-             │ Merkle Tree │ Hash Chain
-             └─────────────┘
-                    │
-                    ▼
-             ┌─────────────┐
-             │ vex-persist │ Audit Log
-             └─────────────┘
+                                         ┌──────────────┐
+                                         │   vex-cli    │  CLI entry point
+                                         │verify / tools│  Audit chain verification,
+                                         │    / info    │  tool execution, system info
+                                         └──────────────┘
+                                                │
+         HTTP Request                           │ (reads vex-persist directly)
+              │                                 ▼
+              ▼                          ┌──────────────┐
+┌──────────────┐                         │ vex-persist  │◄─────────────────┐
+│  vex-server  │  Binary entry point     └──────────────┘                  │
+│              │  Groq init, middleware                                     │
+└──────────────┘                                                            │
+      │                                                                     │
+      ▼                                                                     │
+┌──────────────┐                                                            │
+│   vex-api    │  JWT Auth ── Rate Limit ── Circuit Breaker ── A2A         │
+└──────────────┘                                                            │
+      │                                                                     │
+      ▼                                                                     │
+┌──────────────┐                                                            │
+│  vex-router  │  Intelligent LLM routing ── Semantic Cache ── Guardrails  │
+└──────────────┘                                                            │
+      │                                                                     │
+      ▼                                                                     │
+┌──────────────┐                                                            │
+│  vex-queue   │  Job enqueued → Async Worker Pool                         │
+└──────────────┘                                                            │
+      │                                                                     │
+      ▼                                                                     │
+┌──────────────┐                                                            │
+│ vex-runtime  │  Orchestrator creates agent hierarchy                     │
+│              │  (vex-core: Agent + Genome)                               │
+└──────────────┘                                                            │
+      │                                                                     │
+      ├──────────────────────────────────────┐                             │
+      ▼                                      ▼                             │
+┌──────────────┐                    ┌──────────────┐                       │
+│  Blue Agent  │◄─── vex-adversarial (Debate) ────│  Red Shadow  │         │
+│  (Primary)   │                    │ (Challenger) │                       │
+└──────────────┘                    └──────────────┘                       │
+      │                                      │                             │
+      ▼                                      ▼                             │
+┌──────────────┐                    ┌──────────────┐                       │
+│   vex-llm    │                    │vex-algoswitch│                       │
+│ LLM Provider │                    │Pattern-aware │                       │
+│Groq/DeepSeek │                    │  Algorithm   │                       │
+└──────────────┘                    └──────────────┘                       │
+      │                                      │                             │
+      ▼                                      │                             │
+┌──────────────┐                             │                             │
+│ vex-temporal │  Episodic memory lookup     │                             │
+│  (Memory)    │  + importance decay         │                             │
+└──────────────┘                             │                             │
+      │                                      │                             │
+      └─────────────────┬───────────────────┘                             │
+                        ▼                                                  │
+                 ┌──────────────┐                                          │
+                 │   vex-core   │  Consensus voting + Merkle hash chain    │
+                 └──────────────┘                                          │
+                        │                                                  │
+                        ▼                                                  │
+                 ┌──────────────┐                                          │
+                 │ vex-persist  │  SQLite audit log + result store ────────┘
+                 └──────────────┘
+                        │
+                        ▼
+                 ┌──────────────┐
+                 │  vex-anchor  │  Merkle root anchored externally
+                 │              │  File / Git / OTS / Ethereum / Celestia
+                 └──────────────┘
+
+Note: vex-macros is compile-time only — #[derive(VexJob)], #[vex_tool],
+      #[instrument_agent] — used across crates but not present at runtime.
 ```
 
 ---
@@ -285,14 +336,18 @@ Agent-to-Agent protocol for cross-framework agent collaboration.
 ```
 vex/
 ├── crates/
-│   ├── vex-core/         # Agent, Genome, Merkle, Evolution
+│   ├── vex-server/       # Production binary (Railway entry point, CHORA middleware)
+│   ├── vex-api/          # HTTP Server, Auth, Middleware, A2A
+│   ├── vex-router/       # Intelligent LLM Router, Semantic Cache, Guardrails
+│   ├── vex-llm/          # Providers, Tools, MCP Client, Rate Limit
 │   ├── vex-adversarial/  # Shadow, Debate, Consensus
-│   ├── vex-temporal/     # Memory, Horizon, Compression
-│   ├── vex-persist/      # SQLite, Stores, Migrations
-│   ├── vex-api/          # HTTP Server, Auth, Middleware
+│   ├── vex-algoswitch/   # Self-Optimizing Algorithm Runtime (pattern detection)
 │   ├── vex-runtime/      # Orchestrator, Executor
 │   ├── vex-queue/        # Worker Pool, Job Trait
-│   ├── vex-llm/          # Providers, Tools, Rate Limit
+│   ├── vex-core/         # Agent, Genome, Merkle, Evolution
+│   ├── vex-temporal/     # Memory, Horizon, Compression
+│   ├── vex-persist/      # SQLite, Stores, Migrations
+│   ├── vex-anchor/       # Merkle anchoring (File/Git/OTS/Ethereum/Celestia)
 │   ├── vex-cli/          # CLI: tools, verify, info
 │   └── vex-macros/       # Procedural Macros
 ├── examples/
