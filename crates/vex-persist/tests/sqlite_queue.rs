@@ -1,7 +1,5 @@
-use chrono::Utc;
 use serde_json::json;
 use sqlx::sqlite::SqlitePoolOptions;
-use uuid::Uuid;
 use vex_persist::queue::SqliteQueueBackend;
 use vex_queue::QueueBackend;
 
