@@ -217,14 +217,6 @@ async fn main() -> Result<()> {
 #[derive(Debug, Deserialize)]
 struct ChoraExecuteRequest {
     pub prompt: String,
-    #[serde(default)]
-    pub enable_adversarial: bool,
-    #[serde(default = "default_chora_rounds")]
-    pub max_debate_rounds: u32,
-}
-
-fn default_chora_rounds() -> u32 {
-    3
 }
 
 #[derive(Debug, Serialize)]
