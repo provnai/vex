@@ -32,7 +32,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 // ─────────────────────────────────────────────────────────────────────────
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing using the standard configuration from vex-api
@@ -51,13 +50,16 @@ async fn main() -> Result<()> {
     // Railway Compatibility: Ensure VEX_JWT_SECRET exists to prevent startup crash.
     if std::env::var("VEX_JWT_SECRET").is_err() {
         tracing::warn!("VEX_JWT_SECRET not found! Using a temporary fallback secret.");
-        std::env::set_var("VEX_JWT_SECRET", "railway-default-fallback-secret-32-chars-long");
+        std::env::set_var(
+            "VEX_JWT_SECRET",
+            "railway-default-fallback-secret-32-chars-long",
+        );
     }
 
     // Load server configuration
     let config = ServerConfig::from_env();
-    let jwt_auth =
-        vex_api::auth::JwtAuth::from_env().map_err(|e| anyhow::anyhow!("JWT Init failed: {}", e))?;
+    let jwt_auth = vex_api::auth::JwtAuth::from_env()
+        .map_err(|e| anyhow::anyhow!("JWT Init failed: {}", e))?;
     let rate_limiter = Arc::new(vex_api::tenant_rate_limiter::TenantRateLimiter::new(
         vex_api::tenant_rate_limiter::RateLimitTier::Standard,
     ));
@@ -144,7 +146,9 @@ async fn main() -> Result<()> {
         .unwrap_or(false);
 
     let mut app = if chora_research_enabled {
-        tracing::warn!("🔬 CHORA Research Mode ACTIVE — X-VEX-Bypass-Gate header enabled. See RESEARCH.md.");
+        tracing::warn!(
+            "🔬 CHORA Research Mode ACTIVE — X-VEX-Bypass-Gate header enabled. See RESEARCH.md."
+        );
         let chora_research_router = axum::Router::new()
             .route(
                 "/api/v1/agents/{id}/execute",
@@ -213,7 +217,9 @@ struct ChoraExecuteRequest {
     pub max_debate_rounds: u32,
 }
 
-fn default_chora_rounds() -> u32 { 3 }
+fn default_chora_rounds() -> u32 {
+    3
+}
 
 #[derive(Debug, Serialize)]
 struct ChoraExecuteResponse {
@@ -254,10 +260,12 @@ async fn chora_bypass_execute(
         let llm = state.llm();
         vex_api::sanitize::sanitize_prompt_async(&req.prompt, Some(&*llm))
             .await
-            .map_err(|e| (
-                StatusCode::BAD_REQUEST,
-                format!("VEX Gate rejected prompt: {}", e),
-            ))?
+            .map_err(|e| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("VEX Gate rejected prompt: {}", e),
+                )
+            })?
     };
 
     // Enqueue the job (raw or sanitized)
@@ -276,7 +284,12 @@ async fn chora_bypass_execute(
     let job_id = backend
         .enqueue("chora-researcher", "agent_execution", payload, None)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Queue error: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Queue error: {}", e),
+            )
+        })?;
 
     tracing::info!(
         agent_id = %agent_id,
@@ -296,7 +309,6 @@ async fn chora_bypass_execute(
     }))
 }
 // ─────────────────────────────────────────────────────────────────────────
-
 
 async fn shutdown_signal() {
     let ctrl_c = async {
