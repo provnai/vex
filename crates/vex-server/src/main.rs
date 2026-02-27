@@ -22,16 +22,7 @@ use vex_llm::{
 };
 use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
-// ── CHORA A/B Test Imports ────────────────────────────────────────────────
-use axum::{
-    body::Body,
-    extract::Request,
-    http::{Method, StatusCode},
-    response::Response,
-};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-// ─────────────────────────────────────────────────────────────────────────
+// mod custom_queue; // Removed: Using patched library code in v0.1.8 instead
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,7 +63,7 @@ async fn main() -> Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("DB Init failed: {}", e))?;
 
-    // Initialize Queue (Persistent SQLite)
+    // Initialize Queue (Using core library now that it's patched in v0.1.8)
     let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
 
     // Use dynamic dispatch for the worker pool backend
@@ -137,33 +128,7 @@ async fn main() -> Result<()> {
         None, // We skip the broken router entirely
     );
 
-    // Build the router with middleware
-    // ── CHORA Research Layer (see RESEARCH.md for removal guide) ─────────
-    // See: RESEARCH.md for full details, owner, and removal steps.
-    // Enable with env var: VEX_CHORA_RESEARCH_MODE=true
-    // Remove after CHORA A/B test data is collected.
-    //
-    // IMPLEMENTATION NOTE: We use a middleware layer (not a duplicate route)
-    // to avoid Axum's startup panic when two routers register the same path.
-    // The middleware intercepts requests before the standard handler sees them.
-    let chora_research_enabled = std::env::var("VEX_CHORA_RESEARCH_MODE")
-        .map(|v| v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
-
-    if chora_research_enabled {
-        tracing::warn!(
-            "🔬 CHORA Research Mode ACTIVE — X-VEX-Bypass-Gate header enabled. See RESEARCH.md."
-        );
-    }
-
-    let app_state_for_mw = app_state.clone();
-    let mut app = api_router(app_state.clone()).layer(middleware::from_fn(
-        move |req: Request<Body>, next: axum::middleware::Next| {
-            let state = app_state_for_mw.clone();
-            let enabled = chora_research_enabled;
-            async move { chora_intercept(req, next, state, enabled).await }
-        },
-    ));
+    let mut app = api_router(app_state.clone());
 
     app = app
         .layer(CompressionLayer::new())
@@ -202,156 +167,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// ── CHORA A/B Test Middleware ─────────────────────────────────────────────
-//
-// RESEARCH ONLY — Not for production use. See RESEARCH.md for removal steps.
-// Intercepts POST /api/v1/agents/{id}/execute before the standard handler.
-// When X-VEX-Bypass-Gate: true is present AND research mode is enabled,
-// it short-circuits the standard VEX Gate (AdvancedSanitizer) entirely.
-// This avoids registering a duplicate route (which panics in Axum).
-//
-// Runs A: Standard request → Gate ON (normal handler)
-// Runs B: X-VEX-Bypass-Gate: true → Gate OFF (enqueue raw prompt)
-// ─────────────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Deserialize)]
-struct ChoraExecuteRequest {
-    pub prompt: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ChoraExecuteResponse {
-    pub agent_id: Uuid,
-    pub response: String,
-    pub gate_bypassed: bool,
-    pub verified: bool,
-    pub confidence: f64,
-    pub context_hash: String,
-    pub latency_ms: u64,
-}
-
-async fn chora_intercept(
-    req: Request<Body>,
-    next: axum::middleware::Next,
-    state: AppState,
-    enabled: bool,
-) -> Response {
-    // Only intercept POST /api/v1/agents/{id}/execute with the bypass header
-    let is_execute = req.method() == Method::POST
-        && req.uri().path().starts_with("/api/v1/agents/")
-        && req.uri().path().ends_with("/execute");
-
-    let bypass_header = req
-        .headers()
-        .get("X-VEX-Bypass-Gate")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
-
-    if !enabled || !is_execute || !bypass_header {
-        // Not a CHORA bypass request — pass straight through to standard handler
-        return next.run(req).await;
-    }
-
-    // Extract agent_id from path: /api/v1/agents/{id}/execute
-    let path = req.uri().path().to_string();
-    let agent_id_str = path
-        .strip_prefix("/api/v1/agents/")
-        .and_then(|s| s.strip_suffix("/execute"))
-        .unwrap_or("unknown");
-    let agent_id = Uuid::parse_str(agent_id_str).unwrap_or_else(|_| Uuid::nil());
-
-    tracing::warn!(
-        agent_id = %agent_id,
-        "⚠️  CHORA A/B TEST: VEX Gate BYPASSED — raw prompt injected without sanitization"
-    );
-
-    // Extract tenant_id from JWT early, before req is consumed
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let tenant_id = if let Some(header) = auth_header {
-        if let Ok(token) = vex_api::auth::JwtAuth::extract_from_header(header) {
-            if let Ok(claims) = state.jwt_auth().decode(token) {
-                Some(claims.tenant_id.unwrap_or(claims.sub))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    let tenant_id = tenant_id.unwrap_or_else(|| "chora-researcher".to_string());
-
-    // Consume the body
-    let start = std::time::Instant::now();
-    let bytes = match axum::body::to_bytes(req.into_body(), 1024 * 1024).await {
-        Ok(b) => b,
-        Err(_) => {
-            return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Failed to read body"))
-                .unwrap();
-        }
-    };
-
-    let chora_req: ChoraExecuteRequest = match serde_json::from_slice(&bytes) {
-        Ok(r) => r,
-        Err(e) => {
-            return Response::builder()
-                .status(StatusCode::UNPROCESSABLE_ENTITY)
-                .body(Body::from(format!("Invalid JSON: {}", e)))
-                .unwrap();
-        }
-    };
-
-    // Enqueue directly — no sanitization
-    // MUST match `AgentJobPayload` struct in `vex-api::jobs::agent`
-    let payload = serde_json::json!({
-        "agent_id": agent_id.to_string(),
-        "prompt": chora_req.prompt,
-        "context_id": None::<String>
-    });
-
-    let pool = state.queue();
-    let backend = &pool.backend;
-
-    let job_id = match backend
-        .enqueue(&tenant_id, "agent_execution", payload, None)
-        .await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Queue error: {}", e)))
-                .unwrap();
-        }
-    };
-
-    tracing::info!(agent_id = %agent_id, job_id = %job_id, "CHORA A/B bypass job enqueued");
-
-    let resp = ChoraExecuteResponse {
-        agent_id,
-        response: format!("Job queued: {}", job_id),
-        gate_bypassed: true,
-        verified: false,
-        confidence: 0.0,
-        context_hash: "pending".to_string(),
-        latency_ms: start.elapsed().as_millis() as u64,
-    };
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&resp).unwrap()))
-        .unwrap()
-}
+// CHORA A/B Test Middleware REMOVED for Production v0.1.8 Release
 // ─────────────────────────────────────────────────────────────────────────
 
 async fn shutdown_signal() {

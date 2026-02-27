@@ -5,6 +5,17 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-02-27
+
+### Added
+- **Ecosystem Synchronization**: Bumped all 13 workspace crates to v0.1.8 to ensure global version parity after critical persistence patches.
+- **Production Stress Verification**: Verified 168 RPM throughput with 0.0% error rate on a Railway Small instance using real-world adversarial prompt sets.
+
+### Fixed
+- **SQLite ISO-8601 Lexical Comparison**: Resolved a critical bug where jobs would deadlock in the queue due to a string comparison mismatch between ISO-8601 "T" and SQLite `CURRENT_TIMESTAMP` space (' '). Applied `datetime()` normalization to the `dequeue` query in `vex-persist`.
+- **WSL/Mount Compatibility**: Verified clean compilation and clippy pass inside WSL 2 environments when running over Windows filesystem mounts.
+
+
 ## [0.1.7] - 2026-02-24
 
 ### Added

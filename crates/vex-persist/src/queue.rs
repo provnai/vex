@@ -62,7 +62,7 @@ impl QueueBackend for SqliteQueueBackend {
                 locked_by = ?
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE status = 'pending' AND run_at <= CURRENT_TIMESTAMP
+                WHERE status = 'pending' AND datetime(run_at) <= CURRENT_TIMESTAMP
                 ORDER BY priority DESC, created_at ASC
                 LIMIT 1
             )
