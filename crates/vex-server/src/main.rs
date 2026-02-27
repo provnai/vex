@@ -24,9 +24,10 @@ use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
 // ── CHORA A/B Test Imports ────────────────────────────────────────────────
 use axum::{
-    extract::{Path, State},
-    http::{HeaderMap, StatusCode},
-    Json,
+    body::Body,
+    extract::Request,
+    http::{Method, StatusCode},
+    response::Response,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -141,24 +142,28 @@ async fn main() -> Result<()> {
     // See: RESEARCH.md for full details, owner, and removal steps.
     // Enable with env var: VEX_CHORA_RESEARCH_MODE=true
     // Remove after CHORA A/B test data is collected.
+    //
+    // IMPLEMENTATION NOTE: We use a middleware layer (not a duplicate route)
+    // to avoid Axum's startup panic when two routers register the same path.
+    // The middleware intercepts requests before the standard handler sees them.
     let chora_research_enabled = std::env::var("VEX_CHORA_RESEARCH_MODE")
         .map(|v| v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
 
-    let mut app = if chora_research_enabled {
+    if chora_research_enabled {
         tracing::warn!(
             "🔬 CHORA Research Mode ACTIVE — X-VEX-Bypass-Gate header enabled. See RESEARCH.md."
         );
-        let chora_research_router = axum::Router::new()
-            .route(
-                "/api/v1/agents/{id}/execute",
-                axum::routing::post(chora_bypass_execute),
-            )
-            .with_state(app_state.clone());
-        chora_research_router.merge(api_router(app_state.clone()))
-    } else {
-        api_router(app_state.clone())
-    };
+    }
+
+    let app_state_for_mw = app_state.clone();
+    let mut app = api_router(app_state.clone()).layer(middleware::from_fn(
+        move |req: Request<Body>, next: axum::middleware::Next| {
+            let state = app_state_for_mw.clone();
+            let enabled = chora_research_enabled;
+            async move { chora_intercept(req, next, state, enabled).await }
+        },
+    ));
 
     app = app
         .layer(CompressionLayer::new())
@@ -197,15 +202,16 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// ── CHORA A/B Test Handler ────────────────────────────────────────────────
+// ── CHORA A/B Test Middleware ─────────────────────────────────────────────
 //
-// RESEARCH ONLY — Not for production use.
-// Bypasses the VEX Gate (AdvancedSanitizer) when the
-// `X-VEX-Bypass-Gate: true` header is present.
-// This allows the CHORA team to do A/B comparisons:
-//   • Run A: Standard header → Gate ON
-//   • Run B: X-VEX-Bypass-Gate: true → Gate OFF
-// Compare 'trajectory geometry' deltas, stability attractors, false positives.
+// RESEARCH ONLY — Not for production use. See RESEARCH.md for removal steps.
+// Intercepts POST /api/v1/agents/{id}/execute before the standard handler.
+// When X-VEX-Bypass-Gate: true is present AND research mode is enabled,
+// it short-circuits the standard VEX Gate (AdvancedSanitizer) entirely.
+// This avoids registering a duplicate route (which panics in Axum).
+//
+// Runs A: Standard request → Gate ON (normal handler)
+// Runs B: X-VEX-Bypass-Gate: true → Gate OFF (enqueue raw prompt)
 // ─────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -232,81 +238,107 @@ struct ChoraExecuteResponse {
     pub latency_ms: u64,
 }
 
-async fn chora_bypass_execute(
-    Path(agent_id): Path<Uuid>,
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    Json(req): Json<ChoraExecuteRequest>,
-) -> Result<Json<ChoraExecuteResponse>, (StatusCode, String)> {
-    let start = std::time::Instant::now();
-    let bypass = headers
+async fn chora_intercept(
+    req: Request<Body>,
+    next: axum::middleware::Next,
+    state: AppState,
+    enabled: bool,
+) -> Response {
+    // Only intercept POST /api/v1/agents/{id}/execute with the bypass header
+    let is_execute = req.method() == Method::POST
+        && req.uri().path().starts_with("/api/v1/agents/")
+        && req.uri().path().ends_with("/execute");
+
+    let bypass_header = req
+        .headers()
         .get("X-VEX-Bypass-Gate")
         .and_then(|v| v.to_str().ok())
         .map(|v| v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
 
-    // If gate is NOT bypassed, fall through to the normal protected handler
-    // by returning a 404-style "not found here" so Axum tries the next route.
-    // In Axum, the first matching route wins, so instead we call the sanitizer
-    // ourselves here and log the mode clearly.
-    let prompt = if bypass {
-        tracing::warn!(
-            agent_id = %agent_id,
-            "⚠️  CHORA A/B TEST: VEX Gate BYPASSED — raw prompt injected without sanitization"
-        );
-        req.prompt.clone()
-    } else {
-        // Gate ON: run standard sanitization
-        let llm = state.llm();
-        vex_api::sanitize::sanitize_prompt_async(&req.prompt, Some(&*llm))
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    format!("VEX Gate rejected prompt: {}", e),
-                )
-            })?
+    if !enabled || !is_execute || !bypass_header {
+        // Not a CHORA bypass request — pass straight through to standard handler
+        return next.run(req).await;
+    }
+
+    // Extract agent_id from path: /api/v1/agents/{id}/execute
+    let path = req.uri().path().to_string();
+    let agent_id_str = path
+        .strip_prefix("/api/v1/agents/")
+        .and_then(|s| s.strip_suffix("/execute"))
+        .unwrap_or("unknown");
+    let agent_id = Uuid::parse_str(agent_id_str).unwrap_or_else(|_| Uuid::nil());
+
+    tracing::warn!(
+        agent_id = %agent_id,
+        "⚠️  CHORA A/B TEST: VEX Gate BYPASSED — raw prompt injected without sanitization"
+    );
+
+    // Consume the body
+    let start = std::time::Instant::now();
+    let bytes = match axum::body::to_bytes(req.into_body(), 1024 * 1024).await {
+        Ok(b) => b,
+        Err(_) => {
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Failed to read body"))
+                .unwrap();
+        }
     };
 
-    // Enqueue the job (raw or sanitized)
+    let chora_req: ChoraExecuteRequest = match serde_json::from_slice(&bytes) {
+        Ok(r) => r,
+        Err(e) => {
+            return Response::builder()
+                .status(StatusCode::UNPROCESSABLE_ENTITY)
+                .body(Body::from(format!("Invalid JSON: {}", e)))
+                .unwrap();
+        }
+    };
+
+    // Enqueue directly — no sanitization
     let payload = serde_json::json!({
         "agent_id": agent_id,
-        "prompt": prompt,
+        "prompt": chora_req.prompt,
         "config": {
-            "enable_adversarial": req.enable_adversarial,
-            "max_rounds": req.max_debate_rounds
+            "enable_adversarial": chora_req.enable_adversarial,
+            "max_rounds": chora_req.max_debate_rounds
         },
-        "chora_bypass": bypass
+        "chora_bypass": true
     });
 
     let pool = state.queue();
     let backend = &pool.backend;
-    let job_id = backend
+    let job_id = match backend
         .enqueue("chora-researcher", "agent_execution", payload, None)
         .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Queue error: {}", e),
-            )
-        })?;
+    {
+        Ok(id) => id,
+        Err(e) => {
+            return Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(format!("Queue error: {}", e)))
+                .unwrap();
+        }
+    };
 
-    tracing::info!(
-        agent_id = %agent_id,
-        job_id = %job_id,
-        gate_bypassed = bypass,
-        "CHORA A/B job enqueued"
-    );
+    tracing::info!(agent_id = %agent_id, job_id = %job_id, "CHORA A/B bypass job enqueued");
 
-    Ok(Json(ChoraExecuteResponse {
+    let resp = ChoraExecuteResponse {
         agent_id,
         response: format!("Job queued: {}", job_id),
-        gate_bypassed: bypass,
-        verified: !bypass,
-        confidence: if bypass { 0.0 } else { 1.0 },
+        gate_bypassed: true,
+        verified: false,
+        confidence: 0.0,
         context_hash: "pending".to_string(),
         latency_ms: start.elapsed().as_millis() as u64,
-    }))
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/json")
+        .body(Body::from(serde_json::to_string(&resp).unwrap()))
+        .unwrap()
 }
 // ─────────────────────────────────────────────────────────────────────────
 
