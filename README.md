@@ -4,7 +4,7 @@
 
 Adversarial verification • Temporal memory • Cryptographic proofs • Production-ready API — all in Rust.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/vex-core.svg)](https://crates.io/crates/vex-core)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![CI](https://github.com/provnai/vex/workflows/CI/badge.svg)](https://github.com/provnai/vex/actions)
@@ -228,4 +228,4 @@ VEX is the central pillar of a multi-layered trust stack designed for the agenti
 
 ## License
 
-MIT — See [LICENSE](LICENSE)
+Apache-2.0 — See [LICENSE](LICENSE)

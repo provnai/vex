@@ -33,4 +33,4 @@ async fn main() {
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+Apache-2.0 License - see [LICENSE](../../LICENSE) for details.

@@ -76,10 +76,14 @@ impl Job for AgentExecutionJob {
 
         match self.llm.complete(request).await {
             Ok(response) => {
+                let tokens = response.tokens_used.unwrap_or(0) as u64;
+                vex_llm::global_metrics().record_llm_call(tokens, false);
+
                 info!(
                     job_id = %self.job_id,
                     agent_id = %self.payload.agent_id,
                     response_len = response.content.len(),
+                    tokens = tokens,
                     "Agent job completed successfully"
                 );
 
@@ -103,6 +107,7 @@ impl Job for AgentExecutionJob {
                 JobResult::Success(Some(serde_json::to_value(&result).unwrap()))
             }
             Err(e) => {
+                vex_llm::global_metrics().record_llm_call(0, true);
                 error!(job_id = %self.job_id, error = %e, "LLM call failed");
 
                 // Store error result

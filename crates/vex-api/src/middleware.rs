@@ -21,7 +21,12 @@ pub async fn auth_middleware(
 ) -> Result<Response, ApiError> {
     // Skip auth for health check and public endpoints
     let path = request.uri().path();
-    if path == "/health" || path.starts_with("/public/") {
+    let is_public = path == "/health"
+        || path.starts_with("/public/")
+        || path.starts_with("/swagger-ui")
+        || path.starts_with("/api-docs")
+        || path == "/.well-known/agent.json";
+    if is_public {
         return Ok(next.run(request).await);
     }
 
