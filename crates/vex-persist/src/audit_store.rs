@@ -109,6 +109,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             human_review_required: event.human_review_required,
             approval_count: event.approval_signatures.len(),
             evidence_capsule: &event.evidence_capsule,
+            schema_version: &event.schema_version,
         });
 
         if let Some(prev) = &event.previous_hash {

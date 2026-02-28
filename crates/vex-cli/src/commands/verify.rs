@@ -113,6 +113,7 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
             human_review_required: event.human_review_required,
             approval_count: event.approval_signatures.len(),
             evidence_capsule: &event.evidence_capsule,
+            schema_version: &event.schema_version,
         });
 
         // Calculate expected final hash (including chain link if applicable)

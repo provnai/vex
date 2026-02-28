@@ -138,6 +138,7 @@ pub struct AuditEvent {
     // CHORA Alignment
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence_capsule: Option<EvidenceCapsule>,
+    pub schema_version: String,
 }
 
 /// Parameters for consistent event hashing
@@ -155,6 +156,7 @@ pub struct HashParams<'a> {
     pub approval_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence_capsule: &'a Option<EvidenceCapsule>,
+    pub schema_version: &'a str,
 }
 
 impl AuditEvent {
@@ -194,6 +196,7 @@ impl AuditEvent {
         let human_review_required = false;
         let approval_signatures: Vec<Signature> = Vec::new();
         let evidence_capsule: Option<EvidenceCapsule> = None;
+        let schema_version = "1.0".to_string();
 
         // Compute hash including ALL fields (Centralized in vex-core)
         let hash = Self::compute_hash(HashParams {
@@ -208,6 +211,7 @@ impl AuditEvent {
             human_review_required,
             approval_count: approval_signatures.len(),
             evidence_capsule: &evidence_capsule,
+            schema_version: &schema_version,
         });
 
         Self {
@@ -226,6 +230,7 @@ impl AuditEvent {
             human_review_required,
             approval_signatures,
             evidence_capsule,
+            schema_version,
         }
     }
 
@@ -272,7 +277,7 @@ impl AuditEvent {
             Err(_) => {
                 // Fallback (should not happen if HashParams is simple)
                 let content = format!(
-                    "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
+                    "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}:{}",
                     params.event_type,
                     params.timestamp,
                     params.sequence_number,
@@ -283,6 +288,7 @@ impl AuditEvent {
                     params.data_provenance_hash.as_ref().map(|h| h.to_hex()),
                     params.human_review_required,
                     params.approval_count,
+                    params.schema_version,
                 );
                 Hash::digest(content.as_bytes())
             }
