@@ -66,12 +66,12 @@ impl Default for ReflectionConfig {
 }
 
 /// Agent that analyzes performance and suggests genome improvements
-pub struct ReflectionAgent<L: LlmProvider> {
+pub struct ReflectionAgent<L: LlmProvider + ?Sized> {
     llm: Arc<L>,
     config: ReflectionConfig,
 }
 
-impl<L: LlmProvider> ReflectionAgent<L> {
+impl<L: LlmProvider + ?Sized> ReflectionAgent<L> {
     /// Create new reflection agent
     pub fn new(llm: Arc<L>) -> Self {
         Self {
@@ -354,7 +354,7 @@ If no clear patterns, return empty list [].
     }
 }
 
-impl<L: LlmProvider> ReflectionAgent<L> {
+impl<L: LlmProvider + ?Sized> ReflectionAgent<L> {
     // ... (rest of impl)
 
     fn parse_consolidation_response(&self, response: &str, count: usize) -> Vec<OptimizationRule> {

@@ -1,11 +1,14 @@
 //! API routes for VEX endpoints
 
+use axum::response::sse as ax_sse;
 use axum::{
     extract::{Extension, Path, State},
     routing::{get, post},
     Json, Router,
 };
+use futures::stream::{self, Stream};
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use uuid::Uuid;
 
 use crate::auth::Claims;
@@ -193,8 +196,11 @@ pub async fn create_agent(
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ExecuteRequest {
     pub prompt: String,
+    pub context_id: Option<String>,
     #[serde(default)]
     pub enable_adversarial: bool,
+    #[serde(default)]
+    pub enable_self_correction: bool,
     #[serde(default = "default_max_rounds")]
     pub max_debate_rounds: u32,
 }
@@ -212,6 +218,8 @@ pub struct ExecuteResponse {
     pub confidence: f64,
     pub context_hash: String,
     pub latency_ms: u64,
+    /// Merkle Tree root of the execution trace (available when polling job result)
+    pub merkle_root: Option<String>,
 }
 
 /// Execute agent handler
@@ -256,14 +264,14 @@ pub async fn execute_agent(
         return Err(ApiError::NotFound("Agent not found".to_string()));
     }
 
-    // Create job payload with sanitized prompt
+    // Create job payload with sanitized prompt and adversarial config
     let payload = serde_json::json!({
         "agent_id": agent_id,
         "prompt": prompt,
-        "config": {
-            "enable_adversarial": req.enable_adversarial,
-            "max_rounds": req.max_debate_rounds
-        },
+        "context_id": req.context_id,
+        "enable_adversarial": req.enable_adversarial,
+        "enable_self_correction": req.enable_self_correction,
+        "max_debate_rounds": req.max_debate_rounds,
         "tenant_id": claims.sub
     });
 
@@ -289,6 +297,7 @@ pub async fn execute_agent(
         confidence: 1.0,
         context_hash: "pending".to_string(),
         latency_ms: start.elapsed().as_millis() as u64,
+        merkle_root: None,
     }))
 }
 
@@ -349,6 +358,94 @@ pub async fn get_job_status(
         queued_at: job.created_at,
         attempts: job.attempts,
     }))
+}
+
+/// Job update event for SSE
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct JobUpdate {
+    pub job_id: Uuid,
+    pub status: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+
+/// SSE Stream handler for job updates
+#[utoipa::path(
+    get,
+    path = "/api/v1/jobs/{id}/stream",
+    params(
+        ("id" = Uuid, Path, description = "Job ID")
+    ),
+    responses(
+        (status = 200, description = "SSE stream of job updates")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_job_stream(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+    Path(job_id): Path<Uuid>,
+) -> ax_sse::Sse<impl Stream<Item = Result<ax_sse::Event, Infallible>>> {
+    let tenant_id = claims
+        .tenant_id
+        .as_deref()
+        .unwrap_or(&claims.sub)
+        .to_string();
+    let backend = state.queue().backend.clone();
+
+    let stream = stream::unfold(
+        (backend, tenant_id, job_id, false),
+        |(backend, tid, jid, finished)| async move {
+            if finished {
+                return None;
+            }
+
+            match backend.get_job(&tid, jid).await {
+                Ok(job) => {
+                    let status_str = match job.status {
+                        vex_queue::JobStatus::Pending => "pending",
+                        vex_queue::JobStatus::Running => "running",
+                        vex_queue::JobStatus::Completed => "completed",
+                        vex_queue::JobStatus::Failed(_) => "failed",
+                        vex_queue::JobStatus::DeadLetter => "dead_letter",
+                    };
+
+                    let is_final = matches!(
+                        job.status,
+                        vex_queue::JobStatus::Completed
+                            | vex_queue::JobStatus::Failed(_)
+                            | vex_queue::JobStatus::DeadLetter
+                    );
+
+                    let data = JobUpdate {
+                        job_id: jid,
+                        status: status_str.to_string(),
+                        result: job.result,
+                        error: job.last_error,
+                    };
+
+                    let event = ax_sse::Event::default()
+                        .json_data(data)
+                        .unwrap_or_else(|_| ax_sse::Event::default().data("error"));
+
+                    if !is_final {
+                        // Poll interval for non-finished jobs
+                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                    }
+
+                    Some((Ok(event), (backend, tid, jid, is_final)))
+                }
+                Err(_) => {
+                    let event = ax_sse::Event::default().data("job_not_found");
+                    Some((Ok(event), (backend, tid, jid, true)))
+                }
+            }
+        },
+    );
+
+    ax_sse::Sse::new(stream).keep_alive(ax_sse::KeepAlive::default())
 }
 
 /// Metrics response
@@ -487,6 +584,103 @@ pub async fn update_routing_config(
     }))
 }
 
+/// Evolve agent response
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct EvolveResponse {
+    pub agent_id: Uuid,
+    pub suggestions: Vec<SuggestionDTO>,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct SuggestionDTO {
+    pub trait_name: String,
+    pub current_value: f64,
+    pub suggested_value: f64,
+    pub confidence: f64,
+}
+
+/// Evolve agent handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/agents/{id}/evolve",
+    params(
+        ("id" = Uuid, Path, description = "Agent ID")
+    ),
+    responses(
+        (status = 200, description = "Reflection complete", body = EvolveResponse),
+        (status = 404, description = "Agent not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn evolve_agent(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+    Path(agent_id): Path<Uuid>,
+) -> ApiResult<Json<EvolveResponse>> {
+    let store = AgentStore::new(state.db());
+    let agent = store
+        .load(&claims.sub, agent_id)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?
+        .ok_or_else(|| ApiError::NotFound("Agent not found".to_string()))?;
+
+    let evo_store = state.evolution_store();
+
+    let experiments = evo_store
+        .load_recent(&claims.sub, 20)
+        .await
+        .unwrap_or_default();
+
+    if experiments.is_empty() {
+        return Ok(Json(EvolveResponse {
+            agent_id,
+            suggestions: vec![],
+            message: "No experiments yet — run some tasks first".to_string(),
+        }));
+    }
+
+    let reflection_agent = vex_adversarial::ReflectionAgent::new(state.llm());
+    let mut evo_memory = vex_core::EvolutionMemory::new();
+    for exp in experiments.clone() {
+        evo_memory.record(exp);
+    }
+
+    // Use the latest experiment for context, but memory for stats
+    let latest_exp = experiments.first().unwrap();
+
+    let reflection_result = reflection_agent
+        .reflect(
+            &agent,
+            &latest_exp.task_summary,
+            "Retrospective evolution analysis",
+            latest_exp.overall_fitness,
+            &evo_memory,
+        )
+        .await;
+
+    let adjustments_len = reflection_result.adjustments.len();
+    Ok(Json(EvolveResponse {
+        agent_id,
+        suggestions: reflection_result
+            .adjustments
+            .into_iter()
+            .map(|(t, c, s)| SuggestionDTO {
+                trait_name: t,
+                current_value: c,
+                suggested_value: s,
+                confidence: reflection_result.expected_improvement,
+            })
+            .collect(),
+        message: format!(
+            "Reflection complete. {} suggestions generated.",
+            adjustments_len
+        ),
+    }))
+}
+
 /// Prometheus metrics handler
 #[utoipa::path(
     get,
@@ -515,7 +709,9 @@ pub async fn get_prometheus_metrics(
         health_detailed,
         create_agent,
         execute_agent,
+        evolve_agent,
         get_job_status,
+        get_job_stream,
         get_metrics,
         get_prometheus_metrics,
         get_routing_stats,
@@ -529,7 +725,8 @@ pub async fn get_prometheus_metrics(
             HealthResponse, ComponentHealth, ComponentStatus,
             CreateAgentRequest, AgentResponse,
             ExecuteRequest, ExecuteResponse,
-            JobStatusResponse,
+            EvolveResponse, SuggestionDTO,
+            JobStatusResponse, JobUpdate,
             MetricsResponse,
             RoutingStatsResponse,
             UpdateRoutingConfigRequest,
@@ -578,8 +775,10 @@ pub fn api_router(state: AppState) -> Router {
         // Agent endpoints
         .route("/api/v1/agents", post(create_agent))
         .route("/api/v1/agents/{id}/execute", post(execute_agent))
+        .route("/api/v1/agents/{id}/evolve", post(evolve_agent))
         // Job polling endpoint
         .route("/api/v1/jobs/{id}", get(get_job_status))
+        .route("/api/v1/jobs/{id}/stream", get(get_job_stream))
         // Admin endpoints
         .route("/api/v1/metrics", get(get_metrics))
         .route("/api/v1/routing/stats", get(get_routing_stats))

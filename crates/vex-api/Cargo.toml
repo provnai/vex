@@ -18,6 +18,8 @@ vex-persist = { workspace = true }
 vex-queue = { workspace = true }
 vex-runtime = { workspace = true }
 vex-router = { workspace = true }
+vex-anchor = { workspace = true }
+futures = { workspace = true }
 
 # Async runtime & web framework
 tokio = { workspace = true }

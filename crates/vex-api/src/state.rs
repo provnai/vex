@@ -17,6 +17,7 @@ pub struct AppState {
     rate_limiter: Arc<TenantRateLimiter>,
     metrics: Arc<Metrics>,
     db: Arc<dyn StorageBackend>,
+    evolution_store: Arc<dyn vex_persist::EvolutionStore>,
     queue: Arc<WorkerPool<dyn QueueBackend>>,
     a2a_state: Arc<A2aState>,
     llm: Arc<dyn LlmProvider>,
@@ -31,6 +32,7 @@ impl AppState {
         rate_limiter: Arc<TenantRateLimiter>,
         metrics: Arc<Metrics>,
         db: Arc<dyn StorageBackend>,
+        evolution_store: Arc<dyn vex_persist::EvolutionStore>,
         queue: Arc<WorkerPool<dyn QueueBackend>>,
         a2a_state: Arc<A2aState>,
         llm: Arc<dyn LlmProvider>,
@@ -41,6 +43,7 @@ impl AppState {
             rate_limiter,
             metrics,
             db,
+            evolution_store,
             queue,
             a2a_state,
             llm,
@@ -66,6 +69,11 @@ impl AppState {
     /// Get database backend (cloned Arc for sharing)
     pub fn db(&self) -> Arc<dyn StorageBackend> {
         self.db.clone()
+    }
+
+    /// Get evolution store (cloned Arc for sharing)
+    pub fn evolution_store(&self) -> Arc<dyn vex_persist::EvolutionStore> {
+        self.evolution_store.clone()
     }
 
     /// Get queue worker pool (cloned Arc for sharing)

@@ -34,12 +34,16 @@ async fn setup_state() -> AppState {
         WorkerConfig::default(),
     );
 
+    // 5. Evolution Store
+    let evolution_store = Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
+
     // 6. AppState
     AppState::new(
         jwt,
         rate_limiter,
         metrics,
         Arc::new(db),
+        evolution_store,
         Arc::new(worker_pool),
         a2a_state,
         Arc::new(vex_llm::MockProvider::new(vec![])),

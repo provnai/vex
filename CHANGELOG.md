@@ -5,10 +5,24 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-28
+
+### Added
+- **🧬 Agent Evolution (Reflection)**: Introduced manual and automatic reflection cycles. Agents now analyze past `GenomeExperiment` data to suggest traits adjustments (temperature, top_p, etc.) for performance optimization.
+- **🌳 Merkle Tree Provenance**: Every job execution now builds a Merkle Tree from all generated `ContextPacket` hashes, returning the root hash for cryptographic verification.
+- **⚓ File Anchoring**: Added `vex-anchor` support for local file-based anchoring of execution Merkle roots, providing a tamper-evident audit trail at startup.
+- **🧠 Temporal Memory Injection**: Support for `context_id` lookup during execution. Agents can now fetch prior context from `ContextStore` and inject it into the prompt for multi-turn reasoning.
+- **📡 SSE Job Status Streaming**: New `GET /api/v1/jobs/{id}/stream` endpoint providing real-time Server-Sent Events for job status updates and final results.
+- **Genome-to-LLM Mapping**: Strictly mapped agent `Genome` parameters to `LlmRequest` properties (temperature, presence_penalty, etc.) across the provider ecosystem.
+
+### Changed
+- **Unified AppState**: Refactored `AppState` to centralize `EvolutionStore` and `StorageBackend` access, eliminating redundant connections.
+- **Verified Intelligence Path**: All workspace integration tests updated to 100% pass rate with the new v0.2.0 architecture.
+
 ## [0.1.8] - 2026-02-27
 
 ### Added
-- **Ecosystem Synchronization**: Bumped all 13 workspace crates to v0.1.8 to ensure global version parity after critical persistence patches.
+- **Ecosystem Synchronization**: Bumped all 14 workspace crates to v0.1.8 to ensure global version parity after critical persistence patches.
 - **Production Stress Verification**: Verified 168 RPM throughput with 0.0% error rate on a Railway Small instance using real-world adversarial prompt sets.
 
 ### Fixed

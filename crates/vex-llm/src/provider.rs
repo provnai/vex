@@ -40,6 +40,12 @@ pub struct LlmRequest {
     pub temperature: f32,
     /// Maximum tokens to generate
     pub max_tokens: u32,
+    /// Top P sampling
+    pub top_p: Option<f32>,
+    /// Presence penalty
+    pub presence_penalty: Option<f32>,
+    /// Frequency penalty
+    pub frequency_penalty: Option<f32>,
 }
 
 impl LlmRequest {
@@ -51,6 +57,9 @@ impl LlmRequest {
             prompt: prompt.to_string(),
             temperature: 0.7,
             max_tokens: 1024,
+            top_p: None,
+            presence_penalty: None,
+            frequency_penalty: None,
         }
     }
 
@@ -62,6 +71,9 @@ impl LlmRequest {
             temperature: 0.7,
             max_tokens: 1024,
             tenant_id: None,
+            top_p: None,
+            presence_penalty: None,
+            frequency_penalty: None,
         }
     }
 

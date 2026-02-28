@@ -59,11 +59,16 @@ async fn main() -> Result<()> {
 
     // Initialize Persistence (SQLite)
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
-    let db = vex_persist::sqlite::SqliteBackend::new(&db_url)
-        .await
-        .map_err(|e| anyhow::anyhow!("DB Init failed: {}", e))?;
+    let db = Arc::new(
+        vex_persist::sqlite::SqliteBackend::new(&db_url)
+            .await
+            .map_err(|e| anyhow::anyhow!("DB Init failed: {}", e))?,
+    );
 
-    // Initialize Queue (Using core library now that it's patched in v0.1.8)
+    let evolution_store: Arc<dyn vex_persist::EvolutionStore> =
+        Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
+
+    // Initialize Queue
     let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
 
     // Use dynamic dispatch for the worker pool backend
@@ -96,22 +101,40 @@ async fn main() -> Result<()> {
     // Create shared result store
     let result_store = vex_api::jobs::new_result_store();
 
-    // Register Agent Job with the REAL LLM
+    // Create FileAnchor for audit logging
+    let file_anchor: Arc<dyn vex_anchor::AnchorBackend> =
+        Arc::new(vex_anchor::FileAnchor::new("./vex_audit.jsonl"));
+    tracing::info!("⚓ Audit logging enabled: ./vex_audit.jsonl");
+
+    // Register Agent Job
     let llm_clone = llm.clone();
     let result_store_clone = result_store.clone();
+    let db_for_factory = db.clone();
+    let evolution_store_clone = evolution_store.clone();
     worker_pool.register_job_factory("agent_execution", move |payload| {
         let job_payload: AgentJobPayload =
             serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
                 agent_id: "unknown".to_string(),
                 prompt: "payload error".to_string(),
                 context_id: None,
+                enable_adversarial: false,
+                enable_self_correction: false,
+                max_debate_rounds: 3,
+                tenant_id: None,
             });
         let job_id = uuid::Uuid::new_v4();
+        let anchor_clone = file_anchor.clone();
+        let db_concrete = db_for_factory.clone();
+        let evo_store = evolution_store_clone.clone();
+
         Box::new(AgentExecutionJob::new(
             job_id,
             job_payload,
             llm_clone.clone(),
             result_store_clone.clone(),
+            db_concrete as Arc<dyn vex_persist::StorageBackend>,
+            Some(anchor_clone),
+            evo_store,
         ))
     });
 
@@ -121,7 +144,8 @@ async fn main() -> Result<()> {
         jwt_auth,
         rate_limiter,
         metrics,
-        Arc::new(db),
+        db as Arc<dyn vex_persist::StorageBackend>,
+        evolution_store,
         Arc::new(worker_pool),
         a2a_state,
         llm.clone(),

@@ -74,7 +74,7 @@ impl AnchorReceipt {
 /// - Tamper-evident (modifications are detectable)
 /// - Verifiable (anchors can be independently verified)
 #[async_trait]
-pub trait AnchorBackend: Send + Sync {
+pub trait AnchorBackend: Send + Sync + std::fmt::Debug {
     /// Anchor a Merkle root to the external system
     ///
     /// Returns a receipt that can be used to verify the anchor later.

@@ -11,7 +11,7 @@ pub enum EvolutionStoreError {
 }
 
 #[async_trait]
-pub trait EvolutionStore: Send + Sync {
+pub trait EvolutionStore: Send + Sync + std::fmt::Debug {
     /// Save an experiment to persistent storage
     async fn save_experiment(
         &self,
@@ -38,10 +38,14 @@ pub trait EvolutionStore: Send + Sync {
         &self,
         tenant_id: &str,
     ) -> Result<Vec<OptimizationRule>, EvolutionStoreError>;
+
+    /// Count the number of experiments for a tenant
+    async fn count_experiments(&self, tenant_id: &str) -> Result<u64, EvolutionStoreError>;
 }
 
 /// SQL implementation of EvolutionStore
 #[cfg(feature = "sqlite")]
+#[derive(Debug)]
 pub struct SqliteEvolutionStore {
     pool: sqlx::SqlitePool,
 }
@@ -200,5 +204,17 @@ impl EvolutionStore for SqliteEvolutionStore {
         }
 
         Ok(rules)
+    }
+
+    async fn count_experiments(&self, tenant_id: &str) -> Result<u64, EvolutionStoreError> {
+        use sqlx::Row;
+        let count: i64 =
+            sqlx::query("SELECT COUNT(*) as count FROM evolution_experiments WHERE tenant_id = ?")
+                .bind(tenant_id)
+                .fetch_one(&self.pool)
+                .await?
+                .try_get("count")?;
+
+        Ok(count as u64)
     }
 }

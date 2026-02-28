@@ -78,6 +78,15 @@ cargo run -p vex-api
 # Server starts on 0.0.0.0:3000
 ```
 
+### Real-time Status (v0.2.0)
+
+Follow job progress via Server-Sent Events:
+
+```bash
+curl -N -H "Authorization: Bearer <token>" \
+     http://localhost:3000/api/v1/jobs/<job_id>/stream
+```
+
 ## Next Steps
 
 - [Architecture Overview](architecture.md)

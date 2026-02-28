@@ -30,6 +30,9 @@ async fn test_deepseek_real_request() {
         temperature: 0.0,
         max_tokens: 10,
         tenant_id: None,
+        top_p: None,
+        presence_penalty: None,
+        frequency_penalty: None,
     };
 
     let response = provider.complete(request).await;

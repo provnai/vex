@@ -11,11 +11,8 @@
 
 ## What is VEX?
 
-VEX is an open-source verification and memory layer for LLM agents. It solves three critical problems:
-
-| Problem | Solution |
-|---------|----------|
 | **Hallucination** | Adversarial Red/Blue agent verification |
+| **Outdated Traits** | **🧬 Agent Evolution**: Reflection cycles in v0.2.0 |
 | **Context Overflow** | Bio-inspired temporal memory with decay |
 | **Unauditability** | Merkle tree hash chains with tamper-evident proofs |
 
@@ -24,13 +21,19 @@ VEX is an open-source verification and memory layer for LLM agents. It solves th
 | Crate | Purpose |
 |-------|---------|
 | `vex-core` | Agent, Genome, Merkle, ContextPacket |
-| `vex-adversarial` | Red/Blue debate, consensus protocols |
-| `vex-temporal` | Episodic memory, time horizons |
-| `vex-llm` | LLM providers (DeepSeek, OpenAI, Ollama) |
-| `vex-api` | HTTP API with JWT auth |
-| `vex-persist` | SQLite storage |
+| `vex-adversarial` | Red/Blue debate, Reflection agents |
+| `vex-llm` | LLM providers (DeepSeek, OpenAI, Groq) |
+| `vex-api` | HTTP API with JWT & SSE Streaming |
+| `vex-anchor` | Merkle root anchoring (v0.2.0) |
+| `vex-router` | Intelligent LLM routing & caching |
+| `vex-persist` | SQLite storage & EvolutionStore |
 | `vex-queue` | Background job processing |
 | `vex-runtime` | Agent orchestration |
+| `vex-server` | Production binary & Railway deployment |
+| `vex-temporal` | Episodic memory & time horizons |
+| `vex-macros` | Procedural macros for tools & audit |
+| `vex-cli` | Command-line audit & verification tools |
+| `vex-algoswitch` | Self-optimizing algorithm runtime |
 
 ## Getting Help
 

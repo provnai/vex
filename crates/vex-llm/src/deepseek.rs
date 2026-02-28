@@ -13,6 +13,12 @@ struct DeepSeekRequest {
     messages: Vec<Message>,
     temperature: f32,
     max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    presence_penalty: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frequency_penalty: Option<f32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -115,6 +121,9 @@ impl LlmProvider for DeepSeekProvider {
             messages,
             temperature: request.temperature,
             max_tokens: request.max_tokens,
+            top_p: request.top_p,
+            presence_penalty: request.presence_penalty,
+            frequency_penalty: request.frequency_penalty,
         };
 
         let response = self

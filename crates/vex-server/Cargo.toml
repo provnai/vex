@@ -10,6 +10,8 @@ description = "Standalone server binary for VEX Protocol"
 vex-api = { workspace = true }
 vex-llm = { workspace = true }
 vex-persist = { workspace = true }
+vex-anchor = { workspace = true }
+vex-core = { workspace = true }
 vex-queue = { workspace = true }
 vex-router = { workspace = true }
 tokio = { workspace = true }

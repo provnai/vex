@@ -42,13 +42,13 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v0.1.7
+## ✨ What's New in v0.2.0
 
-- 🛡️ **Blue Agent Reflection** - Agents now reconsider their stances based on debate arguments, eliminating hardcoded bias.
-- ⚡ **O(1) API Key Verification** - Instant auth lookups using UUID prefixes to prevent DoS attacks.
-- 🔒 **Isolated Multi-Tenancy** - Strictly bounded context, storage, and rate-limiting per-tenant.
-- 🧊 **Fortified Replay Protection** - TTL-based nonce caching with `moka` and mandatory capacity bounds.
-- 🚀 **Worker Robustness** - Graceful handling of malformed job payloads without panicking worker threads.
+- 🧬 **Agent Evolution** - Real-time reflection cycles that analyze past experiments and suggest genome adjustments to optimize agent performance.
+- 🌳 **Merkle Tree Provenance** - Every execution generates a Merkle Root of all context packets, providing an immutable audit trail.
+- ⚓ **File & Cloud Anchoring** - Support for local and remote anchoring of Merkle Roots to ensure tamper-evidence.
+- 🧠 **Context Memory Injection** - Agents now support `context_id` based temporal memory for multi-turn coherence and reasoning.
+- 📡 **SSE Job Streaming** - Real-time job status and results via Server-Sent Events, eliminating the need for polling.
 
 ---
 

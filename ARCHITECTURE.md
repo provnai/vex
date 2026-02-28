@@ -20,7 +20,7 @@ VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnA
 │                   Intelligence Layer                        │
 │  ┌───────────────────────┐  ┌─────────────────────────────┐│
 │  │ vex-llm               │  │ vex-adversarial             ││
-│  │ DeepSeek/OpenAI/Groq  │  │ Red/Blue Debate Engine      ││
+│  │ DeepSeek/OpenAI/Groq  │  │ Red/Blue/Reflection Agent   ││
 │  └───────────────────────┘  └─────────────────────────────┘│
 │  ┌───────────────────────┐  ┌─────────────────────────────┐│
 │  │ vex-router            │  │ vex-algoswitch              ││

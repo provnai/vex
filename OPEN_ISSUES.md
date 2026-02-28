@@ -9,7 +9,7 @@ Tracked issues that need resolution before v1.0.
 
 ## 🧩 Architectural Gaps
 - [ ] **VectorStore Metadata Search**: Current SQLite implementation searching on vector similarity only; need SQL filters on the metadata JSON field.
-- [ ] **Anchor Error Recovery**: If a blockchain anchor fails (e.g., gas price spike), the orchestrator currently just logs a warning. Needs a retry queue.
+- [ ] **Anchor Error Recovery**: [PARTIAL] Trait-based anchoring implemented in v0.2.0 (`vex-anchor`), but still needs a robust retry queue for blockchain gas price spikes.
 
 ## ⚡ Performance
 - [ ] **Async Migration**: Move database schema migrations out of the hot path constructor.

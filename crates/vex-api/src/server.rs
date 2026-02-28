@@ -130,9 +130,14 @@ impl VexServer {
         // Initialize Persistence (SQLite)
         let db_url =
             std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
-        let db = vex_persist::sqlite::SqliteBackend::new(&db_url)
-            .await
-            .map_err(|e| ApiError::Internal(format!("DB Init failed: {}", e)))?;
+        let db = Arc::new(
+            vex_persist::sqlite::SqliteBackend::new(&db_url)
+                .await
+                .map_err(|e| ApiError::Internal(format!("DB Init failed: {}", e)))?,
+        );
+
+        let evolution_store: Arc<dyn vex_persist::EvolutionStore> =
+            Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
 
         // Initialize Queue (Persistent SQLite)
         let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
@@ -169,19 +174,32 @@ impl VexServer {
         // Register Agent Job
         let llm_clone = llm.clone();
         let result_store_clone = result_store.clone();
+        let db_for_factory = db.clone();
+        let evolution_store_clone = evolution_store.clone();
+
         worker_pool.register_job_factory("agent_execution", move |payload| {
             let job_payload: AgentJobPayload =
                 serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
                     agent_id: "unknown".to_string(),
                     prompt: "payload error".to_string(),
                     context_id: None,
+                    enable_adversarial: false,
+                    enable_self_correction: false,
+                    max_debate_rounds: 3,
+                    tenant_id: None,
                 });
             let job_id = uuid::Uuid::new_v4();
+            let db_concrete = db_for_factory.clone();
+            let evo_store = evolution_store_clone.clone();
+
             Box::new(AgentExecutionJob::new(
                 job_id,
                 job_payload,
                 llm_clone.clone(),
                 result_store_clone.clone(),
+                db_concrete as Arc<dyn vex_persist::StorageBackend>,
+                None, // No anchor in fallback
+                evo_store,
             ))
         });
 
@@ -191,7 +209,8 @@ impl VexServer {
             jwt_auth,
             rate_limiter,
             metrics,
-            Arc::new(db),
+            db as Arc<dyn vex_persist::StorageBackend>,
+            evolution_store,
             Arc::new(worker_pool),
             a2a_state,
             llm.clone(),
