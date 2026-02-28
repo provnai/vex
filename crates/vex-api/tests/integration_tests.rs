@@ -48,6 +48,7 @@ async fn setup_state() -> AppState {
         a2a_state,
         Arc::new(vex_llm::MockProvider::new(vec![])),
         None,
+        Arc::new(vex_runtime::ChoraGateMock::default()),
     )
 }
 

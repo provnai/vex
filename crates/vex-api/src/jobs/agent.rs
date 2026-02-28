@@ -58,6 +58,8 @@ pub struct AgentJobResult {
     pub merkle_root: Option<String>,
     /// ID of the final ContextPacket generated from this job
     pub new_context_id: Option<String>,
+    /// CHORA Evidence Capsule for this execution
+    pub evidence: Option<vex_core::audit::EvidenceCapsule>,
 }
 
 /// Shared storage for job results
@@ -77,6 +79,7 @@ pub struct AgentExecutionJob {
     pub db: Arc<dyn StorageBackend>,
     pub anchor: Option<Arc<dyn vex_anchor::AnchorBackend>>,
     pub evolution_store: Arc<dyn vex_persist::EvolutionStore>,
+    pub gate: Arc<dyn vex_runtime::Gate>,
 }
 
 impl AgentExecutionJob {
@@ -88,6 +91,7 @@ impl AgentExecutionJob {
         db: Arc<dyn StorageBackend>,
         anchor: Option<Arc<dyn vex_anchor::AnchorBackend>>,
         evolution_store: Arc<dyn vex_persist::EvolutionStore>,
+        gate: Arc<dyn vex_runtime::Gate>,
     ) -> Self {
         Self {
             job_id,
@@ -97,6 +101,7 @@ impl AgentExecutionJob {
             db,
             anchor,
             evolution_store,
+            gate,
         }
     }
 }
@@ -246,9 +251,37 @@ impl Job for AgentExecutionJob {
             (blue_content.clone(), false, 0.5, 0)
         };
 
-        // Track final response
+        // Tracking final response
         let final_context = ContextPacket::new(&final_response);
         context_hashes.push(final_context.hash.clone());
+
+        // --- Step 3.5: CHORA Gate Decision Boundary ---
+        let capsule = self
+            .gate
+            .execute_gate(
+                agent_id_uuid,
+                &self.payload.prompt,
+                &final_response,
+                confidence,
+            )
+            .await;
+
+        if capsule.outcome == "HALT" {
+            warn!(
+                job_id = %self.job_id,
+                reason = %capsule.reason_code,
+                "CHORA Gate transition: HALT. Execution blocked."
+            );
+            return self
+                .store_error(format!("CHORA Gate Blocking: {}", capsule.reason_code))
+                .await;
+        }
+
+        info!(
+            job_id = %self.job_id,
+            capsule_id = %capsule.capsule_id,
+            "CHORA Gate transition: ALLOW"
+        );
 
         // --- Step 4: Create Merkle Root for the entire execution ---
         let leaves: Vec<(String, vex_core::Hash)> = context_hashes
@@ -378,6 +411,7 @@ impl Job for AgentExecutionJob {
             debate_rounds,
             merkle_root: merkle_root.clone(),
             new_context_id: Some(new_context_id.to_string()),
+            evidence: Some(capsule),
         };
 
         self.result_store
@@ -549,6 +583,7 @@ impl AgentExecutionJob {
             debate_rounds: 0,
             merkle_root: None,
             new_context_id: None,
+            evidence: None,
         };
         self.result_store.write().await.insert(self.job_id, result);
         JobResult::Retry(error)

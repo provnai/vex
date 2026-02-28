@@ -13,6 +13,7 @@ vex-persist = { workspace = true }
 vex-anchor = { workspace = true }
 vex-core = { workspace = true }
 vex-queue = { workspace = true }
+vex-runtime = { workspace = true }
 vex-router = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

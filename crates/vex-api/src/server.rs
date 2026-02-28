@@ -176,6 +176,8 @@ impl VexServer {
         let result_store_clone = result_store.clone();
         let db_for_factory = db.clone();
         let evolution_store_clone = evolution_store.clone();
+        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::ChoraGateMock::default());
+        let gate_clone = gate.clone();
 
         worker_pool.register_job_factory("agent_execution", move |payload| {
             let job_payload: AgentJobPayload =
@@ -200,6 +202,7 @@ impl VexServer {
                 db_concrete as Arc<dyn vex_persist::StorageBackend>,
                 None, // No anchor in fallback
                 evo_store,
+                gate_clone.clone(),
             ))
         });
 
@@ -215,6 +218,7 @@ impl VexServer {
             a2a_state,
             llm.clone(),
             Some(router_arc),
+            gate.clone(),
         );
 
         Ok(Self { config, app_state })

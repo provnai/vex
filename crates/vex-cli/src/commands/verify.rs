@@ -103,7 +103,7 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
         use vex_core::audit::HashParams;
         let base_hash = AuditEvent::compute_hash(HashParams {
             event_type: &event.event_type,
-            timestamp: event.timestamp,
+            timestamp: event.timestamp.timestamp(),
             sequence_number: event.sequence_number,
             data: &event.data,
             actor: &event.actor,
@@ -112,6 +112,7 @@ async fn verify_audit_file(path: &std::path::PathBuf, detailed: bool) -> Result<
             data_provenance_hash: &event.data_provenance_hash,
             human_review_required: event.human_review_required,
             approval_count: event.approval_signatures.len(),
+            evidence_capsule: &event.evidence_capsule,
         });
 
         // Calculate expected final hash (including chain link if applicable)

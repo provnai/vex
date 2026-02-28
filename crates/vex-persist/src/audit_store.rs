@@ -99,7 +99,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         // Rehash after setting actor
         event.hash = AuditEvent::compute_hash(HashParams {
             event_type: &event.event_type,
-            timestamp: event.timestamp,
+            timestamp: event.timestamp.timestamp(),
             sequence_number: event.sequence_number,
             data: &event.data,
             actor: &event.actor,
@@ -108,6 +108,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             data_provenance_hash: &event.data_provenance_hash,
             human_review_required: event.human_review_required,
             approval_count: event.approval_signatures.len(),
+            evidence_capsule: &event.evidence_capsule,
         });
 
         if let Some(prev) = &event.previous_hash {

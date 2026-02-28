@@ -111,6 +111,8 @@ async fn main() -> Result<()> {
     let result_store_clone = result_store.clone();
     let db_for_factory = db.clone();
     let evolution_store_clone = evolution_store.clone();
+    let gate: std::sync::Arc<dyn vex_runtime::Gate> = std::sync::Arc::new(vex_runtime::ChoraGateMock::default());
+    let gate_clone = gate.clone();
     worker_pool.register_job_factory("agent_execution", move |payload| {
         let job_payload: AgentJobPayload =
             serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
@@ -135,6 +137,7 @@ async fn main() -> Result<()> {
             db_concrete as Arc<dyn vex_persist::StorageBackend>,
             Some(anchor_clone),
             evo_store,
+            gate_clone.clone(),
         ))
     });
 
@@ -150,6 +153,7 @@ async fn main() -> Result<()> {
         a2a_state,
         llm.clone(),
         None, // We skip the broken router entirely
+        gate.clone(),
     );
 
     let mut app = api_router(app_state.clone());

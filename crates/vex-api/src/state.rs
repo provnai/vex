@@ -22,6 +22,7 @@ pub struct AppState {
     a2a_state: Arc<A2aState>,
     llm: Arc<dyn LlmProvider>,
     router: Option<Arc<vex_router::Router>>,
+    gate: Arc<dyn vex_runtime::Gate>,
 }
 
 impl AppState {
@@ -37,6 +38,7 @@ impl AppState {
         a2a_state: Arc<A2aState>,
         llm: Arc<dyn LlmProvider>,
         router: Option<Arc<vex_router::Router>>,
+        gate: Arc<dyn vex_runtime::Gate>,
     ) -> Self {
         Self {
             jwt_auth,
@@ -48,6 +50,7 @@ impl AppState {
             a2a_state,
             llm,
             router,
+            gate,
         }
     }
 
@@ -94,5 +97,10 @@ impl AppState {
     /// Get Router specifically (cloned Arc for sharing)
     pub fn router(&self) -> Option<Arc<vex_router::Router>> {
         self.router.clone()
+    }
+
+    /// Get Gate provider (cloned Arc for sharing)
+    pub fn gate(&self) -> Arc<dyn vex_runtime::Gate> {
+        self.gate.clone()
     }
 }

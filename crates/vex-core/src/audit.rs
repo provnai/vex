@@ -25,7 +25,19 @@ pub enum AuditEventType {
     ModelUpgrade,
     AnomalousBehavior,
     HumanOverride,
+    /// CHORA Phase-2 Gate Decision (ALLOW/HALT/ESCALATE)
+    GateDecision,
     Custom(String),
+}
+
+/// CHORA Evidence Capsule (RFC 8785 Compliant Metadata)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EvidenceCapsule {
+    pub capsule_id: String,
+    pub outcome: String, // ALLOW, HALT, ESCALATE
+    pub reason_code: String,
+    pub sensors: serde_json::Value,
+    pub reproducibility_context: serde_json::Value,
 }
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
@@ -122,12 +134,17 @@ pub struct AuditEvent {
     pub data_provenance_hash: Option<Hash>,
     pub human_review_required: bool,
     pub approval_signatures: Vec<Signature>,
+
+    // CHORA Alignment
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_capsule: Option<EvidenceCapsule>,
 }
 
 /// Parameters for consistent event hashing
+#[derive(Serialize)]
 pub struct HashParams<'a> {
     pub event_type: &'a AuditEventType,
-    pub timestamp: chrono::DateTime<Utc>,
+    pub timestamp: i64, // Use timestamp for JCS stability
     pub sequence_number: u64,
     pub data: &'a serde_json::Value,
     pub actor: &'a ActorType,
@@ -136,6 +153,8 @@ pub struct HashParams<'a> {
     pub data_provenance_hash: &'a Option<Hash>,
     pub human_review_required: bool,
     pub approval_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_capsule: &'a Option<EvidenceCapsule>,
 }
 
 impl AuditEvent {
@@ -174,11 +193,12 @@ impl AuditEvent {
         let data_provenance_hash: Option<Hash> = None;
         let human_review_required = false;
         let approval_signatures: Vec<Signature> = Vec::new();
+        let evidence_capsule: Option<EvidenceCapsule> = None;
 
         // Compute hash including ALL fields (Centralized in vex-core)
         let hash = Self::compute_hash(HashParams {
             event_type: &event_type,
-            timestamp,
+            timestamp: timestamp.timestamp(),
             sequence_number,
             data: &data,
             actor: &actor,
@@ -187,6 +207,7 @@ impl AuditEvent {
             data_provenance_hash: &data_provenance_hash,
             human_review_required,
             approval_count: approval_signatures.len(),
+            evidence_capsule: &evidence_capsule,
         });
 
         Self {
@@ -204,6 +225,7 @@ impl AuditEvent {
             data_provenance_hash,
             human_review_required,
             approval_signatures,
+            evidence_capsule,
         }
     }
 
@@ -243,21 +265,28 @@ impl AuditEvent {
         event
     }
 
+    /// Hashing using RFC 8785 (JCS) for cross-platform determinism
     pub fn compute_hash(params: HashParams) -> Hash {
-        let content = format!(
-            "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
-            params.event_type,
-            params.timestamp.timestamp(),
-            params.sequence_number,
-            params.data,
-            params.actor,
-            params.rationale,
-            params.policy_version,
-            params.data_provenance_hash.as_ref().map(|h| h.to_hex()),
-            params.human_review_required,
-            params.approval_count,
-        );
-        Hash::digest(content.as_bytes())
+        match serde_jcs::to_vec(&params) {
+            Ok(jcs_bytes) => Hash::digest(&jcs_bytes),
+            Err(_) => {
+                // Fallback (should not happen if HashParams is simple)
+                let content = format!(
+                    "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}",
+                    params.event_type,
+                    params.timestamp,
+                    params.sequence_number,
+                    params.data,
+                    params.actor,
+                    params.rationale,
+                    params.policy_version,
+                    params.data_provenance_hash.as_ref().map(|h| h.to_hex()),
+                    params.human_review_required,
+                    params.approval_count,
+                );
+                Hash::digest(content.as_bytes())
+            }
+        }
     }
 
     pub fn compute_chained_hash(base_hash: &Hash, prev_hash: &Hash, sequence: u64) -> Hash {
@@ -268,16 +297,21 @@ impl AuditEvent {
     /// Optimized hash computation using AlgoSwitch for non-critical performance tracing
     #[cfg(feature = "algoswitch")]
     pub fn compute_optimized_hash(params: HashParams) -> u64 {
-        let content = format!(
-            "{:?}:{}:{}:{:?}:{:?}:{:?}:{}",
-            params.event_type,
-            params.timestamp.timestamp(),
-            params.sequence_number,
-            params.data,
-            params.actor,
-            params.rationale,
-            params.approval_count,
-        );
-        algoswitch::select_hash(content.as_bytes()).0
+        match serde_jcs::to_vec(&params) {
+            Ok(jcs_bytes) => algoswitch::select_hash(&jcs_bytes).0,
+            Err(_) => {
+                let content = format!(
+                    "{:?}:{}:{}:{:?}:{:?}:{:?}:{}",
+                    params.event_type,
+                    params.timestamp,
+                    params.sequence_number,
+                    params.data,
+                    params.actor,
+                    params.rationale,
+                    params.approval_count,
+                );
+                algoswitch::select_hash(content.as_bytes()).0
+            }
+        }
     }
 }
