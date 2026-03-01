@@ -47,7 +47,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 # Security
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 argon2 = "0.5"
 base64 = "0.22"
 zeroize = { workspace = true }
@@ -59,11 +59,11 @@ rand = { workspace = true }
 http-body-util = "0.1"
 
 # Rate limiting (GCRA via governor)
-governor = "0.8"
-tower_governor = "0.5"
+governor = "0.10"
+tower_governor = "0.8"
 
 # Security utilities
-regex = "1.10"
+regex = "1.12"
 
 # OpenAPI documentation
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
