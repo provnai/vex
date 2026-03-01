@@ -10,6 +10,7 @@ use vex_algoswitch as algoswitch;
 
 /// Audit event types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AuditEventType {
     AgentCreated,
     AgentExecuted,
@@ -25,8 +26,10 @@ pub enum AuditEventType {
     ModelUpgrade,
     AnomalousBehavior,
     HumanOverride,
-    /// CHORA Phase-2 Gate Decision (ALLOW/HALT/ESCALATE)
+    /// CHORA Phase-2 Gate Decision
+    #[serde(rename = "CHORA_GATE_DECISION")]
     GateDecision,
+    #[serde(untagged)]
     Custom(String),
 }
 
@@ -36,20 +39,27 @@ pub struct EvidenceCapsule {
     pub capsule_id: String,
     pub outcome: String, // ALLOW, HALT, ESCALATE
     pub reason_code: String,
+    #[serde(skip_serializing_if = "serde_json::Value::is_null")]
     pub sensors: serde_json::Value,
     pub reproducibility_context: serde_json::Value,
 }
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "id", rename_all = "lowercase")]
 pub enum ActorType {
     /// AI agent performed the action
     Bot(Uuid),
     /// Human user performed the action
     Human(String),
     /// System/automated process
-    #[default]
-    System,
+    System(String),
+}
+
+impl Default for ActorType {
+    fn default() -> Self {
+        ActorType::System("vex_core".to_string())
+    }
 }
 
 impl ActorType {
@@ -149,8 +159,11 @@ pub struct HashParams<'a> {
     pub sequence_number: u64,
     pub data: &'a serde_json::Value,
     pub actor: &'a ActorType,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rationale: &'a Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_version: &'a Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data_provenance_hash: &'a Option<Hash>,
     pub human_review_required: bool,
     pub approval_count: usize,
@@ -189,7 +202,7 @@ impl AuditEvent {
         let data = Self::sanitize_data(data);
 
         // Default ISO 42001 / EU AI Act fields
-        let actor = ActorType::System;
+        let actor = ActorType::System("vex_core".to_string());
         let rationale: Option<String> = None;
         let policy_version: Option<String> = None;
         let data_provenance_hash: Option<Hash> = None;
