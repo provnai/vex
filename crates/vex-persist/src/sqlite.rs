@@ -90,7 +90,7 @@ impl SqliteBackend {
         if config.foreign_keys {
             options = options.pragma("foreign_keys", "ON");
         }
-        
+
         // Industrial Scaling: Busy Timeout & Synchronous Mode
         options = options
             .pragma("busy_timeout", config.busy_timeout_ms.to_string())
