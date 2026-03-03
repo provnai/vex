@@ -16,6 +16,7 @@ use vex_core::{Agent, AgentConfig, ContextPacket, MerkleTree};
 use vex_llm::{DeepSeekProvider, LlmError, LlmProvider, LlmRequest, LlmResponse};
 use vex_runtime::executor::ExecutorConfig;
 use vex_runtime::orchestrator::{Orchestrator, OrchestratorConfig};
+use vex_runtime::{Gate, GenericGateMock};
 
 #[derive(Debug, Clone)]
 struct Llm(DeepSeekProvider);
@@ -81,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..OrchestratorConfig::default()
         },
         None,
+        Arc::new(GenericGateMock::default()) as Arc<dyn Gate>,
     );
     let researcher_config = AgentConfig {
         name: "Researcher".to_string(),

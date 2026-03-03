@@ -50,7 +50,7 @@ fn test_chora_parity() {
     let target_jcs = r#"{"actor":{"id":"chora_ref","type":"system"},"approval_count":0,"data":{"probe":"P4_contradiction_pressure","run_id":"20260228_074549__ON"},"event_type":"CHORA_GATE_DECISION","evidence_capsule":{"capsule_id":"cap_anchor_P4_v1","outcome":"HALT","reason_code":"RC_CONTRADICTION","reproducibility_context":{"engine":"deepseek-chat","temperature":"0.2"}},"human_review_required":false,"schema_version":"1.0","sequence_number":1,"timestamp":1700000000}"#;
 
     std::fs::write("jcs_output.txt", jcs_string.clone()).unwrap();
-    std::fs::write("jcs_target.txt", target_jcs.to_string()).unwrap();
+    std::fs::write("jcs_target.txt", target_jcs).unwrap();
 
     let mut hasher = Sha256::new();
     hasher.update(&jcs_bytes);
