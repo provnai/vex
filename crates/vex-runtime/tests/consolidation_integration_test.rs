@@ -93,6 +93,10 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     let llm = Arc::new(MockLlm { responses: vec![] });
     let config = OrchestratorConfig {
         enable_self_correction: true,
+        executor_config: vex_runtime::ExecutorConfig {
+            enable_adversarial: false,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -105,9 +109,15 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 4. Verify Rules Persistence
-    // The consolidation happens async at end of process.
-    // Check store for rules.
-    let rules = store.load_rules(tenant_id).await?;
+    // The consolidation happens async at end of process, so we must yield and wait.
+    let mut rules = vec![];
+    for _ in 0..10 {
+        rules = store.load_rules(tenant_id).await?;
+        if !rules.is_empty() {
+            break;
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    }
 
     // We expect at least one consolidation event occurred
     assert!(

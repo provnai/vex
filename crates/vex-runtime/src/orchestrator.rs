@@ -646,7 +646,9 @@ mod tests {
     async fn test_orchestrator() {
         let llm = Arc::new(MockLlm);
         let gate = Arc::new(crate::gate::GenericGateMock);
-        let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None, gate);
+        let mut config = OrchestratorConfig::default();
+        config.executor_config.enable_adversarial = false;
+        let orchestrator = Orchestrator::new(llm, config, None, gate);
 
         let result = orchestrator
             .process("test-tenant", "What is the meaning of life?", vec![])

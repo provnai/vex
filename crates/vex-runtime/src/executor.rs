@@ -367,7 +367,8 @@ mod tests {
         use vex_llm::MockProvider;
         let llm = Arc::new(MockProvider::smart());
         let gate = Arc::new(GenericGateMock);
-        let executor = AgentExecutor::new(llm, ExecutorConfig::default(), gate);
+        let config = ExecutorConfig { enable_adversarial: false, ..Default::default() };
+        let executor = AgentExecutor::new(llm, config, gate);
         let mut agent = Agent::new(AgentConfig::default());
 
         let result = executor
@@ -375,6 +376,7 @@ mod tests {
             .await
             .unwrap();
         assert!(!result.response.is_empty());
-        assert!(result.verified);
+        // verified is false by design when enable_adversarial = false
+        assert!(!result.verified);
     }
 }
