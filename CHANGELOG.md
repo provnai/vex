@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Set **Synchronous=NORMAL** for optimized Railway volume performance.
   - Increased `busy_timeout` to 5000ms to resolve database locking under heavy load.
 - **Handshake Verification**: Documented the cross-template authentication handshake between VEX and McpVanguard.
+- **🔓 OSS Flexibility Patch**: Rate limiting is no longer hardcoded. Users can now override quotas via `VEX_LIMIT_*` variables or disable it entirely with `VEX_DISABLE_RATE_LIMIT=true` for local stress testing.
 
 ### Fixed
 - **SQLite Lock Timeout**: Resolved a units mismatch in `vex-persist` where busy_timeout was incorrectly set to milliseconds instead of seconds.

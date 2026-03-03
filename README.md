@@ -83,6 +83,8 @@ export DEEPSEEK_API_KEY="sk-..."
 
 # Security
 export VEX_JWT_SECRET="your-32-character-secret-here"
+export VEX_DISABLE_RATE_LIMIT="true"   # Optional: Disable rate limiting for local stress tests
+export VEX_LIMIT_STANDARD="5000"       # Optional: Override default tenant quotas (req/min)
 
 # Production deployment (optional)
 export VEX_ENV="production"          # Enforces HTTPS

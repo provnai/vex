@@ -49,9 +49,27 @@ impl RateLimitTier {
     /// Get the quota for this tier
     pub fn quota(&self) -> Option<Quota> {
         match self {
-            Self::Free => Some(Quota::per_minute(NonZeroU32::new(10).unwrap())),
-            Self::Standard => Some(Quota::per_minute(NonZeroU32::new(100).unwrap())),
-            Self::Pro => Some(Quota::per_minute(NonZeroU32::new(1000).unwrap())),
+            Self::Free => {
+                let limit = std::env::var("VEX_LIMIT_FREE")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(10);
+                Some(Quota::per_minute(NonZeroU32::new(limit).unwrap()))
+            }
+            Self::Standard => {
+                let limit = std::env::var("VEX_LIMIT_STANDARD")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(100);
+                Some(Quota::per_minute(NonZeroU32::new(limit).unwrap()))
+            }
+            Self::Pro => {
+                let limit = std::env::var("VEX_LIMIT_PRO")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(1000);
+                Some(Quota::per_minute(NonZeroU32::new(limit).unwrap()))
+            }
             Self::Unlimited => None, // No limiting
         }
     }

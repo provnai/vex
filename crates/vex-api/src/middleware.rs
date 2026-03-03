@@ -52,6 +52,15 @@ pub async fn rate_limit_middleware(
     request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
+    // Global Kill Switch: Disable rate limiting for OSS local control
+    let is_disabled = std::env::var("VEX_DISABLE_RATE_LIMIT")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    if is_disabled {
+        return Ok(next.run(request).await);
+    }
+
     // Extract tenant identifier (prioritize authenticated sub from JWT)
     let tenant_id = request
         .extensions()
