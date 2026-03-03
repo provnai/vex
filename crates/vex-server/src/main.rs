@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
     let db_for_factory = db.clone();
     let evolution_store_clone = evolution_store.clone();
     let gate: std::sync::Arc<dyn vex_runtime::Gate> =
-        std::sync::Arc::new(vex_runtime::GenericGateMock::default());
+        std::sync::Arc::new(vex_runtime::GenericGateMock);
     let gate_clone = gate.clone();
     worker_pool.register_job_factory("agent_execution", move |payload| {
         let job_payload: AgentJobPayload =

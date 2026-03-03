@@ -176,7 +176,7 @@ impl VexServer {
         let result_store_clone = result_store.clone();
         let db_for_factory = db.clone();
         let evolution_store_clone = evolution_store.clone();
-        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock::default());
+        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
         let gate_clone = gate.clone();
 
         worker_pool.register_job_factory("agent_execution", move |payload| {

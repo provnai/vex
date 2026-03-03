@@ -366,7 +366,7 @@ mod tests {
         use crate::gate::GenericGateMock;
         use vex_llm::MockProvider;
         let llm = Arc::new(MockProvider::smart());
-        let gate = Arc::new(GenericGateMock::default());
+        let gate = Arc::new(GenericGateMock);
         let executor = AgentExecutor::new(llm, ExecutorConfig::default(), gate);
         let mut agent = Agent::new(AgentConfig::default());
 

@@ -55,7 +55,7 @@ impl Gate for GenericGateMock {
         };
 
         EvidenceCapsule {
-            capsule_id: format!("mock-{}", Uuid::new_v4().to_string()[..8].to_string()),
+            capsule_id: format!("mock-{}", &Uuid::new_v4().to_string()[..8]),
             outcome: outcome.to_string(),
             reason_code: reason.to_string(),
             sensors: serde_json::json!({

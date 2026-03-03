@@ -96,7 +96,7 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let gate = Arc::new(vex_runtime::gate::GenericGateMock::default());
+    let gate = Arc::new(vex_runtime::gate::GenericGateMock);
     let orchestrator = Orchestrator::new(llm, config, Some(store.clone()), gate);
 
     // 3. Fill Memory manually (> 50)

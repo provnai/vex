@@ -645,7 +645,7 @@ mod tests {
     #[tokio::test]
     async fn test_orchestrator() {
         let llm = Arc::new(MockLlm);
-        let gate = Arc::new(crate::gate::GenericGateMock::default());
+        let gate = Arc::new(crate::gate::GenericGateMock);
         let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None, gate);
 
         let result = orchestrator
