@@ -442,7 +442,7 @@ mod tests {
             .log(
                 t1,
                 AuditEventType::AgentCreated,
-                ActorType::System,
+                ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
             )
@@ -454,7 +454,7 @@ mod tests {
             .log(
                 t2,
                 AuditEventType::AgentExecuted,
-                ActorType::System,
+                ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
             )
