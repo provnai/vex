@@ -21,19 +21,19 @@ pub struct SqliteConfig {
     pub wal_mode: bool,
     /// Enable foreign key enforcement
     pub foreign_keys: bool,
-    /// Busy timeout in seconds
-    pub busy_timeout_secs: u32,
+    /// Busy timeout in milliseconds
+    pub busy_timeout_ms: u32,
 }
 
 impl Default for SqliteConfig {
     fn default() -> Self {
         Self {
             url: "sqlite:vex.db?mode=rwc".to_string(),
-            max_connections: 5,
+            max_connections: 10, // Increased for industrial scaling
             encryption_key: None,
             wal_mode: true,
             foreign_keys: true,
-            busy_timeout_secs: 30,
+            busy_timeout_ms: 5000, // 5 seconds as recommended
         }
     }
 }
@@ -47,7 +47,7 @@ impl SqliteConfig {
             encryption_key: None,
             wal_mode: false,
             foreign_keys: true,
-            busy_timeout_secs: 5,
+            busy_timeout_ms: 5000,
         }
     }
 
@@ -55,11 +55,11 @@ impl SqliteConfig {
     pub fn secure(url: &str, encryption_key: &str) -> Self {
         Self {
             url: url.to_string(),
-            max_connections: 5,
+            max_connections: 10,
             encryption_key: Some(encryption_key.to_string()),
             wal_mode: true,
             foreign_keys: true,
-            busy_timeout_secs: 30,
+            busy_timeout_ms: 5000,
         }
     }
 }
@@ -90,7 +90,11 @@ impl SqliteBackend {
         if config.foreign_keys {
             options = options.pragma("foreign_keys", "ON");
         }
-        options = options.pragma("busy_timeout", config.busy_timeout_secs.to_string());
+        
+        // Industrial Scaling: Busy Timeout & Synchronous Mode
+        options = options
+            .pragma("busy_timeout", config.busy_timeout_ms.to_string())
+            .pragma("synchronous", "NORMAL");
 
         if config.wal_mode {
             options = options.pragma("journal_mode", "WAL");

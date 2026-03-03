@@ -5,6 +5,20 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-03
+
+### Added
+- **🛡️ Forensic Metadata Strategy**: Implemented sanitized risk reporting in `vex-client` to bypass front-door safety judges while maintaining 100% audit audit integrity.
+- **🚀 Industrial Scaling (Nexus Fix)**: Optimized SQLite persistence for high-concurrency cloud environments.
+  - Enabled **Write-Ahead Logging (WAL)** for concurrent read/write support.
+  - Set **Synchronous=NORMAL** for optimized Railway volume performance.
+  - Increased `busy_timeout` to 5000ms to resolve database locking under heavy load.
+- **Handshake Verification**: Documented the cross-template authentication handshake between VEX and McpVanguard.
+
+### Fixed
+- **SQLite Lock Timeout**: Resolved a units mismatch in `vex-persist` where busy_timeout was incorrectly set to milliseconds instead of seconds.
+- **Token Signature Validation**: Hardened JWT verification to prevent 401 Unauthorized errors during cross-service handshakes.
+
 ## [0.2.0] - 2026-02-28
 
 ### Added

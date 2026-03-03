@@ -45,8 +45,10 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v0.2.0
+## ✨ What's New in v0.2.1
 
+- 🚀 **Industrial Scaling** - Optimized SQLite persistence with WAL mode and 5s busy timeouts, enabling high-concurrency audit bursts on cloud volumes.
+- 🛡️ **Forensic Metadata Strategy** - Sanitized risk reporting to bypass front-gate safety judges while maintaining 100% audit integrity.
 - 🧬 **Agent Evolution** - Real-time reflection cycles that analyze past experiments and suggest genome adjustments to optimize agent performance.
 - 🌳 **Merkle Tree Provenance** - Every execution generates a Merkle Root of all context packets, providing an immutable audit trail.
 - ⚓ **File & Cloud Anchoring** - Support for local and remote anchoring of Merkle Roots to ensure tamper-evidence.
