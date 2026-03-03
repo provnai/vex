@@ -85,6 +85,7 @@ pub struct AgentExecutionJob {
 }
 
 impl AgentExecutionJob {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         job_id: Uuid,
         payload: AgentJobPayload,

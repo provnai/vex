@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..OrchestratorConfig::default()
         },
         None,
-        Arc::new(GenericGateMock::default()) as Arc<dyn Gate>,
+        Arc::new(GenericGateMock) as Arc<dyn Gate>,
     );
     let researcher_config = AgentConfig {
         name: "Researcher".to_string(),
