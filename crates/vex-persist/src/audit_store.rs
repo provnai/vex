@@ -278,12 +278,12 @@ impl AuditExport {
                         "type_uid": match &event.actor {
                             ActorType::Bot(_) => 2,
                             ActorType::Human(_) => 1,
-                            ActorType::System => 0,
+                            ActorType::System(_) => 0,
                         },
                         "type": match &event.actor {
                             ActorType::Bot(id) => format!("Bot:{}", id),
                             ActorType::Human(name) => format!("Human:{}", name),
-                            ActorType::System => "System".to_string(),
+                            ActorType::System(id) => format!("System:{}", id),
                         },
                     },
 
@@ -340,7 +340,7 @@ impl AuditExport {
                         "actor": match &event.actor {
                             ActorType::Bot(id) => serde_json::json!({"type": "bot", "id": id.to_string()}),
                             ActorType::Human(name) => serde_json::json!({"type": "human", "name": name}),
-                            ActorType::System => serde_json::json!({"type": "system"}),
+                            ActorType::System(id) => serde_json::json!({"type": "system", "id": id}),
                         },
                         "rationale": event.rationale.clone(),
                         "policy_version": event.policy_version.clone(),
@@ -398,7 +398,7 @@ impl AuditExport {
                     "usr": match &event.actor {
                         ActorType::Human(name) => serde_json::json!({"name": name}),
                         ActorType::Bot(id) => serde_json::json!({"id": id.to_string(), "type": "bot"}),
-                        ActorType::System => serde_json::json!({"type": "system"}),
+                        ActorType::System(id) => serde_json::json!({"id": id, "type": "system"}),
                     },
 
                     // VEX custom attributes

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 use vex_core::audit::EvidenceCapsule;
+use vex_llm::Capability;
 
 /// Exogenous Gate Decision Boundary
 /// 
@@ -15,21 +16,23 @@ pub trait Gate: Send + Sync + std::fmt::Debug {
         task_prompt: &str,
         suggested_output: &str,
         confidence: f64,
+        capabilities: Vec<Capability>,
     ) -> EvidenceCapsule;
 }
 
-/// A mock implementation of the CHORA Gate for testing and local development.
+/// A mock implementation of the Generic Gate for testing and local development.
 #[derive(Debug, Default)]
-pub struct ChoraGateMock;
+pub struct GenericGateMock;
 
 #[async_trait]
-impl Gate for ChoraGateMock {
+impl Gate for GenericGateMock {
     async fn execute_gate(
         &self,
         _agent_id: Uuid,
         _task_prompt: &str,
         suggested_output: &str,
         confidence: f64,
+        capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
         // Simple logic for the mock: 
         // 1. If confidence is very low (< 0.3), HALT.
@@ -38,6 +41,9 @@ impl Gate for ChoraGateMock {
         
         let (outcome, reason) = if confidence < 0.3 {
             ("HALT", "LOW_CONFIDENCE")
+        } else if capabilities.contains(&Capability::Network) && !suggested_output.to_lowercase().contains("http") {
+             // Example policy: If you have network capability but don't explain the URL, caution.
+            ("ALLOW", "SENSORS_ORANGE_NETWORK_IDLE")
         } else if suggested_output.to_lowercase().contains("i'm sorry") || suggested_output.to_lowercase().contains("cannot fulfill") {
             ("HALT", "REFUSAL_FILTER")
         } else {
@@ -56,6 +62,88 @@ impl Gate for ChoraGateMock {
                 "gate_provider": "ChoraGateMock",
                 "version": "0.1.0",
             }),
+        }
+    }
+}
+
+/// Networked Gate provider communicating over HTTP
+#[derive(Debug)]
+pub struct HttpGate {
+    pub client: reqwest::Client,
+    pub url: String,
+    pub api_key: String,
+}
+
+impl HttpGate {
+    pub fn new(url: String, api_key: String) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            url,
+            api_key,
+        }
+    }
+}
+
+#[async_trait]
+impl Gate for HttpGate {
+    async fn execute_gate(
+        &self,
+        agent_id: Uuid,
+        task_prompt: &str,
+        suggested_output: &str,
+        confidence: f64,
+        capabilities: Vec<Capability>,
+    ) -> EvidenceCapsule {
+        let payload = serde_json::json!({
+            "agent_id": agent_id,
+            "task_prompt": task_prompt,
+            "suggested_output": suggested_output,
+            "confidence": confidence,
+            "capabilities": capabilities,
+        });
+
+        let gate_url = if self.url.ends_with('/') {
+            format!("{}gate", self.url)
+        } else {
+            format!("{}/gate", self.url)
+        };
+
+        match self.client.post(&gate_url)
+            .header("x-api-key", &self.api_key)
+            .json(&payload)
+            .send()
+            .await 
+        {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    resp.json::<EvidenceCapsule>().await.unwrap_or_else(|e| {
+                        EvidenceCapsule {
+                            capsule_id: "error".to_string(),
+                            outcome: "HALT".to_string(),
+                            reason_code: format!("API_PARSE_ERROR: {}", e),
+                            sensors: serde_json::Value::Null,
+                            reproducibility_context: serde_json::Value::Null,
+                        }
+                    })
+                } else {
+                    EvidenceCapsule {
+                        capsule_id: "error".to_string(),
+                        outcome: "HALT".to_string(),
+                        reason_code: format!("API_STATUS_ERROR: {}", resp.status()),
+                        sensors: serde_json::Value::Null,
+                        reproducibility_context: serde_json::Value::Null,
+                    }
+                }
+            }
+            Err(e) => {
+                EvidenceCapsule {
+                    capsule_id: "error".to_string(),
+                    outcome: "HALT".to_string(),
+                    reason_code: format!("API_CONNECTION_ERROR: {}", e),
+                    sensors: serde_json::Value::Null,
+                    reproducibility_context: serde_json::Value::Null,
+                }
+            }
         }
     }
 }

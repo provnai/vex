@@ -5,6 +5,7 @@
 ## Quick Links
 
 - [Getting Started](getting-started.md)
+- [Deploy on Railway](railway-deployment.md)
 - [Architecture Overview](architecture.md)
 - [API Reference](https://provnai.dev/vex_core/)
 - [GitHub Repository](https://github.com/provnai/vex)

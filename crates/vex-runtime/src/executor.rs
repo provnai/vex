@@ -8,6 +8,8 @@ use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
 use vex_core::{Agent, ContextPacket, Hash};
+use crate::gate::Gate;
+use vex_llm::Capability;
 
 #[derive(Debug, Deserialize)]
 struct ChallengeResponse {
@@ -62,6 +64,8 @@ pub struct ExecutionResult {
     pub trace_root: Option<Hash>,
     /// Debate details (if adversarial was enabled)
     pub debate: Option<Debate>,
+    /// CHORA Evidence Capsule
+    pub evidence: Option<vex_core::audit::EvidenceCapsule>,
 }
 
 use vex_llm::{LlmProvider, LlmRequest};
@@ -72,6 +76,8 @@ pub struct AgentExecutor<L: LlmProvider> {
     pub config: ExecutorConfig,
     /// LLM backend
     llm: Arc<L>,
+    /// Policy Gate
+    gate: Arc<dyn Gate>,
 }
 
 impl<L: LlmProvider> Clone for AgentExecutor<L> {
@@ -79,14 +85,15 @@ impl<L: LlmProvider> Clone for AgentExecutor<L> {
         Self {
             config: self.config.clone(),
             llm: self.llm.clone(),
+            gate: self.gate.clone(),
         }
     }
 }
 
 impl<L: LlmProvider> AgentExecutor<L> {
     /// Create a new executor
-    pub fn new(llm: Arc<L>, config: ExecutorConfig) -> Self {
-        Self { config, llm }
+    pub fn new(llm: Arc<L>, config: ExecutorConfig, gate: Arc<dyn Gate>) -> Self {
+        Self { config, llm, gate }
     }
 
     /// Execute an agent with a prompt and return the result
@@ -94,6 +101,7 @@ impl<L: LlmProvider> AgentExecutor<L> {
         &self,
         agent: &mut Agent,
         prompt: &str,
+        capabilities: Vec<Capability>,
     ) -> Result<ExecutionResult, String> {
         // Step 1: Format context and get initial response from Blue agent
         let full_prompt = if !agent.context.content.is_empty() {
@@ -119,6 +127,19 @@ impl<L: LlmProvider> AgentExecutor<L> {
         } else {
             (blue_response, false, 0.5, None)
         };
+        
+        // Step 2.5: Policy Gate Verification (Mutation Risk Control)
+        let capsule = self.gate.execute_gate(
+            agent.id,
+            prompt,
+            &final_response,
+            confidence,
+            capabilities,
+        ).await;
+        
+        if capsule.outcome == "HALT" {
+            return Err(format!("Gate Blocking: {}", capsule.reason_code));
+        }
 
         // Step 3: Create context packet with hash
         let mut context = ContextPacket::new(&final_response);
@@ -137,6 +158,7 @@ impl<L: LlmProvider> AgentExecutor<L> {
             trace_root: context.trace_root.clone(),
             context,
             debate,
+            evidence: Some(capsule),
         })
     }
 
@@ -345,11 +367,13 @@ mod tests {
     #[tokio::test]
     async fn test_executor() {
         use vex_llm::MockProvider;
+        use crate::gate::GenericGateMock;
         let llm = Arc::new(MockProvider::smart());
-        let executor = AgentExecutor::new(llm, ExecutorConfig::default());
+        let gate = Arc::new(GenericGateMock::default());
+        let executor = AgentExecutor::new(llm, ExecutorConfig::default(), gate);
         let mut agent = Agent::new(AgentConfig::default());
 
-        let result = executor.execute(&mut agent, "Test prompt").await.unwrap();
+        let result = executor.execute(&mut agent, "Test prompt", vec![]).await.unwrap();
         assert!(!result.response.is_empty());
         assert!(result.verified);
     }

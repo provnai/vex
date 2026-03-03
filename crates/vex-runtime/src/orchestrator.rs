@@ -111,8 +111,9 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
         llm: Arc<L>,
         config: OrchestratorConfig,
         persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
+        gate: Arc<dyn crate::gate::Gate>,
     ) -> Self {
-        let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone());
+        let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone(), gate);
         let evolution_memory = if config.enable_self_correction {
             Some(RwLock::new(vex_core::EvolutionMemory::new()))
         } else {
@@ -167,6 +168,7 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
         &self,
         tenant_id: &str,
         query: &str,
+        capabilities: Vec<vex_llm::Capability>,
     ) -> Result<OrchestrationResult, String> {
         // Create root agent
         let root_config = AgentConfig {
@@ -200,9 +202,10 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             let mut child = root.spawn_child(config);
             let executor = self.executor.clone();
             let query_str = query.to_string();
+            let caps = capabilities.clone();
 
             execution_futures.push(tokio::spawn(async move {
-                let result = executor.execute(&mut child, &query_str).await;
+                let result = executor.execute(&mut child, &query_str, caps).await;
                 (child.id, child, result)
             }));
         }
@@ -245,7 +248,7 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             child_results.get(1).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
         );
 
-        let root_result = self.executor.execute(&mut root, &synthesis_prompt).await?;
+        let root_result = self.executor.execute(&mut root, &synthesis_prompt, capabilities.clone()).await?;
         all_results.insert(root_id, root_result.clone());
 
         // Re-acquire lock to update root and run evolution
@@ -639,10 +642,11 @@ mod tests {
     #[tokio::test]
     async fn test_orchestrator() {
         let llm = Arc::new(MockLlm);
-        let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None);
+        let gate = Arc::new(crate::gate::GenericGateMock::default());
+        let orchestrator = Orchestrator::new(llm, OrchestratorConfig::default(), None, gate);
 
         let result = orchestrator
-            .process("test-tenant", "What is the meaning of life?")
+            .process("test-tenant", "What is the meaning of life?", vec![])
             .await
             .unwrap();
 

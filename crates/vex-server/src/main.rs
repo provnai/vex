@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
     let result_store_clone = result_store.clone();
     let db_for_factory = db.clone();
     let evolution_store_clone = evolution_store.clone();
-    let gate: std::sync::Arc<dyn vex_runtime::Gate> = std::sync::Arc::new(vex_runtime::ChoraGateMock::default());
+    let gate: std::sync::Arc<dyn vex_runtime::Gate> = std::sync::Arc::new(vex_runtime::GenericGateMock::default());
     let gate_clone = gate.clone();
     worker_pool.register_job_factory("agent_execution", move |payload| {
         let job_payload: AgentJobPayload =
@@ -123,6 +123,7 @@ async fn main() -> Result<()> {
                 enable_self_correction: false,
                 max_debate_rounds: 3,
                 tenant_id: None,
+                capabilities: vec![],
             });
         let job_id = uuid::Uuid::new_v4();
         let anchor_clone = file_anchor.clone();

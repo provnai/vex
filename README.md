@@ -6,12 +6,15 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/vex-core.svg)](https://crates.io/crates/vex-core)
+[![Downloads](https://img.shields.io/crates/d/vex-core.svg?style=flat&color=success)](https://crates.io/crates/vex-core)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![CI](https://github.com/provnai/vex/workflows/CI/badge.svg)](https://github.com/provnai/vex/actions)
 [![Docs](https://img.shields.io/badge/docs-provnai.dev-4285F4.svg)](https://www.provnai.dev/docs)
 [![Website](https://img.shields.io/badge/website-provnai.com-00C7B7.svg)](https://provnai.com)
 
 **🚀 [Live Demo: AI News Verification on Solana](https://www.vexevolve.com/)** - Experience VEX in action with full transparency and blockchain anchoring.
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/vex-protocol?referralCode=provnai)
 
 ---
 
@@ -207,6 +210,7 @@ DEEPSEEK_API_KEY="sk-..." cargo test --package vex-llm -- --ignored
 | **API Reference (Rustdoc)** | [provnai.dev/rustdoc](https://www.provnai.dev/rustdoc) |
 | **API Reference (OpenAPI)** | Run server → `/swagger-ui` |
 | **Architecture** | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Railway Deployment** | [docs/railway-deployment.md](docs/railway-deployment.md) |
 | **Roadmap** | [ROADMAP.md](ROADMAP.md) |
 | **Open Issues** | [OPEN_ISSUES.md](OPEN_ISSUES.md) |
 | **Benchmarks** | [BENCHMARKS.md](BENCHMARKS.md) |

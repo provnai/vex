@@ -1,5 +1,15 @@
 {
-    "$schema": "https://railway.app/railway.schema.json",
+    "name": "VEX Protocol",
+    "description": "The trust layer for AI agents. Adversarial verification, temporal memory, and cryptographic proofs for production-grade AI.",
+    "icon": "https://provnai.com/logo.png",
+    "keywords": [
+        "ai",
+        "trust",
+        "verification",
+        "adversarial",
+        "blockchain",
+        "rust"
+    ],
     "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile"
@@ -10,9 +20,34 @@
         "healthcheckPath": "/health",
         "healthcheckTimeout": 100
     },
-    "vars": {
-        "VEX_PORT": "${{PORT}}",
-        "VEX_JWT_SECRET": "replace-with-secure-32-char-random-string-in-railway-ui",
-        "VEX_ENV": "railway"
+    "variables": {
+        "VEX_PORT": {
+            "description": "The port the VEX server will bind to",
+            "default": "8080"
+        },
+        "VEX_JWT_SECRET": {
+            "description": "Secure 32-character secret for JWT authentication",
+            "required": true
+        },
+        "VEX_ENV": {
+            "description": "Deployment environment (e.g., railway, production)",
+            "default": "railway"
+        },
+        "OPENAI_API_KEY": {
+            "description": "OpenAI API Key (optional if using other providers)",
+            "required": false
+        },
+        "ANTHROPIC_API_KEY": {
+            "description": "Anthropic API Key (optional if using other providers)",
+            "required": false
+        },
+        "DEEPSEEK_API_KEY": {
+            "description": "DeepSeek API Key (optional if using other providers)",
+            "required": false
+        },
+        "MISTRAL_API_KEY": {
+            "description": "Mistral API Key (optional if using other providers)",
+            "required": false
+        }
     }
 }

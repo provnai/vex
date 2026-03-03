@@ -23,5 +23,6 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
 serde_json = { workspace = true }
+reqwest = { workspace = true }
 [dev-dependencies]
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }

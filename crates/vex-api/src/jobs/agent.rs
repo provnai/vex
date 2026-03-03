@@ -28,6 +28,8 @@ pub struct AgentJobPayload {
     #[serde(default = "default_max_rounds")]
     pub max_debate_rounds: u32,
     pub tenant_id: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<vex_llm::Capability>,
 }
 
 fn default_max_rounds() -> u32 {
@@ -263,6 +265,7 @@ impl Job for AgentExecutionJob {
                 &self.payload.prompt,
                 &final_response,
                 confidence,
+                self.payload.capabilities.clone(),
             )
             .await;
 

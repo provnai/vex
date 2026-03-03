@@ -96,11 +96,12 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let orchestrator = Orchestrator::new(llm, config, Some(store.clone()));
+    let gate = Arc::new(vex_runtime::gate::GenericGateMock::default());
+    let orchestrator = Orchestrator::new(llm, config, Some(store.clone()), gate);
 
     // 3. Fill Memory manually (> 50)
     for _i in 0..75 {
-        let _ = orchestrator.process(tenant_id, "test query").await;
+        let _ = orchestrator.process(tenant_id, "test query", vec![]).await;
     }
 
     // 4. Verify Rules Persistence
