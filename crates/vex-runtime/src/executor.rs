@@ -3,12 +3,12 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::gate::Gate;
 use serde::Deserialize;
 use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
 use vex_core::{Agent, ContextPacket, Hash};
-use crate::gate::Gate;
 use vex_llm::Capability;
 
 #[derive(Debug, Deserialize)]
@@ -127,16 +127,13 @@ impl<L: LlmProvider> AgentExecutor<L> {
         } else {
             (blue_response, false, 0.5, None)
         };
-        
+
         // Step 2.5: Policy Gate Verification (Mutation Risk Control)
-        let capsule = self.gate.execute_gate(
-            agent.id,
-            prompt,
-            &final_response,
-            confidence,
-            capabilities,
-        ).await;
-        
+        let capsule = self
+            .gate
+            .execute_gate(agent.id, prompt, &final_response, confidence, capabilities)
+            .await;
+
         if capsule.outcome == "HALT" {
             return Err(format!("Gate Blocking: {}", capsule.reason_code));
         }
@@ -366,14 +363,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_executor() {
-        use vex_llm::MockProvider;
         use crate::gate::GenericGateMock;
+        use vex_llm::MockProvider;
         let llm = Arc::new(MockProvider::smart());
         let gate = Arc::new(GenericGateMock::default());
         let executor = AgentExecutor::new(llm, ExecutorConfig::default(), gate);
         let mut agent = Agent::new(AgentConfig::default());
 
-        let result = executor.execute(&mut agent, "Test prompt", vec![]).await.unwrap();
+        let result = executor
+            .execute(&mut agent, "Test prompt", vec![])
+            .await
+            .unwrap();
         assert!(!result.response.is_empty());
         assert!(result.verified);
     }

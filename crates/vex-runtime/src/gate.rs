@@ -4,7 +4,7 @@ use vex_core::audit::EvidenceCapsule;
 use vex_llm::Capability;
 
 /// Exogenous Gate Decision Boundary
-/// 
+///
 /// A Gate acts as a continuation authority, deciding whether an agent's
 /// output is "Safe", "Valid", or "Audit-Compliant".
 #[async_trait]
@@ -34,17 +34,21 @@ impl Gate for GenericGateMock {
         confidence: f64,
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
-        // Simple logic for the mock: 
+        // Simple logic for the mock:
         // 1. If confidence is very low (< 0.3), HALT.
         // 2. If the output contains common failure patterns, HALT.
         // 3. Otherwise, ALLOW.
-        
+
         let (outcome, reason) = if confidence < 0.3 {
             ("HALT", "LOW_CONFIDENCE")
-        } else if capabilities.contains(&Capability::Network) && !suggested_output.to_lowercase().contains("http") {
-             // Example policy: If you have network capability but don't explain the URL, caution.
+        } else if capabilities.contains(&Capability::Network)
+            && !suggested_output.to_lowercase().contains("http")
+        {
+            // Example policy: If you have network capability but don't explain the URL, caution.
             ("ALLOW", "SENSORS_ORANGE_NETWORK_IDLE")
-        } else if suggested_output.to_lowercase().contains("i'm sorry") || suggested_output.to_lowercase().contains("cannot fulfill") {
+        } else if suggested_output.to_lowercase().contains("i'm sorry")
+            || suggested_output.to_lowercase().contains("cannot fulfill")
+        {
             ("HALT", "REFUSAL_FILTER")
         } else {
             ("ALLOW", "SENSORS_GREEN")
@@ -108,23 +112,25 @@ impl Gate for HttpGate {
             format!("{}/gate", self.url)
         };
 
-        match self.client.post(&gate_url)
+        match self
+            .client
+            .post(&gate_url)
             .header("x-api-key", &self.api_key)
             .json(&payload)
             .send()
-            .await 
+            .await
         {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    resp.json::<EvidenceCapsule>().await.unwrap_or_else(|e| {
-                        EvidenceCapsule {
+                    resp.json::<EvidenceCapsule>()
+                        .await
+                        .unwrap_or_else(|e| EvidenceCapsule {
                             capsule_id: "error".to_string(),
                             outcome: "HALT".to_string(),
                             reason_code: format!("API_PARSE_ERROR: {}", e),
                             sensors: serde_json::Value::Null,
                             reproducibility_context: serde_json::Value::Null,
-                        }
-                    })
+                        })
                 } else {
                     EvidenceCapsule {
                         capsule_id: "error".to_string(),
@@ -135,15 +141,13 @@ impl Gate for HttpGate {
                     }
                 }
             }
-            Err(e) => {
-                EvidenceCapsule {
-                    capsule_id: "error".to_string(),
-                    outcome: "HALT".to_string(),
-                    reason_code: format!("API_CONNECTION_ERROR: {}", e),
-                    sensors: serde_json::Value::Null,
-                    reproducibility_context: serde_json::Value::Null,
-                }
-            }
+            Err(e) => EvidenceCapsule {
+                capsule_id: "error".to_string(),
+                outcome: "HALT".to_string(),
+                reason_code: format!("API_CONNECTION_ERROR: {}", e),
+                sensors: serde_json::Value::Null,
+                reproducibility_context: serde_json::Value::Null,
+            },
         }
     }
 }

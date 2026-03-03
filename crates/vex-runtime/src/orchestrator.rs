@@ -248,7 +248,10 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             child_results.get(1).map(|(_, r)| r.response.as_str()).unwrap_or("N/A"),
         );
 
-        let root_result = self.executor.execute(&mut root, &synthesis_prompt, capabilities.clone()).await?;
+        let root_result = self
+            .executor
+            .execute(&mut root, &synthesis_prompt, capabilities.clone())
+            .await?;
         all_results.insert(root_id, root_result.clone());
 
         // Re-acquire lock to update root and run evolution
