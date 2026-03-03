@@ -367,7 +367,10 @@ mod tests {
         use vex_llm::MockProvider;
         let llm = Arc::new(MockProvider::smart());
         let gate = Arc::new(GenericGateMock);
-        let config = ExecutorConfig { enable_adversarial: false, ..Default::default() };
+        let config = ExecutorConfig {
+            enable_adversarial: false,
+            ..Default::default()
+        };
         let executor = AgentExecutor::new(llm, config, gate);
         let mut agent = Agent::new(AgentConfig::default());
 
