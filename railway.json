@@ -41,7 +41,7 @@
         },
         "VEX_DEFAULT_PROVIDER": {
             "description": "Select the primary LLM engine. Options: deepseek, openai, anthropic, mistral, ollama, or mock.",
-            "default": "deepseek",
+            "default": "mock",
             "required": false
         },
         "VEX_ADVERSARIAL": {
