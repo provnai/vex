@@ -5,6 +5,31 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-04
+
+### Added
+
+- **🐘 PostgreSQL Backend** (`vex-persist`): Full `PostgresBackend` implementing `StorageBackend` trait via `sqlx::PgPool`. Uses `ON CONFLICT DO UPDATE` upsert and `$1` parameter syntax throughout.
+- **🔀 DATABASE_URL Auto-Detection** (`vex-api`): Server now inspects `DATABASE_URL` at startup and selects the backend automatically — `postgres://` → PostgreSQL, `sqlite://` / default → SQLite. Zero config change needed when Railway injects `${{Postgres.DATABASE_URL}}`.
+- **⚙️ PostgresQueueBackend** (`vex-persist`): Postgres-native job queue using `FOR UPDATE SKIP LOCKED` for safe concurrent dequeuing across multiple workers. Replaces SQLite's subquery-based locking trick. Uses `NOW() + ($n * INTERVAL '1 second')` for retry delays.
+- **🧬 PostgresEvolutionStore** (`vex-persist`): Postgres implementation of `EvolutionStore` with `NOW()` datetime dialect replacing SQLite's `datetime('now')`.
+- **🧠 PgVectorStore** (`vex-persist`): PostgreSQL vector store backed by the `pgvector` extension. Uses the native `<=>` cosine distance operator and an HNSW index (`vector_cosine_ops`) for DB-side approximate nearest-neighbor search — replaces the in-Rust brute-force cosine loop in `SqliteVectorStore`.
+- **🗃️ PostgreSQL Migrations** (`vex-persist/postgres_migrations/`): 5 migration files porting the full VEX schema to Postgres SQL dialect (`TIMESTAMPTZ`, `JSONB`, `BYTEA`, `BIGSERIAL`, `DOUBLE PRECISION`, `CREATE EXTENSION IF NOT EXISTS vector`).
+- **🛤️ `railway.toml`** updated: healthcheck timeout increased to 300s, comprehensive env var documentation added with Railway template variable syntax (`${{Postgres.DATABASE_URL}}`).
+- **📊 `db_type` in `/health`**: Both `GET /health` and `GET /health/detailed` now return the active backend name (`"sqlite"` or `"postgres"`) for zero-ambiguity deployment debugging.
+- **📡 OTEL OTLP Export activated** (`vex-api`): The OTLP tracing pipeline is now live (gated behind `--features vex-api/otel`). When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, traces stream to Grafana, Jaeger, Datadog, or any OTLP-compatible collector. Gracefully falls back to console if OTLP fails to initialize.
+- **📝 README.md**: Expanded Environment Variables section with `DATABASE_URL` (SQLite/Postgres), all rate limit overrides, complete OTEL block with sampling rate documentation.
+
+### Changed
+
+- `vex-api/src/server.rs`: Backend initialization refactored to two-phase init pattern — concrete backend initialized first (pool handle retained), then erased to `Arc<dyn StorageBackend>`. Eliminates unsafe downcasting.
+- Default `DATABASE_URL` changed from `sqlite::memory:` to `sqlite:vex.db?mode=rwc` for persistence across Railway restarts with a volume mount.
+
+### Dependencies
+
+- Added `pgvector = "0.4"` to `vex-persist` (gated behind `postgres` feature).
+- Added `opentelemetry`, `opentelemetry-otlp`, `opentelemetry_sdk`, `tracing-opentelemetry` to `vex-api` (gated behind `otel` feature).
+
 ## [0.2.1] - 2026-03-03
 
 ### Added

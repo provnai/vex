@@ -77,17 +77,38 @@ cargo run -p vex-cli -- tools run calculator '{"expression": "2+2"}'
 ### Environment Variables
 
 ```bash
-# LLM Provider (choose one)
+# ── Database ──────────────────────────────────────────────────────────────────
+# SQLite (default — single node, Railway volume)
+export DATABASE_URL="sqlite:vex.db?mode=rwc"
+
+# PostgreSQL (multi-node — Railway Managed DB, horizontal scaling)
+export DATABASE_URL="postgres://user:pass@host/vex"
+# On Railway, this is injected automatically when you add a Postgres plugin:
+# DATABASE_URL = ${{Postgres.DATABASE_URL}}
+
+# ── LLM Provider (choose one) ─────────────────────────────────────────────────
 export DEEPSEEK_API_KEY="sk-..."
 # OR: MISTRAL_API_KEY, OPENAI_API_KEY
 
-# Security
+# ── Auth ──────────────────────────────────────────────────────────────────────
+# Generate with: openssl rand -hex 32
 export VEX_JWT_SECRET="your-32-character-secret-here"
-export VEX_DISABLE_RATE_LIMIT="true"   # Optional: Disable rate limiting for local stress tests
-export VEX_LIMIT_STANDARD="5000"       # Optional: Override default tenant quotas (req/min)
 
-# Production deployment (optional)
-export VEX_ENV="production"          # Enforces HTTPS
+# ── Rate Limiting (OSS Defaults — override as needed) ─────────────────────────
+export VEX_DISABLE_RATE_LIMIT="true"    # Disable entirely (local stress tests)
+export VEX_LIMIT_FREE="60"              # req/min for free tier (default: 60)
+export VEX_LIMIT_STANDARD="120"         # req/min for standard tier (default: 120)
+export VEX_LIMIT_PRO="600"              # req/min for pro tier (default: 600)
+
+# ── Observability (OpenTelemetry) ─────────────────────────────────────────────
+# Connect to any OTLP-compatible collector (Grafana, Jaeger, Datadog, etc.)
+# Requires building with: cargo build --features vex-api/otel
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://your-collector:4317"
+export OTEL_SERVICE_NAME="vex-production"
+export OTEL_TRACES_SAMPLER_ARG="0.1"    # 10% sampling in production
+
+# ── Production (optional) ─────────────────────────────────────────────────────
+export VEX_ENV="production"             # Enforces HTTPS
 export VEX_TLS_CERT="/path/to/cert.pem"
 export VEX_TLS_KEY="/path/to/key.pem"
 ```

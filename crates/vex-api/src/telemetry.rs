@@ -87,15 +87,15 @@ impl OtelConfig {
     }
 }
 
-/// Initialize tracing with optional OpenTelemetry export
+/// Initialize tracing with optional OpenTelemetry OTLP export
 ///
-/// This sets up the tracing subscriber with:
-/// - Console output (always)
-/// - OpenTelemetry OTLP export (if configured)
+/// When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, traces are exported via gRPC
+/// to Grafana, Jaeger, Datadog, or any OTLP-compatible collector.
+/// Without it, falls back to structured console output only.
+#[allow(unused_variables)]
 pub fn init_tracing(config: &OtelConfig) {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-    // Build the base subscriber with env filter
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,vex=debug"));
 
@@ -106,53 +106,64 @@ pub fn init_tracing(config: &OtelConfig) {
         .with_file(false)
         .with_line_number(false);
 
+    #[cfg(feature = "otel")]
     if config.enabled {
         if let Some(ref endpoint) = config.endpoint {
+            use opentelemetry::KeyValue;
+            use opentelemetry_otlp::WithExportConfig;
+            use opentelemetry_sdk::Resource;
+
             tracing::info!(
                 service = %config.service_name,
                 endpoint = %endpoint,
                 sample_rate = config.sample_rate,
-                "OpenTelemetry tracing enabled"
+                "OpenTelemetry OTLP tracing enabled"
             );
-        } else {
-            tracing::info!(
-                service = %config.service_name,
-                "OpenTelemetry tracing enabled (console only)"
-            );
+
+            let resource = Resource::new(vec![KeyValue::new(
+                "service.name",
+                config.service_name.clone(),
+            )]);
+
+            let tracer_result = opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_exporter(
+                    opentelemetry_otlp::new_exporter()
+                        .tonic()
+                        .with_endpoint(endpoint),
+                )
+                .with_trace_config(
+                    opentelemetry_sdk::trace::Config::default()
+                        .with_sampler(opentelemetry_sdk::trace::Sampler::TraceIdRatioBased(
+                            config.sample_rate,
+                        ))
+                        .with_resource(resource),
+                )
+                .install_batch(opentelemetry_sdk::runtime::Tokio);
+
+            match tracer_result {
+                Ok(tracer) => {
+                    let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+                    tracing_subscriber::registry()
+                        .with(env_filter)
+                        .with(fmt_layer)
+                        .with(otel_layer)
+                        .init();
+                    return;
+                }
+                Err(e) => {
+                    // Fall through to console-only if OTLP fails to initialise
+                    eprintln!("OTLP init failed, falling back to console: {}", e);
+                }
+            }
         }
     }
 
+    // Console-only fallback (no OTEL endpoint configured, or otel feature disabled)
     tracing_subscriber::registry()
         .with(env_filter)
         .with(fmt_layer)
         .init();
-
-    // Note: Full OTLP export requires adding opentelemetry crates:
-    // opentelemetry = "0.21"
-    // opentelemetry-otlp = "0.14"
-    // opentelemetry_sdk = "0.21"
-    // tracing-opentelemetry = "0.22"
-    //
-    // Example with full OTLP:
-    // ```
-    // let tracer = opentelemetry_otlp::new_pipeline()
-    //     .tracing()
-    //     .with_exporter(
-    //         opentelemetry_otlp::new_exporter()
-    //             .tonic()
-    //             .with_endpoint(endpoint)
-    //     )
-    //     .with_trace_config(
-    //         opentelemetry_sdk::trace::config()
-    //             .with_sampler(opentelemetry_sdk::trace::Sampler::TraceIdRatioBased(sample_rate))
-    //             .with_resource(Resource::new(vec![
-    //                 KeyValue::new("service.name", service_name),
-    //             ]))
-    //     )
-    //     .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-    //
-    // let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-    // ```
 }
 
 /// Span extension trait for adding VEX-specific attributes

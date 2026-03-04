@@ -6,7 +6,7 @@ license.workspace = true
 repository.workspace = true
 description = "Persistence layer for VEX Protocol"
 readme = "README.md"
-keywords = ["ai", "agents", "persistence", "sqlite", "database"]
+keywords = ["ai", "agents", "persistence", "sqlite", "postgres"]
 categories = ["database", "asynchronous"]
 
 [dependencies]
@@ -28,11 +28,12 @@ subtle = "2.5"
 # Ed25519 signature verification (ISO 42001 A.6.1.3)
 ed25519-dalek = { workspace = true }
 
-# Optional database backends (default-features = false to exclude MySQL and fix RUSTSEC-2023-0071)
-# Note: macros feature currently pulls in MySQL support - this is a known limitation of sqlx
+# Optional database backends
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "chrono", "json", "migrate", "macros"], optional = true }
+# pgvector extension for native PostgreSQL vector similarity search
+pgvector = { version = "0.4", features = ["sqlx"], optional = true }
 
 [features]
 default = ["sqlite"]
 sqlite = ["sqlx"]
-postgres = ["sqlx"]
+postgres = ["sqlx", "pgvector"]

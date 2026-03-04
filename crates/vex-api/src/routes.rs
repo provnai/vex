@@ -24,6 +24,8 @@ pub struct HealthResponse {
     pub status: String,
     pub version: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Active persistence backend: "sqlite" or "postgres"
+    pub db_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub components: Option<ComponentHealth>,
 }
@@ -51,11 +53,12 @@ pub struct ComponentStatus {
         (status = 200, description = "Basic health check", body = HealthResponse)
     )
 )]
-pub async fn health() -> Json<HealthResponse> {
+pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now(),
+        db_type: state.db().name().to_string(),
         components: None,
     })
 }
@@ -92,6 +95,7 @@ pub async fn health_detailed(State(state): State<AppState>) -> Json<HealthRespon
         status: overall_status.to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now(),
+        db_type: state.db().name().to_string(),
         components: Some(ComponentHealth {
             database: db_status,
             queue: queue_status,
@@ -580,6 +584,7 @@ pub async fn update_routing_config(
         status: format!("Routing strategy updated to {}", req.strategy),
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now(),
+        db_type: state.db().name().to_string(),
         components: None,
     }))
 }
@@ -801,6 +806,7 @@ mod tests {
             status: "healthy".to_string(),
             version: "0.1.0".to_string(),
             timestamp: chrono::Utc::now(),
+            db_type: "sqlite".to_string(),
             components: None,
         };
         assert_eq!(health.status, "healthy");

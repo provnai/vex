@@ -127,26 +127,57 @@ impl VexServer {
         let rate_limiter = Arc::new(TenantRateLimiter::new(RateLimitTier::Standard));
         let metrics = Arc::new(Metrics::new());
 
-        // Initialize Persistence (SQLite)
+        // Initialize Persistence — auto-detect backend from DATABASE_URL
+        // postgres:// or postgresql:// → PostgresBackend (multi-node, Railway Managed DB)
+        // sqlite:// or default         → SqliteBackend  (single-node, Railway volume)
         let db_url =
-            std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
-        let db = Arc::new(
-            vex_persist::sqlite::SqliteBackend::new(&db_url)
+            std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:vex.db?mode=rwc".to_string());
+
+        let is_postgres = db_url.starts_with("postgres://") || db_url.starts_with("postgresql://");
+
+        // Two-phase init: keep concrete pool handles first, then erase to dyn trait
+        let (db, evolution_store, queue_backend): (
+            Arc<dyn vex_persist::StorageBackend>,
+            Arc<dyn vex_persist::EvolutionStore>,
+            Arc<dyn QueueBackend>,
+        ) = if is_postgres {
+            #[cfg(feature = "postgres")]
+            {
+                tracing::info!("DATABASE_URL: PostgreSQL backend selected (Railway Managed DB)");
+                let pg_backend = vex_persist::PostgresBackend::new(&db_url)
+                    .await
+                    .map_err(|e| ApiError::Internal(format!("Postgres init failed: {}", e)))?;
+                let pg_pool = pg_backend.pool().clone();
+                (
+                    Arc::new(pg_backend),
+                    Arc::new(vex_persist::PostgresEvolutionStore::new(pg_pool.clone())),
+                    Arc::new(vex_persist::PostgresQueueBackend::new(pg_pool))
+                        as Arc<dyn QueueBackend>,
+                )
+            }
+            #[cfg(not(feature = "postgres"))]
+            {
+                return Err(ApiError::Internal(
+                    "Postgres DATABASE_URL detected but vex-persist was compiled without the 'postgres' feature. \
+                     Rebuild with: cargo build --features vex-persist/postgres".to_string(),
+                ));
+            }
+        } else {
+            tracing::info!("DATABASE_URL: SQLite backend selected");
+            let sqlite_backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
                 .await
-                .map_err(|e| ApiError::Internal(format!("DB Init failed: {}", e)))?,
-        );
-
-        let evolution_store: Arc<dyn vex_persist::EvolutionStore> =
-            Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
-
-        // Initialize Queue (Persistent SQLite)
-        let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
+                .map_err(|e| ApiError::Internal(format!("SQLite init failed: {}", e)))?;
+            let sqlite_pool = sqlite_backend.pool().clone();
+            (
+                Arc::new(sqlite_backend),
+                Arc::new(vex_persist::SqliteEvolutionStore::new(sqlite_pool.clone())),
+                Arc::new(vex_persist::queue::SqliteQueueBackend::new(sqlite_pool))
+                    as Arc<dyn QueueBackend>,
+            )
+        };
 
         // Use dynamic dispatch for the worker pool backend
-        let worker_pool = WorkerPool::new_with_arc(
-            Arc::new(queue_backend) as Arc<dyn QueueBackend>,
-            WorkerConfig::default(),
-        );
+        let worker_pool = WorkerPool::new_with_arc(queue_backend, WorkerConfig::default());
 
         // Initialize Intelligence (LLM) with resilience and caching
         let _base_llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("DEEPSEEK_API_KEY") {
