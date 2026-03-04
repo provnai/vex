@@ -45,15 +45,14 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v0.2.1
+## ✨ What's New in v0.3.0
 
-- 🚀 **Industrial Scaling** - Optimized SQLite persistence with WAL mode and 5s busy timeouts, enabling high-concurrency audit bursts on cloud volumes.
-- 🛡️ **Forensic Metadata Strategy** - Sanitized risk reporting to bypass front-gate safety judges while maintaining 100% audit integrity.
-- 🧬 **Agent Evolution** - Real-time reflection cycles that analyze past experiments and suggest genome adjustments to optimize agent performance.
-- 🌳 **Merkle Tree Provenance** - Every execution generates a Merkle Root of all context packets, providing an immutable audit trail.
-- ⚓ **File & Cloud Anchoring** - Support for local and remote anchoring of Merkle Roots to ensure tamper-evidence.
-- 🧠 **Context Memory Injection** - Agents now support `context_id` based temporal memory for multi-turn coherence and reasoning.
-- 📡 **SSE Job Streaming** - Real-time job status and results via Server-Sent Events, eliminating the need for polling.
+- � **PostgreSQL & pgvector** - Cloud-native database support with native vector similarity searching via HNSW indexing, enabling horizontal scaling.
+- � **Industrial Observability** - Full OpenTelemetry (OTEL) v0.27 integration for exporting agent traces and decisions to any OTLP collector.
+- 🛡️ **McpVanguard Integration** - Deep security, correlation, and tool execution proxying across distributed deployments.
+- 🚦 **Configurable Rate Limiting** - Flexible GCRA-based API limits via environment variables, giving OSS developers full control over tenant tiers.
+- 📦 **Workspace Optimization** - Synchronized dependency structures and robust CI/CD pipelines across all 14 crates.
+- � **Railway-Native** - Zero-config deployment templates with 300s healthcheck windows and auto-migrations.
 
 ---
 
