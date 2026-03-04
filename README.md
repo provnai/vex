@@ -16,6 +16,8 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/vex-protocol?referralCode=provnai)
 
+📚 **[Railway Deployment Guide →](docs/railway.md)**
+
 ---
 
 ## Prerequisites

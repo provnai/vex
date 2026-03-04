@@ -22,16 +22,32 @@
     },
     "variables": {
         "VEX_PORT": {
-            "description": "The port the VEX server will bind to",
+            "description": "The port the VEX server will bind to. Leave as 8080 or use Railway's provided PORT.",
             "default": "8080"
         },
+        "DATABASE_URL": {
+            "description": "The connection string to your PostgreSQL database. If omitted, VEX falls back to SQLite.",
+            "default": "${{Postgres.DATABASE_URL}}",
+            "required": false
+        },
         "VEX_JWT_SECRET": {
-            "description": "Secure 32-character secret for JWT authentication",
+            "description": "Secure 32-character secret for JWT authentication. Generated automatically.",
+            "default": "${{ shared.secrets.PASSWORD }}",
             "required": true
         },
         "VEX_ENV": {
             "description": "Deployment environment (e.g., railway, production)",
             "default": "railway"
+        },
+        "VEX_DEFAULT_PROVIDER": {
+            "description": "Select the primary LLM engine. Options: deepseek, openai, anthropic, mistral, ollama, or mock.",
+            "default": "deepseek",
+            "required": false
+        },
+        "VEX_ADVERSARIAL": {
+            "description": "Enable Red/Blue adversarial debate for verified reasoning consensus.",
+            "default": "false",
+            "required": false
         },
         "OPENAI_API_KEY": {
             "description": "OpenAI API Key (optional if using other providers)",
