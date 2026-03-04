@@ -165,6 +165,19 @@ Then visit:
 
 ---
 
+## 🛡️ McpVanguard Integration (Cloud-Native Security Proxy)
+
+VEX Protocol natively integrates with **[McpVanguard](https://github.com/provnai/McpVanguard)**, allowing for deep security, correlation, and tool execution proxying across distributed deployments.
+
+By configuring VEX's `vex-llm` module to point to an McpVanguard proxy (instead of executing MCP tools locally), you enable:
+- **Centralized Tool Auditing:** All tool executions are logged and cryptographically signed before being routed to external services.
+- **Event Correlation:** VEX agent reasoning states and actions uniquely correlate with McpVanguard's network intercepts.
+- **Agent Blackboxing:** Isolate the execution context (e.g. database access, heavy computation) from the agent's core reasoning engine.
+
+This is a critical architecture for deploying VEX in "Live Loop" scenarios where actions have real-world consequences (e.g., executing transactions or interacting with external APIs).
+
+---
+
 ## Production Features
 
 ### 🔐 Security
