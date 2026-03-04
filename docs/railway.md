@@ -11,7 +11,7 @@ Railway is the officially recommended cloud provider for deploying the VEX Proto
 
 Deploy the entire VEX stack, including a managed PostgreSQL instance, in one click:
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/vex-protocol)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/N9-iqS?referralCode=4AXmAG)
 
 ## Step-by-Step Configuration
 

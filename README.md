@@ -14,7 +14,7 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 
 **🚀 [Live Demo: AI News Verification on Solana](https://www.vexevolve.com/)** - Experience VEX in action with full transparency and blockchain anchoring.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/vex-protocol?referralCode=provnai)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/N9-iqS?referralCode=4AXmAG)
 
 📚 **[Railway Deployment Guide →](docs/railway.md)**
 
