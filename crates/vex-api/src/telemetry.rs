@@ -110,8 +110,13 @@ pub fn init_tracing(config: &OtelConfig) {
     if config.enabled {
         if let Some(ref endpoint) = config.endpoint {
             use opentelemetry::KeyValue;
-            use opentelemetry_otlp::WithExportConfig;
-            use opentelemetry_sdk::Resource;
+            use opentelemetry_otlp::{SpanExporter, WithExportConfig};
+            use opentelemetry_sdk::{
+                trace::{BatchSpanProcessor, Sampler, TracerProvider},
+                Resource,
+            };
+            // Bring trait into scope so .tracer() is available
+            use opentelemetry::trace::TracerProvider as _;
 
             tracing::info!(
                 service = %config.service_name,
@@ -125,25 +130,27 @@ pub fn init_tracing(config: &OtelConfig) {
                 config.service_name.clone(),
             )]);
 
-            let tracer_result = opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_exporter(
-                    opentelemetry_otlp::new_exporter()
-                        .tonic()
-                        .with_endpoint(endpoint),
-                )
-                .with_trace_config(
-                    opentelemetry_sdk::trace::Config::default()
-                        .with_sampler(opentelemetry_sdk::trace::Sampler::TraceIdRatioBased(
-                            config.sample_rate,
-                        ))
-                        .with_resource(resource),
-                )
-                .install_batch(opentelemetry_sdk::runtime::Tokio);
+            let exporter_result = SpanExporter::builder()
+                .with_tonic()
+                .with_endpoint(endpoint)
+                .build();
 
-            match tracer_result {
-                Ok(tracer) => {
+            match exporter_result {
+                Ok(exporter) => {
+                    let processor =
+                        BatchSpanProcessor::builder(exporter, opentelemetry_sdk::runtime::Tokio)
+                            .build();
+
+                    let provider = TracerProvider::builder()
+                        .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))
+                        .with_resource(resource)
+                        .with_span_processor(processor)
+                        .build();
+
+                    opentelemetry::global::set_tracer_provider(provider.clone());
+                    let tracer = provider.tracer(config.service_name.clone());
                     let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
                     tracing_subscriber::registry()
                         .with(env_filter)
                         .with(fmt_layer)
@@ -152,7 +159,6 @@ pub fn init_tracing(config: &OtelConfig) {
                     return;
                 }
                 Err(e) => {
-                    // Fall through to console-only if OTLP fails to initialise
                     eprintln!("OTLP init failed, falling back to console: {}", e);
                 }
             }
