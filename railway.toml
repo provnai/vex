@@ -4,9 +4,37 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 
 [deploy.volumes]
 data = { mountPath = "/data" }
+
+# VEX Protocol Environment Variables
+# Uncomment and configure before deploying to Railway
+
+# [deploy.envs]
+# VEX_ENV = "production"
+# VEX_PORT = "${{PORT}}"
+
+# --- Database ---
+# Leave unset → SQLite with volume at /data/vex.db (single-node)
+# Set to Railway Postgres URL → PostgreSQL (multi-node, horizontal scale)
+# DATABASE_URL = "${{Postgres.DATABASE_URL}}"
+
+# --- LLM Provider ---
+# DEEPSEEK_API_KEY = "your-key-here"
+
+# --- Auth ---
+# VEX_JWT_SECRET = "${{VEX_JWT_SECRET}}"
+
+# --- Rate Limiting (OSS Defaults) ---
+# VEX_DISABLE_RATE_LIMIT = "false"
+# VEX_LIMIT_FREE = "60"
+# VEX_LIMIT_STANDARD = "120"
+# VEX_LIMIT_PRO = "600"
+
+# --- OpenTelemetry (optional) ---
+# OTEL_EXPORTER_OTLP_ENDPOINT = "http://your-collector:4317"
+# OTEL_SERVICE_NAME = "vex-production"

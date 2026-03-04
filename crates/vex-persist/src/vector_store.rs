@@ -238,3 +238,109 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
     dot_product / (norm_a * norm_b)
 }
+
+/// PostgreSQL-backed vector store using pgvector native extension
+/// Uses HNSW index for fast approximate nearest-neighbor search
+/// Requires the `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+#[cfg(feature = "postgres")]
+#[derive(Debug, Clone)]
+pub struct PgVectorStore {
+    dimension: usize,
+    pool: sqlx::PgPool,
+}
+
+#[cfg(feature = "postgres")]
+impl PgVectorStore {
+    pub fn new(dimension: usize, pool: sqlx::PgPool) -> Self {
+        Self { dimension, pool }
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl VectorStoreBackend for PgVectorStore {
+    async fn add(
+        &self,
+        id: String,
+        tenant_id: String,
+        vector: Vec<f32>,
+        metadata: HashMap<String, String>,
+    ) -> Result<(), VectorError> {
+        if vector.len() != self.dimension {
+            return Err(VectorError::DimensionMismatch(self.dimension, vector.len()));
+        }
+
+        let metadata_json = serde_json::to_string(&metadata)
+            .map_err(|e| VectorError::SerializationError(e.to_string()))?;
+
+        // Use pgvector::Vector type for native Postgres vector storage
+        let pg_vector = pgvector::Vector::from(vector);
+
+        sqlx::query(
+            "INSERT INTO vector_embeddings (id, tenant_id, vector, metadata) VALUES ($1, $2, $3::vector, $4)
+             ON CONFLICT (id, tenant_id) DO UPDATE SET vector = EXCLUDED.vector, metadata = EXCLUDED.metadata"
+        )
+        .bind(&id)
+        .bind(&tenant_id)
+        .bind(pg_vector)
+        .bind(metadata_json)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn search(
+        &self,
+        tenant_id: &str,
+        query: &[f32],
+        k: usize,
+    ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
+        if query.len() != self.dimension {
+            return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
+        }
+
+        let pg_query = pgvector::Vector::from(query.to_vec());
+
+        // Uses the pgvector <=> operator (cosine distance) with DB-side HNSW index
+        // Dramatically faster than Rust-side brute-force scan for large tenant datasets
+        let rows = sqlx::query(
+            "SELECT id, vector, metadata, 1 - (vector <=> $1::vector) AS score
+             FROM vector_embeddings
+             WHERE tenant_id = $2
+             ORDER BY vector <=> $1::vector
+             LIMIT $3",
+        )
+        .bind(pg_query)
+        .bind(tenant_id)
+        .bind(k as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            use sqlx::Row;
+            let id: String = row.get("id");
+            let metadata_str: String = row.get("metadata");
+            let score: f32 = row.try_get("score").unwrap_or(0.0);
+            let pg_vec: pgvector::Vector = row.get("vector");
+            let vector: Vec<f32> = pg_vec.to_vec();
+
+            let metadata: HashMap<String, String> = serde_json::from_str(&metadata_str)
+                .map_err(|e| VectorError::SerializationError(e.to_string()))?;
+
+            results.push((
+                score,
+                VectorEmbedding {
+                    id,
+                    vector,
+                    metadata,
+                },
+            ));
+        }
+
+        Ok(results)
+    }
+}
