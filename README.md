@@ -136,6 +136,8 @@ Then visit:
 
 ## Architecture
 
+![VEX Protocol v0.3.0 Architecture](docs/vex-architecture.png)
+
 ```               
 ┌─────────────────────────────────────────────────────────────────┐
 │  vex-server    │ Production entry point (Railway, Middleware)   │
