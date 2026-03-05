@@ -202,13 +202,37 @@ impl VexServer {
         // Create shared result store for job results
         let result_store = crate::jobs::new_result_store();
 
+        // --- Phase 3: Hardware-Rooted Trust Layer ---
+        let hardware_keystore = vex_hardware::api::HardwareKeystore::new()
+            .await
+            .map_err(|e| ApiError::Internal(format!("Hardware init failed: {}", e)))?;
+        let identity = Arc::new(
+            hardware_keystore
+                .get_identity(&[])
+                .await
+                .map_err(|e| ApiError::Internal(format!("Hardware identity failed: {}", e)))?,
+        );
+
+        let audit_store = Arc::new(vex_persist::AuditStore::new(db.clone()));
+        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
+
+        let orchestrator = Arc::new(
+            vex_runtime::Orchestrator::new(
+                llm.clone(),
+                vex_runtime::OrchestratorConfig::default(),
+                Some(evolution_store.clone()),
+                gate.clone(),
+            )
+            .with_identity(identity.clone(), audit_store.clone()),
+        );
+
         // Register Agent Job
         let llm_clone = llm.clone();
         let result_store_clone = result_store.clone();
         let db_for_factory = db.clone();
         let evolution_store_clone = evolution_store.clone();
-        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
         let gate_clone = gate.clone();
+        let orchestrator_clone = orchestrator.clone();
 
         worker_pool.register_job_factory("agent_execution", move |payload| {
             let job_payload: AgentJobPayload =
@@ -232,9 +256,10 @@ impl VexServer {
                 llm_clone.clone(),
                 result_store_clone.clone(),
                 db_concrete as Arc<dyn vex_persist::StorageBackend>,
-                None, // No anchor in fallback
+                None, // Anchor handled by AuditStore now
                 evo_store,
                 gate_clone.clone(),
+                orchestrator_clone.clone(),
             ))
         });
 
@@ -251,6 +276,7 @@ impl VexServer {
             llm.clone(),
             Some(router_arc),
             gate.clone(),
+            orchestrator.clone(),
         );
 
         Ok(Self { config, app_state })

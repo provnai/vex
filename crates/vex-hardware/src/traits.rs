@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
 /// Abstraction for Hardware-Backed Identity (TPM, Secure Enclave, etc.)
 #[async_trait]

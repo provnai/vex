@@ -1,19 +1,27 @@
 use ed25519_dalek::{Signature, Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
+use zeroize::Zeroize;
 
 /// AttestAgent represents a cryptographically-verified agent identity.
-#[derive(Debug)]
+#[derive(Debug, Zeroize)]
+#[zeroize(drop)]
 pub struct AttestAgent {
+    #[zeroize(skip)]
     pub signing_key: SigningKey,
+    #[zeroize(skip)]
     pub id: String, // aid:ed25519:<hex_pubkey>
 }
 
 impl AttestAgent {
     /// Restore an identity from a raw 32-byte seed
-    pub fn from_seed(seed: [u8; 32]) -> Self {
+    pub fn from_seed(mut seed: [u8; 32]) -> Self {
         let signing_key = SigningKey::from_bytes(&seed);
-        let id = format!("aid:ed25519:{}", hex::encode(signing_key.verifying_key().to_bytes()));
+        seed.zeroize();
+        let id = format!(
+            "aid:ed25519:{}",
+            hex::encode(signing_key.verifying_key().to_bytes())
+        );
         Self { signing_key, id }
     }
 

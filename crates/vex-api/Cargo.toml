@@ -19,6 +19,7 @@ vex-queue = { workspace = true }
 vex-runtime = { workspace = true }
 vex-router = { workspace = true }
 vex-anchor = { workspace = true }
+vex-hardware = { workspace = true }
 futures = { workspace = true }
 
 # Async runtime & web framework
@@ -55,6 +56,7 @@ jsonwebtoken = "9"
 argon2 = "0.5"
 base64 = "0.22"
 zeroize = { workspace = true }
+hex = { workspace = true }
 
 # Utilities
 uuid = { workspace = true }

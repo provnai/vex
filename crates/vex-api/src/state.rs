@@ -23,6 +23,7 @@ pub struct AppState {
     llm: Arc<dyn LlmProvider>,
     router: Option<Arc<vex_router::Router>>,
     gate: Arc<dyn vex_runtime::Gate>,
+    orchestrator: Arc<vex_runtime::Orchestrator<dyn vex_llm::LlmProvider>>,
 }
 
 impl AppState {
@@ -39,6 +40,7 @@ impl AppState {
         llm: Arc<dyn LlmProvider>,
         router: Option<Arc<vex_router::Router>>,
         gate: Arc<dyn vex_runtime::Gate>,
+        orchestrator: Arc<vex_runtime::Orchestrator<dyn vex_llm::LlmProvider>>,
     ) -> Self {
         Self {
             jwt_auth,
@@ -51,6 +53,7 @@ impl AppState {
             llm,
             router,
             gate,
+            orchestrator,
         }
     }
 
@@ -102,5 +105,10 @@ impl AppState {
     /// Get Gate provider (cloned Arc for sharing)
     pub fn gate(&self) -> Arc<dyn vex_runtime::Gate> {
         self.gate.clone()
+    }
+
+    /// Get Orchestrator (cloned Arc for sharing)
+    pub fn orchestrator(&self) -> Arc<vex_runtime::Orchestrator<dyn vex_llm::LlmProvider>> {
+        self.orchestrator.clone()
     }
 }

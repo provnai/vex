@@ -24,6 +24,7 @@ pub enum AuditEventType {
     // ISO 42001 A.6 Lifecycle event types
     PolicyUpdate,
     ModelUpgrade,
+    GenomeEvolved,
     AnomalousBehavior,
     HumanOverride,
     /// CHORA Phase-2 Gate Decision
@@ -356,8 +357,8 @@ impl AuditEvent {
         };
 
         // 1. Serialize parameters to JCS bytes deterministically
-        let jcs_bytes = serde_jcs::to_vec(&params)
-            .map_err(|e| format!("JCS serialization failed: {}", e))?;
+        let jcs_bytes =
+            serde_jcs::to_vec(&params).map_err(|e| format!("JCS serialization failed: {}", e))?;
 
         // 2 & 3. Generate the signature directly over the JCS bytes using hardware-rooted identity
         let raw_signature_bytes = agent_identity.sign(&jcs_bytes);
@@ -392,8 +393,12 @@ mod tests {
         // 2. Generate a random identity
         // In fallback mode, get_identity requires a seed blob. Let's create a dummy encrypted blob (fallback provider expects raw 32 bytes)
         let dummy_seed = [42u8; 32];
-        let encrypted_blob = keystore.seal_identity(&dummy_seed).await.expect("Failed to seal");
-        let agent_identity = keystore.get_identity(&encrypted_blob)
+        let encrypted_blob = keystore
+            .seal_identity(&dummy_seed)
+            .await
+            .expect("Failed to seal");
+        let agent_identity = keystore
+            .get_identity(&encrypted_blob)
             .await
             .expect("Failed to get identity");
 
@@ -406,17 +411,30 @@ mod tests {
         );
 
         // 4. Sign it using the hardware identity
-        assert!(event.approval_signatures.is_empty(), "Event should start with no signatures");
-        
+        assert!(
+            event.approval_signatures.is_empty(),
+            "Event should start with no signatures"
+        );
+
         let sign_result = event.sign_hardware(&agent_identity).await;
         assert!(sign_result.is_ok(), "Signing should succeed");
-        
+
         // 5. Verify the signature was attached correctly
-        assert_eq!(event.approval_signatures.len(), 1, "One signature should be appended");
-        
+        assert_eq!(
+            event.approval_signatures.len(),
+            1,
+            "One signature should be appended"
+        );
+
         let sig = &event.approval_signatures[0];
-        assert_eq!(sig.signer_id, agent_identity.agent_id, "Signer ID should match agent identity");
-        assert!(!sig.signature_hex.is_empty(), "Signature hex should not be empty");
+        assert_eq!(
+            sig.signer_id, agent_identity.agent_id,
+            "Signer ID should match agent identity"
+        );
+        assert!(
+            !sig.signature_hex.is_empty(),
+            "Signature hex should not be empty"
+        );
     }
 
     #[tokio::test]
@@ -427,7 +445,12 @@ mod tests {
         let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
         let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
 
-        let mut event1 = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        let mut event1 = AuditEvent::new(
+            AuditEventType::GateDecision,
+            Some(Uuid::new_v4()),
+            json!({"status": "approved"}),
+            1,
+        );
         // Force timestamps and UUIDs to be identical for deterministic test
         let id = Uuid::new_v4();
         let ts = Utc::now();
@@ -454,9 +477,14 @@ mod tests {
         let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
         let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
 
-        let mut event1 = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        let mut event1 = AuditEvent::new(
+            AuditEventType::GateDecision,
+            Some(Uuid::new_v4()),
+            json!({"status": "approved"}),
+            1,
+        );
         let mut event2 = event1.clone();
-        
+
         // Tamper with the payload of event2
         event2.data = json!({"status": "denied"});
 
@@ -472,15 +500,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_hardware_signature_raw_dalek_verification() {
-        use ed25519_dalek::{Signer, Verifier, VerifyingKey, Signature as DalekSignature};
-        
+        use ed25519_dalek::{Signature as DalekSignature, Verifier};
+
         std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
         let keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
         let dummy_seed = [42u8; 32];
         let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
         let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
 
-        let mut event = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        let mut event = AuditEvent::new(
+            AuditEventType::GateDecision,
+            Some(Uuid::new_v4()),
+            json!({"status": "approved"}),
+            1,
+        );
         event.sign_hardware(&agent_identity).await.unwrap();
 
         let sig_hex = &event.approval_signatures[0].signature_hex;

@@ -25,7 +25,7 @@ async fn setup_state() -> AppState {
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
 
     // 3. In-memory DB
-    let db = SqliteBackend::new("sqlite::memory:").await.unwrap();
+    let db = Arc::new(SqliteBackend::new("sqlite::memory:").await.unwrap());
 
     // 4. Queue (using same DB pool)
     let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
@@ -37,18 +37,40 @@ async fn setup_state() -> AppState {
     // 5. Evolution Store
     let evolution_store = Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
 
-    // 6. AppState
+    // 6. Hardware Identity & Audit Store (Mocked for tests)
+    let hardware_keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
+    let identity = Arc::new(hardware_keystore.get_identity(&[]).await.unwrap());
+    let audit_store = Arc::new(vex_persist::AuditStore::new(
+        db.clone() as Arc<dyn vex_persist::StorageBackend>,
+    ));
+
+    // 7. Orchestrator
+    let llm: Arc<dyn vex_llm::LlmProvider> = Arc::new(vex_llm::MockProvider::new(vec![]));
+    let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
+
+    let orchestrator: Arc<vex_runtime::Orchestrator<dyn vex_llm::LlmProvider>> = Arc::new(
+        vex_runtime::Orchestrator::new(
+            llm.clone(),
+            vex_runtime::OrchestratorConfig::default(),
+            Some(evolution_store.clone()),
+            gate.clone(),
+        )
+        .with_identity(identity, audit_store),
+    );
+
+    // 8. AppState
     AppState::new(
         jwt,
         rate_limiter,
         metrics,
-        Arc::new(db),
+        db.clone() as Arc<dyn vex_persist::StorageBackend>,
         evolution_store,
         Arc::new(worker_pool),
         a2a_state,
-        Arc::new(vex_llm::MockProvider::new(vec![])),
+        llm,
         None,
-        Arc::new(vex_runtime::GenericGateMock),
+        gate,
+        orchestrator,
     )
 }
 

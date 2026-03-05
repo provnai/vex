@@ -4801,6 +4801,7 @@ dependencies = [
  "chrono",
  "futures",
  "governor",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -4830,6 +4831,7 @@ dependencies = [
  "vex-adversarial",
  "vex-anchor",
  "vex-core",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
  "vex-queue",
@@ -4882,7 +4884,7 @@ dependencies = [
 
 [[package]]
 name = "vex-hardware"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4963,6 +4965,7 @@ dependencies = [
  "tracing",
  "uuid",
  "vex-core",
+ "vex-hardware",
  "vex-queue",
 ]
 
@@ -5052,6 +5055,7 @@ dependencies = [
  "vex-adversarial",
  "vex-anchor",
  "vex-core",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
 ]
@@ -5075,6 +5079,7 @@ dependencies = [
  "vex-anchor",
  "vex-api",
  "vex-core",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
  "vex-queue",

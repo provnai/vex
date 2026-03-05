@@ -101,19 +101,50 @@ async fn main() -> Result<()> {
     // Create shared result store
     let result_store = vex_api::jobs::new_result_store();
 
-    // Create FileAnchor for audit logging
-    let file_anchor: Arc<dyn vex_anchor::AnchorBackend> =
+    // Create FileAnchor for audit logging (Legacy/Fallback)
+    let _file_anchor: Arc<dyn vex_anchor::AnchorBackend> =
         Arc::new(vex_anchor::FileAnchor::new("./vex_audit.jsonl"));
-    tracing::info!("⚓ Audit logging enabled: ./vex_audit.jsonl");
+
+    // --- Phase 3: Hardware-Rooted Trust Layer ---
+
+    // 1. Initialize Hardware Keystore (TPM/CNG)
+    let hardware_keystore = vex_hardware::api::HardwareKeystore::new()
+        .await
+        .map_err(|e| anyhow::anyhow!("Hardware init failed: {}", e))?;
+    let identity = Arc::new(
+        hardware_keystore
+            .get_identity(&[])
+            .await
+            .map_err(|e| anyhow::anyhow!("Hardware identity failed: {}", e))?,
+    );
+    let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
+
+    // 2. Initialize Audit Store (Merkle-Chained)
+    let audit_store = Arc::new(vex_persist::AuditStore::new(
+        db.clone() as Arc<dyn vex_persist::StorageBackend>
+    ));
+
+    // 3. Initialize Unified Orchestrator (Cognitive Hub)
+    let orchestrator = Arc::new(
+        vex_runtime::Orchestrator::new(
+            llm.clone(),
+            vex_runtime::OrchestratorConfig::default(),
+            Some(evolution_store.clone()),
+            gate.clone(),
+        )
+        .with_identity(identity.clone(), audit_store.clone()),
+    );
+
+    tracing::info!("⚓ Hardware Identity Active: {}", identity.agent_id);
+    tracing::info!("🛡️ Cognitive Orchestrator initialized (Unified Signing)");
 
     // Register Agent Job
     let llm_clone = llm.clone();
     let result_store_clone = result_store.clone();
     let db_for_factory = db.clone();
     let evolution_store_clone = evolution_store.clone();
-    let gate: std::sync::Arc<dyn vex_runtime::Gate> =
-        std::sync::Arc::new(vex_runtime::GenericGateMock);
     let gate_clone = gate.clone();
+    let orchestrator_clone = orchestrator.clone();
     worker_pool.register_job_factory("agent_execution", move |payload| {
         let job_payload: AgentJobPayload =
             serde_json::from_value(payload).unwrap_or_else(|_| AgentJobPayload {
@@ -127,7 +158,6 @@ async fn main() -> Result<()> {
                 capabilities: vec![],
             });
         let job_id = uuid::Uuid::new_v4();
-        let anchor_clone = file_anchor.clone();
         let db_concrete = db_for_factory.clone();
         let evo_store = evolution_store_clone.clone();
 
@@ -137,9 +167,10 @@ async fn main() -> Result<()> {
             llm_clone.clone(),
             result_store_clone.clone(),
             db_concrete as Arc<dyn vex_persist::StorageBackend>,
-            Some(anchor_clone),
+            None, // Anchor handled by AuditStore now
             evo_store,
             gate_clone.clone(),
+            orchestrator_clone.clone(),
         ))
     });
 
@@ -156,6 +187,7 @@ async fn main() -> Result<()> {
         llm.clone(),
         None, // We skip the broken router entirely
         gate.clone(),
+        orchestrator.clone(),
     );
 
     let mut app = api_router(app_state.clone());

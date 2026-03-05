@@ -9,7 +9,9 @@ use vex_adversarial::{
     Consensus, ConsensusProtocol, Debate, DebateRound, ShadowAgent, ShadowConfig, Vote,
 };
 use vex_core::{Agent, ContextPacket, Hash};
+use vex_hardware::api::AgentIdentity;
 use vex_llm::Capability;
+use vex_persist::{AuditStore, StorageBackend};
 
 #[derive(Debug, Deserialize)]
 struct ChallengeResponse {
@@ -71,34 +73,67 @@ pub struct ExecutionResult {
 use vex_llm::{LlmProvider, LlmRequest};
 
 /// Agent executor - runs agents with LLM backends
-pub struct AgentExecutor<L: LlmProvider> {
+pub struct AgentExecutor<L: LlmProvider + ?Sized> {
     /// Configuration
     pub config: ExecutorConfig,
     /// LLM backend
     llm: Arc<L>,
     /// Policy Gate
     gate: Arc<dyn Gate>,
+    /// Audit Store (Phase 3)
+    pub audit_store: Option<Arc<AuditStore<dyn StorageBackend>>>,
+    /// Hardware Identity (Phase 3)
+    pub identity: Option<Arc<AgentIdentity>>,
 }
 
-impl<L: LlmProvider> Clone for AgentExecutor<L> {
+impl<L: LlmProvider + ?Sized> std::fmt::Debug for AgentExecutor<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentExecutor")
+            .field("config", &self.config)
+            .field("identity", &self.identity)
+            .finish()
+    }
+}
+
+impl<L: LlmProvider + ?Sized> Clone for AgentExecutor<L> {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
             llm: self.llm.clone(),
             gate: self.gate.clone(),
+            audit_store: self.audit_store.clone(),
+            identity: self.identity.clone(),
         }
     }
 }
 
-impl<L: LlmProvider> AgentExecutor<L> {
+impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
     /// Create a new executor
     pub fn new(llm: Arc<L>, config: ExecutorConfig, gate: Arc<dyn Gate>) -> Self {
-        Self { config, llm, gate }
+        Self {
+            config,
+            llm,
+            gate,
+            audit_store: None,
+            identity: None,
+        }
+    }
+
+    /// Attach a hardware-rooted identity and audit store (Phase 3)
+    pub fn with_identity(
+        mut self,
+        identity: Arc<AgentIdentity>,
+        audit_store: Arc<AuditStore<dyn StorageBackend>>,
+    ) -> Self {
+        self.identity = Some(identity);
+        self.audit_store = Some(audit_store);
+        self
     }
 
     /// Execute an agent with a prompt and return the result
     pub async fn execute(
         &self,
+        tenant_id: &str, // Added tenant_id for audit logging
         agent: &mut Agent,
         prompt: &str,
         capabilities: Vec<Capability>,
@@ -147,16 +182,36 @@ impl<L: LlmProvider> AgentExecutor<L> {
         agent.context = context.clone();
         agent.fitness = confidence;
 
-        Ok(ExecutionResult {
+        let result = ExecutionResult {
             agent_id: agent.id,
             response: final_response,
             verified,
             confidence,
             trace_root: context.trace_root.clone(),
-            context,
+            context: context.clone(),
             debate,
-            evidence: Some(capsule),
-        })
+            evidence: Some(capsule.clone()),
+        };
+
+        // Step 5: Automatic Hardware-Signed Audit Log (Phase 3)
+        if let Some(store) = &self.audit_store {
+            let _ = store
+                .log(
+                    tenant_id,
+                    vex_core::audit::AuditEventType::AgentExecuted,
+                    vex_core::audit::ActorType::Bot(agent.id),
+                    Some(agent.id),
+                    serde_json::json!({
+                        "prompt": prompt,
+                        "confidence": confidence,
+                        "verified": verified,
+                    }),
+                    self.identity.as_ref().map(|id| id.as_ref()),
+                )
+                .await;
+        }
+
+        Ok(result)
     }
 
     /// Run adversarial verification with Red agent
@@ -375,7 +430,7 @@ mod tests {
         let mut agent = Agent::new(AgentConfig::default());
 
         let result = executor
-            .execute(&mut agent, "Test prompt", vec![])
+            .execute("test-tenant", &mut agent, "Test prompt", vec![])
             .await
             .unwrap();
         assert!(!result.response.is_empty());
