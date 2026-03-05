@@ -98,12 +98,14 @@ impl Gate for HttpGate {
         confidence: f64,
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
+        // Note: The Vanguard gate only cares about confidence and capabilities.
+        // It does not need agent_id or task_prompt for the core policy check.
         let payload = serde_json::json!({
             "agent_id": agent_id,
             "task_prompt": task_prompt,
             "suggested_output": suggested_output,
             "confidence": confidence,
-            "capabilities": capabilities,
+            "capabilities": capabilities.iter().map(|c| format!("{:?}", c)).collect::<Vec<String>>(),
         });
 
         let gate_url = if self.url.ends_with('/') {
@@ -121,21 +123,45 @@ impl Gate for HttpGate {
             .await
         {
             Ok(resp) => {
-                if resp.status().is_success() {
-                    resp.json::<EvidenceCapsule>()
-                        .await
-                        .unwrap_or_else(|e| EvidenceCapsule {
-                            capsule_id: "error".to_string(),
-                            outcome: "HALT".to_string(),
-                            reason_code: format!("API_PARSE_ERROR: {}", e),
+                let status = resp.status();
+                if status.is_success() {
+                    let text = resp.text().await.unwrap_or_else(|_| "".to_string());
+
+                    // Vanguard specific response shape:
+                    // { "signed_payload": { "capsule_id": "...", "outcome": "...", "reason_code": "..." }, ... }
+                    #[derive(serde::Deserialize)]
+                    struct VanguardSignedPayload {
+                        capsule_id: String,
+                        outcome: String,
+                        reason_code: String,
+                    }
+                    #[derive(serde::Deserialize)]
+                    struct VanguardResponse {
+                        signed_payload: VanguardSignedPayload,
+                    }
+
+                    match serde_json::from_str::<VanguardResponse>(&text) {
+                        Ok(v_resp) => EvidenceCapsule {
+                            capsule_id: v_resp.signed_payload.capsule_id,
+                            outcome: v_resp.signed_payload.outcome,
+                            reason_code: v_resp.signed_payload.reason_code,
                             sensors: serde_json::Value::Null,
                             reproducibility_context: serde_json::Value::Null,
-                        })
+                        },
+                        Err(e) => EvidenceCapsule {
+                            capsule_id: "error".to_string(),
+                            outcome: "HALT".to_string(),
+                            reason_code: format!("API_PARSE_ERROR: {} (Raw: {})", e, text),
+                            sensors: serde_json::Value::Null,
+                            reproducibility_context: serde_json::Value::Null,
+                        },
+                    }
                 } else {
+                    let text = resp.text().await.unwrap_or_else(|_| "".to_string());
                     EvidenceCapsule {
                         capsule_id: "error".to_string(),
                         outcome: "HALT".to_string(),
-                        reason_code: format!("API_STATUS_ERROR: {}", resp.status()),
+                        reason_code: format!("API_STATUS_ERROR: {} (Raw: {})", status, text),
                         sensors: serde_json::Value::Null,
                         reproducibility_context: serde_json::Value::Null,
                     }
