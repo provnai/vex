@@ -333,4 +333,188 @@ impl AuditEvent {
             }
         }
     }
+
+    /// Sign the evidence capsule payload using the hardware-rooted TPM identity.
+    /// Uses JCS serialization for deterministic CHORA compliance.
+    pub async fn sign_hardware(
+        &mut self,
+        agent_identity: &vex_hardware::api::AgentIdentity,
+    ) -> Result<(), String> {
+        let params = HashParams {
+            event_type: &self.event_type,
+            timestamp: self.timestamp.timestamp(),
+            sequence_number: self.sequence_number,
+            data: &self.data,
+            actor: &self.actor,
+            rationale: &self.rationale,
+            policy_version: &self.policy_version,
+            data_provenance_hash: &self.data_provenance_hash,
+            human_review_required: self.human_review_required,
+            approval_count: self.approval_signatures.len(),
+            evidence_capsule: &self.evidence_capsule,
+            schema_version: &self.schema_version,
+        };
+
+        // 1. Serialize parameters to JCS bytes deterministically
+        let jcs_bytes = serde_jcs::to_vec(&params)
+            .map_err(|e| format!("JCS serialization failed: {}", e))?;
+
+        // 2 & 3. Generate the signature directly over the JCS bytes using hardware-rooted identity
+        let raw_signature_bytes = agent_identity.sign(&jcs_bytes);
+
+        // 4. Wrap the raw signature in VEX's unified Signature tracking format
+        let final_signature = Signature {
+            signer_id: agent_identity.agent_id.clone(),
+            signed_at: Utc::now(),
+            signature_hex: hex::encode(raw_signature_bytes),
+        };
+
+        self.approval_signatures.push(final_signature);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_hardware_signature() {
+        // Force fallback mode for the test (no physical TPM needed)
+        std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+
+        // 1. Initialize the mock/fallback hardware keystore
+        let keystore = vex_hardware::api::HardwareKeystore::new()
+            .await
+            .expect("Failed to initialize keystore");
+
+        // 2. Generate a random identity
+        // In fallback mode, get_identity requires a seed blob. Let's create a dummy encrypted blob (fallback provider expects raw 32 bytes)
+        let dummy_seed = [42u8; 32];
+        let encrypted_blob = keystore.seal_identity(&dummy_seed).await.expect("Failed to seal");
+        let agent_identity = keystore.get_identity(&encrypted_blob)
+            .await
+            .expect("Failed to get identity");
+
+        // 3. Create a sample audit event
+        let mut event = AuditEvent::new(
+            AuditEventType::GateDecision,
+            Some(Uuid::new_v4()),
+            json!({"status": "approved"}),
+            1,
+        );
+
+        // 4. Sign it using the hardware identity
+        assert!(event.approval_signatures.is_empty(), "Event should start with no signatures");
+        
+        let sign_result = event.sign_hardware(&agent_identity).await;
+        assert!(sign_result.is_ok(), "Signing should succeed");
+        
+        // 5. Verify the signature was attached correctly
+        assert_eq!(event.approval_signatures.len(), 1, "One signature should be appended");
+        
+        let sig = &event.approval_signatures[0];
+        assert_eq!(sig.signer_id, agent_identity.agent_id, "Signer ID should match agent identity");
+        assert!(!sig.signature_hex.is_empty(), "Signature hex should not be empty");
+    }
+
+    #[tokio::test]
+    async fn test_hardware_signature_deterministic() {
+        std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+        let keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
+        let dummy_seed = [42u8; 32];
+        let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
+        let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
+
+        let mut event1 = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        // Force timestamps and UUIDs to be identical for deterministic test
+        let id = Uuid::new_v4();
+        let ts = Utc::now();
+        event1.id = id;
+        event1.timestamp = ts;
+
+        let mut event2 = event1.clone();
+
+        event1.sign_hardware(&agent_identity).await.unwrap();
+        event2.sign_hardware(&agent_identity).await.unwrap();
+
+        assert_eq!(
+            event1.approval_signatures[0].signature_hex,
+            event2.approval_signatures[0].signature_hex,
+            "Signatures for identical payloads must be deterministically equal"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_hardware_signature_tamper_evident() {
+        std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+        let keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
+        let dummy_seed = [42u8; 32];
+        let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
+        let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
+
+        let mut event1 = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        let mut event2 = event1.clone();
+        
+        // Tamper with the payload of event2
+        event2.data = json!({"status": "denied"});
+
+        event1.sign_hardware(&agent_identity).await.unwrap();
+        event2.sign_hardware(&agent_identity).await.unwrap();
+
+        assert_ne!(
+            event1.approval_signatures[0].signature_hex,
+            event2.approval_signatures[0].signature_hex,
+            "Signatures must change completely if the payload is tampered with"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_hardware_signature_raw_dalek_verification() {
+        use ed25519_dalek::{Signer, Verifier, VerifyingKey, Signature as DalekSignature};
+        
+        std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+        let keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
+        let dummy_seed = [42u8; 32];
+        let encrypted_blob = keystore.seal_identity(&dummy_seed).await.unwrap();
+        let agent_identity = keystore.get_identity(&encrypted_blob).await.unwrap();
+
+        let mut event = AuditEvent::new(AuditEventType::GateDecision, Some(Uuid::new_v4()), json!({"status": "approved"}), 1);
+        event.sign_hardware(&agent_identity).await.unwrap();
+
+        let sig_hex = &event.approval_signatures[0].signature_hex;
+        let sig_bytes = hex::decode(sig_hex).unwrap();
+        let sig_array: [u8; 64] = sig_bytes.try_into().unwrap();
+        let dalek_sig = DalekSignature::from_bytes(&sig_array);
+
+        // Reconstruct exactly what JCS bytes were signed
+        let params = HashParams {
+            event_type: &event.event_type,
+            timestamp: event.timestamp.timestamp(),
+            sequence_number: event.sequence_number,
+            data: &event.data,
+            actor: &event.actor,
+            rationale: &event.rationale,
+            policy_version: &event.policy_version,
+            data_provenance_hash: &event.data_provenance_hash,
+            human_review_required: event.human_review_required,
+            approval_count: 0, // It was 0 when signed
+            evidence_capsule: &event.evidence_capsule,
+            schema_version: &event.schema_version,
+        };
+        let expected_jcs_bytes = serde_jcs::to_vec(&params).unwrap();
+
+        // Regenerate the signing key strictly to get its verifying (public) key
+        // Note: For a real TPM, you wouldn't be able to extract the private seed,
+        // but since we are in fallback mock mode for testing, we can reconstruct the verifying key from the dummy seed.
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&dummy_seed);
+        let verifying_key = signing_key.verifying_key();
+
+        // Verify the signature against the JCS payload using the public key
+        assert!(
+            verifying_key.verify(&expected_jcs_bytes, &dalek_sig).is_ok(),
+            "Raw Dalek verification failed: The generated signature does not mathematically match the JCS payload."
+        );
+    }
 }

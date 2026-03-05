@@ -16,6 +16,7 @@ members = [
     "crates/vex-router",
     "crates/vex-algoswitch",
     "crates/vex-server",
+    "crates/vex-hardware",
 ]
 
 [workspace.package]
