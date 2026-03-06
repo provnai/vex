@@ -9,6 +9,7 @@ use crate::backend::{StorageBackend, StorageError, StorageExt};
 use vex_core::{Hash, MerkleTree};
 
 use vex_core::audit::{ActorType, AuditEvent, AuditEventType, HashParams};
+use vex_hardware::api::AgentIdentity;
 
 /// Per-tenant chain state for proper multi-tenancy isolation
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -80,6 +81,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         actor: ActorType,
         agent_id: Option<Uuid>,
         data: serde_json::Value,
+        identity: Option<&AgentIdentity>,
     ) -> Result<AuditEvent, StorageError> {
         // Pseudonymize actor to protect PII (Centralized in vex-core)
         let actor = actor.pseudonymize();
@@ -111,6 +113,30 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             evidence_capsule: &event.evidence_capsule,
             schema_version: &event.schema_version,
         });
+
+        // 7. Hardware Signing (Phase 3 Integration)
+        if let Some(id) = identity {
+            event
+                .sign_hardware(id)
+                .await
+                .map_err(|e| StorageError::Internal(format!("Hardware signing failed: {}", e)))?;
+
+            // Recompute base hash to include signature count
+            event.hash = AuditEvent::compute_hash(HashParams {
+                event_type: &event.event_type,
+                timestamp: event.timestamp.timestamp(),
+                sequence_number: event.sequence_number,
+                data: &event.data,
+                actor: &event.actor,
+                rationale: &event.rationale,
+                policy_version: &event.policy_version,
+                data_provenance_hash: &event.data_provenance_hash,
+                human_review_required: event.human_review_required,
+                approval_count: event.approval_signatures.len(),
+                evidence_capsule: &event.evidence_capsule,
+                schema_version: &event.schema_version,
+            });
+        }
 
         if let Some(prev) = &event.previous_hash {
             event.hash = AuditEvent::compute_chained_hash(&event.hash, prev, event.sequence_number);
@@ -445,6 +471,7 @@ mod tests {
                 ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
+                None,
             )
             .await
             .unwrap();
@@ -457,6 +484,7 @@ mod tests {
                 ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
+                None,
             )
             .await
             .unwrap();

@@ -12,6 +12,7 @@ categories = ["asynchronous", "concurrency"]
 [dependencies]
 vex-core = { workspace = true }
 vex-adversarial = { workspace = true }
+vex-hardware = { path = "../vex-hardware" }
 vex-llm = { workspace = true }
 vex-persist = { workspace = true }
 vex-anchor = { workspace = true }

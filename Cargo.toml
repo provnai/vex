@@ -16,6 +16,7 @@ members = [
     "crates/vex-router",
     "crates/vex-algoswitch",
     "crates/vex-server",
+    "crates/vex-hardware",
 ]
 
 [workspace.package]
@@ -74,6 +75,7 @@ vex-api = { path = "crates/vex-api", version = "0.3.0" }
 vex-anchor = { path = "crates/vex-anchor", version = "0.3.0" }
 vex-temporal = { path = "crates/vex-temporal", version = "0.3.0" }
 vex-server = { path = "crates/vex-server", version = "0.3.0" }
+vex-hardware = { path = "crates/vex-hardware", version = "0.3.0" }
 vex-protocol-cli = { path = "crates/vex-cli", version = "0.3.0" }
 
 # Release profile with security-hardened settings

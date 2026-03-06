@@ -85,7 +85,7 @@ struct TrackedAgent {
 }
 
 /// Orchestrator manages hierarchical agent execution
-pub struct Orchestrator<L: LlmProvider> {
+pub struct Orchestrator<L: LlmProvider + ?Sized> {
     /// Configuration
     pub config: OrchestratorConfig,
     /// All agents (id -> tracked agent with timestamp)
@@ -103,9 +103,31 @@ pub struct Orchestrator<L: LlmProvider> {
     reflection_agent: Option<vex_adversarial::ReflectionAgent<L>>,
     /// Persistence layer for cross-session learning (optional)
     persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
+    /// Audit Store (Phase 5)
+    audit_store: Option<Arc<vex_persist::AuditStore<dyn vex_persist::StorageBackend>>>,
+    /// Hardware Identity (Phase 5)
+    identity: Option<Arc<vex_hardware::api::AgentIdentity>>,
 }
 
-impl<L: LlmProvider + 'static> Orchestrator<L> {
+impl std::fmt::Debug for TrackedAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TrackedAgent")
+            .field("agent_id", &self.agent.id)
+            .field("created_at", &self.created_at)
+            .finish()
+    }
+}
+
+impl<L: LlmProvider + ?Sized> std::fmt::Debug for Orchestrator<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Orchestrator")
+            .field("config", &self.config)
+            .field("executor", &self.executor)
+            .finish()
+    }
+}
+
+impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
     /// Create a new orchestrator
     pub fn new(
         llm: Arc<L>,
@@ -133,12 +155,29 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             evolution_memory,
             reflection_agent,
             persistence_layer,
+            audit_store: None,
+            identity: None,
         }
     }
 
     /// Add an anchoring backend
     pub fn add_anchor(&mut self, anchor: Arc<dyn AnchorBackend>) {
         self.anchors.push(anchor);
+    }
+
+    /// Attach a hardware-rooted identity and audit store (Phase 3)
+    pub fn with_identity(
+        mut self,
+        identity: Arc<vex_hardware::api::AgentIdentity>,
+        audit_store: Arc<vex_persist::AuditStore<dyn vex_persist::StorageBackend>>,
+    ) -> Self {
+        self.executor = self
+            .executor
+            .clone()
+            .with_identity(identity.clone(), audit_store.clone());
+        self.identity = Some(identity);
+        self.audit_store = Some(audit_store);
+        self
     }
 
     /// Cleanup expired agents to prevent memory leaks
@@ -203,9 +242,12 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             let executor = self.executor.clone();
             let query_str = query.to_string();
             let caps = capabilities.clone();
+            let tenant = tenant_id.to_string();
 
             execution_futures.push(tokio::spawn(async move {
-                let result = executor.execute(&mut child, &query_str, caps).await;
+                let result = executor
+                    .execute(&tenant, &mut child, &query_str, caps)
+                    .await;
                 (child.id, child, result)
             }));
         }
@@ -250,7 +292,12 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
 
         let root_result = self
             .executor
-            .execute(&mut root, &synthesis_prompt, capabilities.clone())
+            .execute(
+                tenant_id,
+                &mut root,
+                &synthesis_prompt,
+                capabilities.clone(),
+            )
             .await?;
         all_results.insert(root_id, root_result.clone());
 
@@ -284,7 +331,8 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
                 self.evolve_agents_self_correcting(tenant_id, &mut agents, &all_results)
                     .await;
             } else {
-                self.evolve_agents(tenant_id, &mut agents, &all_results);
+                self.evolve_agents(tenant_id, &mut agents, &all_results)
+                    .await;
             }
         }
 
@@ -323,9 +371,9 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
     }
 
     /// Evolve agents based on fitness - persists evolved genome to fittest agent
-    fn evolve_agents(
+    async fn evolve_agents(
         &self,
-        _tenant_id: &str,
+        tenant_id: &str,
         agents: &mut HashMap<Uuid, TrackedAgent>,
         results: &HashMap<Uuid, ExecutionResult>,
     ) {
@@ -364,6 +412,24 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
                 let old_traits = tracked.agent.genome.traits.clone();
                 tracked.agent.apply_evolved_genome(offspring.clone());
 
+                // Hardware-Signed Audit Log (Phase 5)
+                if let Some(store) = &self.audit_store {
+                    let _ = store
+                        .log(
+                            tenant_id,
+                            vex_core::audit::AuditEventType::GenomeEvolved,
+                            vex_core::audit::ActorType::System("orchestrator".to_string()),
+                            Some(*worst_id),
+                            serde_json::json!({
+                                "old_traits": old_traits,
+                                "new_traits": offspring.traits,
+                                "method": "Tournament Selection + Elitism",
+                            }),
+                            self.identity.as_ref().map(|id| id.as_ref()),
+                        )
+                        .await;
+                }
+
                 tracing::info!(
                     agent_id = %worst_id,
                     old_traits = ?old_traits,
@@ -394,7 +460,7 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
             Some(mem) => mem,
             None => {
                 tracing::warn!("Self-correction enabled but memory not initialized");
-                return self.evolve_agents(tenant_id, agents, results);
+                return self.evolve_agents(tenant_id, agents, results).await;
             }
         };
 
@@ -497,6 +563,24 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
                             "Statistical"
                         };
 
+                        // Hardware-Signed Audit Log (Phase 5)
+                        if let Some(store) = &self.audit_store {
+                            let _ = store
+                                .log(
+                                    tenant_id,
+                                    vex_core::audit::AuditEventType::GenomeEvolved,
+                                    vex_core::audit::ActorType::System("orchestrator".to_string()),
+                                    Some(*best_id),
+                                    serde_json::json!({
+                                        "old_traits": old_traits,
+                                        "new_traits": tracked.agent.genome.traits,
+                                        "method": format!("Self-Correction ({})", source),
+                                    }),
+                                    self.identity.as_ref().map(|id| id.as_ref()),
+                                )
+                                .await;
+                        }
+
                         tracing::info!(
                             agent_id = %best_id,
                             old_traits = ?old_traits,
@@ -508,7 +592,7 @@ impl<L: LlmProvider + 'static> Orchestrator<L> {
                     }
                 } else {
                     // Fallback to standard evolution
-                    self.evolve_agents(tenant_id, agents, results);
+                    self.evolve_agents(tenant_id, agents, results).await;
                 }
             }
         }
