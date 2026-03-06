@@ -21,7 +21,7 @@ pub fn create_identity_provider(
             Ok(tpm) => Ok(Box::new(tpm)),
             Err(e) => {
                 if allow_fallback {
-                    Ok(Box::new(stub_impl::StubIdentity::default()))
+                    Ok(Box::new(stub_impl::StubIdentity))
                 } else {
                     Err(HardwareError::NoTpmFound(e.to_string()))
                 }
@@ -32,7 +32,7 @@ pub fn create_identity_provider(
     #[cfg(not(any(windows, target_os = "linux")))]
     {
         if allow_fallback {
-            Ok(Box::new(stub_impl::StubIdentity::default()))
+            Ok(Box::new(stub_impl::StubIdentity))
         } else {
             Err(HardwareError::NoTpmFound(
                 "Hardware identity not supported on this platform".to_string(),
@@ -240,9 +240,8 @@ mod linux_impl {
             resource_handles::Hierarchy,
         },
         structures::{
-            Auth, KeyedHashScheme, Private, Public, PublicBuffer, PublicBuilder,
-            PublicKeyedHashParameters, PublicRsaParametersBuilder, RsaExponent, SensitiveData,
-            SymmetricDefinitionObject,
+            KeyedHashScheme, Private, Public, PublicBuffer, PublicBuilder,
+            PublicKeyedHashParameters, RsaExponent, SensitiveData, SymmetricDefinitionObject,
         },
         tcti_ldr::TctiNameConf,
         traits::{Marshall, UnMarshall},

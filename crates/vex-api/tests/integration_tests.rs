@@ -39,9 +39,11 @@ async fn setup_state() -> AppState {
 
     // 6. Hardware Identity & Audit Store (Mocked for tests)
     let hardware_keystore = vex_hardware::api::HardwareKeystore::new().await.unwrap();
-    let identity = Arc::new(hardware_keystore.get_identity(&[]).await.unwrap());
+    // Providing a dummy 32-byte seed to satisfy the unsealer
+    let dummy_seed = [0u8; 32];
+    let identity = Arc::new(hardware_keystore.get_identity(&dummy_seed).await.unwrap());
     let audit_store = Arc::new(vex_persist::AuditStore::new(
-        db.clone() as Arc<dyn vex_persist::StorageBackend>,
+        db.clone() as Arc<dyn vex_persist::StorageBackend>
     ));
 
     // 7. Orchestrator
