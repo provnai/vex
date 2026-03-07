@@ -22,14 +22,19 @@ pub fn create_identity_provider(
     {
         tracing::info!("⚓ Probing for Hardware Root of Trust (Linux TPM)...");
         // Silent probe: Check if the TPM device exists before letting the noisy library try to open it
-        if std::path::Path::new("/dev/tpm0").exists() || std::path::Path::new("/dev/tpmrm0").exists() {
+        if std::path::Path::new("/dev/tpm0").exists()
+            || std::path::Path::new("/dev/tpmrm0").exists()
+        {
             match linux_impl::Tpm2Identity::new() {
                 Ok(tpm) => {
                     tracing::info!("✅ Hardware TPM found and initialized.");
                     return Ok(Box::new(tpm));
                 }
                 Err(e) => {
-                    tracing::warn!("⚠️ Hardware TPM found but initialization failed: {}. Falling back.", e);
+                    tracing::warn!(
+                        "⚠️ Hardware TPM found but initialization failed: {}. Falling back.",
+                        e
+                    );
                 }
             }
         } else {
