@@ -30,7 +30,8 @@ VEX uses SQLite by default but requires **PostgreSQL** for cloud-native scaling 
 ### 2. Required Variables
 You must set the following variables for VEX to start successfully:
 
-- `VEX_JWT_SECRET`: A secure 32+ character string used for signing authentication tokens. In Railway, you can use the template variable generator to create a random string.
+- `VEX_JWT_SECRET`: A secure 32+ character string used for signing authentication tokens.
+- `VEX_HARDWARE_SEED`: (Optional but Recommended) A 64-character hex string (32-bytes) used to provide a stable, persistent identity on Railway where physical TPMs are absent.
 - `<PROVIDER>_API_KEY`: At least one API key for your chosen LLM (e.g., `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`).
 
 ### 3. Rate Limiting (Optional)
