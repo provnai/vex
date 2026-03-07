@@ -116,8 +116,9 @@ async fn main() -> Result<()> {
     let seed = if let Ok(seed_hex) = std::env::var("VEX_HARDWARE_SEED") {
         let bytes = hex::decode(seed_hex)
             .map_err(|e| anyhow::anyhow!("Invalid VEX_HARDWARE_SEED hex: {}", e))?;
-        let bytes_array: [u8; 32] = bytes.try_into()
-            .map_err(|_| anyhow::anyhow!("VEX_HARDWARE_SEED must be exactly 32 bytes (64 hex characters)"))?;
+        let bytes_array: [u8; 32] = bytes.try_into().map_err(|_| {
+            anyhow::anyhow!("VEX_HARDWARE_SEED must be exactly 32 bytes (64 hex characters)")
+        })?;
         bytes_array
     } else {
         tracing::warn!("VEX_HARDWARE_SEED not found. Using deterministic fallback seed.");
