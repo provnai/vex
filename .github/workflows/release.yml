@@ -18,6 +18,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Hardware Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libtss2-dev pkg-config
+
       # Layer 0: Fully standalone (no internal VEX deps)
       - name: Publish vex-macros
         run: cargo publish -p vex-macros || echo "Already published or error, continuing..."
@@ -83,6 +86,10 @@ jobs:
         run: cargo publish -p vex-api || echo "Already published or error, continuing..."
       - run: sleep 30
 
-      # Layer 8: CLI (Renamed to avoid conflict)
+      # Layer 8: Top Level Server & CLI
+      - name: Publish vex-server
+        run: cargo publish -p vex-server || echo "Already published or error, continuing..."
+      - run: sleep 30
+
       - name: Publish vex-protocol-cli
         run: cargo publish -p vex-protocol-cli || echo "Already published or error, continuing..."
