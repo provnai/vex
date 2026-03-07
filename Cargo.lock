@@ -5068,6 +5068,7 @@ dependencies = [
  "async-trait",
  "axum 0.8.8",
  "chrono",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",
