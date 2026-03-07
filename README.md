@@ -47,6 +47,8 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
+## What's New in v1.0.0 🚀
+
 - ⚓ **Silicon-Rooted Identity** - Native hardware-level identity via TPM (Linux) and CNG (Windows) via the new `vex-hardware` crate.
 - 🛡️ **Authority Bridge** - Native bridge to external witness networks via the new `vex-chora` crate.
 - 💎 **Transparent Trust Probing** - VEX now honestly probes and logs its hardware roots at startup for a verifiable security anchor.

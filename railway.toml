@@ -1,6 +1,16 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
+watchPatterns = [
+  "crates/**",
+  "examples/**",
+  "tests/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "Dockerfile",
+  "railway.toml",
+  "railway.json"
+]
 
 [deploy]
 healthcheckPath = "/health"
