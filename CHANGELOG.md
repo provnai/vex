@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **⚓ Silicon-Rooted Identity** (`vex-hardware`): Integrated native hardware-rooted trust via TPM 2.0 (Linux) and Windows CNG (Microsoft Platform Crypto Provider).
+- **🛡️ Authority Bridge** (`vex-chora`): Added native adapter logic for the external CHORA witness network, supporting JCS serialization and authority handshakes.
 - **💎 Transparent Hardware Probing**: VEX now performs a transparent "Trust Probe" at startup, logging the search for hardware roots and explicitly stating its fallback path for audit integrity.
-- **🛡️ `VEX_HARDWARE_SEED` support**: Added support for persistent, hex-encoded 32-byte seeds in `vex-server`. Enables stable `agent_id` persistence in virtualized environments like Railway.
-- **🏗️ Workspace v1.0 Synchronization**: All 14 crates and internal dependencies synchronized to v1.0.0 for stable, production-grade release.
+- **🏗️ Workspace v1.0 Synchronization**: All 16 crates and internal dependencies synchronized to v1.0.0 for stable, production-grade release.
 - **🛠️ Automated TSS2 Dependency Resolution**: Updated `Dockerfile` with precision package naming for Debian Bookworm (`libtss2-esys-3.0.2-0`) to resolve runtime linking errors.
 
 ## [0.3.0] - 2026-03-04

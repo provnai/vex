@@ -47,14 +47,11 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 ---
 
-## ✨ What's New in v1.0.0 (The Silicon-Rooted Trust Release)
-
--   **Silicon-Rooted Identity** - Cloud-native database support with native vector similarity searching via HNSW indexing, enabling horizontal scaling.
--   **Transparent Trust Probing** - Full OpenTelemetry (OTEL) v0.27 integration for exporting agent traces and decisions to any OTLP collector.
-- 🛡️  **VEX_HARDWARE_SEED Support** - Deep security, correlation, and tool execution proxying across distributed deployments.
-- 🏗️ **v1.0 Workspace Synchronization** - All 15 crates now synchronized to v1.0.0 with perfectly aligned build pipelines, giving OSS developers full control over tenant tiers.
-- 📦  **One-Click Railway Launch** - Synchronized dependency structures and robust CI/CD pipelines across all 15 crates.
--  **Railway-Native** - Zero-config deployment templates with 300s healthcheck windows and auto-migrations.
+- ⚓ **Silicon-Rooted Identity** - Native hardware-level identity via TPM (Linux) and CNG (Windows) via the new `vex-hardware` crate.
+- 🛡️ **Authority Bridge** - Native bridge to external witness networks via the new `vex-chora` crate.
+- 💎 **Transparent Trust Probing** - VEX now honestly probes and logs its hardware roots at startup for a verifiable security anchor.
+- 🏗️ **v1.0 Workspace Synchronization** - All 16 crates now synchronized to v1.0.0 with perfectly aligned build pipelines.
+- 📦 **One-Click Railway Launch** - Fully optimized Docker infrastructure for Debian Bookworm with auto-configured TSS2 libraries.
 
 ---
 
@@ -265,12 +262,11 @@ VEX is the central pillar of a multi-layered trust stack designed for the agenti
 - **1. Identity** ([Provn-SDK](https://github.com/provnai/provn-sdk)): Sovereign Ed25519 signing (no_std).
 - **2. Cognition** (VEX Protocol - This repo): Adversarial verification and temporal memory.
 - **3. Safety Brake** ([Vex-Halt](https://github.com/provnai/vex-halt)): Emergency circuit breaker and verification benchmark.
-- **4. Demonstration** ([VexEvolve](https://www.vexevolve.com)): Production# v1.0 RELEASE STATUS: DEPLOYED & LIVE 🚀🛡️⚓
-- Deployment URL: [vex-production-18b4.up.railway.app](https://vex-production-18b4.up.railway.app)
-- Hardware Identity: Verified & Active (vex-hardware)
-- Crate Count: 15 (v1.0.0 Sync)
-- CI Status: 100% Green 🟢
+- **4. Demonstration** ([VexEvolve](https://www.vexevolve.com)): Production AI newsroom swarm (Live).
+- **5. Marketing** ([provnai.com](https://provnai.com)): Global Open Research Initiative portal.
 - **6. Developer** ([provnai.dev](https://provnai.dev)): Documentation & Rustdoc portal.
+- **7. Authority** (vex-chora): Native bridge to the external CHORA witness network.
+
 
 ---
 

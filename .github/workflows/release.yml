@@ -41,6 +41,10 @@ jobs:
         run: cargo publish -p vex-core || echo "Already published or error, continuing..."
       - run: sleep 30
 
+      - name: Publish vex-chora
+        run: cargo publish -p vex-chora || echo "Already published or error, continuing..."
+      - run: sleep 30
+
       # Layer 2: Depends on vex-core
       - name: Publish vex-llm
         run: cargo publish -p vex-llm || echo "Already published or error, continuing..."
