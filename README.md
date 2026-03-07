@@ -171,52 +171,55 @@ Then visit:
 VEX Protocol is designed to be the cognitive core of a **Total Trust Trinity**. Depending on your security requirements, it can be deployed in hybrid or full cloud-native configurations.
 
 ### **1. The Hardened Cloud-Native Stack**
-This flow represents the standard for production agentic swarms, ensuring every intent is governed and every execution is silicon-sealed.
-
-```mermaid
-graph TD
-    subgraph "External World"
-        Users[Human/App Interface]
-        Tools[External APIs/Services]
-    end
-
-    subgraph "ProvnAI Trust Stack (Railway/Cloud)"
-        VEX[VEX Engine - Cognition]
-        CHORA[CHORA - Authority Bridge]
-        Attest[Attest - Verifiable Execution]
-        Vanguard[McpVanguard - Security Proxy]
-    end
-
-    Users -->|Request| VEX
-    VEX -->|Intent| CHORA
-    CHORA -->|Governance Decision| VEX
-    VEX -->|Sealing| Attest
-    Attest -->|Hardware Signature| Vanguard
-    Vanguard -->|Audited Execution| Tools
-    Tools -->|Result| Vanguard
-    Vanguard -->|Verified Response| Users
-```
-
-### **2. The Hybrid Sovereign Flow**
-Ideal for developers maintaining local control over keys while leveraging cloud-native persistence and observability.
+This flow represents the production gold standard: every intent is silicon-sealed before being verified by neutral authority.
 
 ```mermaid
 graph LR
-    subgraph "Local Secure Enclave"
-        V_Local[VEX Node]
-        H_Identity[Hardware Identity]
+    subgraph "External"
+        U[User/App]
+        T[External API]
     end
 
-    subgraph "Public Cloud (Railway)"
-        C_Persist[VEX Persist - DB]
-        C_Chora[CHORA - Authority]
-        C_Obs[OTEL - Observability]
+    subgraph "ProvnAI Trust Trinity (Cloud)"
+        V[VEX - Cognition]
+        A[Attest - Identity]
+        C[CHORA - Authority]
+        G[Vanguard - Security]
     end
 
-    V_Local -->|Hardware Sign| H_Identity
-    V_Local -->|Sync State| C_Persist
-    V_Local -->|Bridge| C_Chora
-    V_Local -->|Telemetry| C_Obs
+    U -->|Request| V
+    V -->|Seal Intent| A
+    A -->|Hardware Signed| V
+    V -->|Governance| C
+    C -->|Evidence Capsule| V
+    V -->|Audited Action| G
+    G -->|Execution| T
+    T -->|Result| G
+    G -->|Verified Response| U
+```
+
+### **2. The Hybrid Sovereign Flow**
+Ideal for developers maintaining local control over keys while leveraging cloud-native persistence and neutral authority.
+
+```mermaid
+graph LR
+    subgraph "Sovereign Enclave (Local)"
+        VL[VEX - Cognition]
+        AI[Attest - Identity]
+    end
+
+    subgraph "Trust Extension (Cloud)"
+        VC[CHORA - Authority]
+        VP[VEX - Persist]
+        VO[OTEL - Metrics]
+    end
+
+    VL -->|1. Seal| AI
+    AI -->|2. Signed| VL
+    VL -->|3. Governance| VC
+    VC -->|4. Capsule| VL
+    VL -->|5. Sync| VP
+    VL -->|6. Telemetry| VO
 ```
 
 ---
