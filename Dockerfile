@@ -19,7 +19,7 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies (CA certs are essential for LLM API calls)
 RUN apt-get update && \
-    apt-get install -y ca-certificates libssl3 curl && \
+    apt-get install -y ca-certificates libssl3 curl libtss2-esys0 libtss2-tctildr0 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
