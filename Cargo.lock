@@ -4898,6 +4898,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "tss-esapi",
  "uuid",
  "windows-sys 0.61.2",

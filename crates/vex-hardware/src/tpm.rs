@@ -9,29 +9,48 @@ pub fn create_identity_provider(
 ) -> Result<Box<dyn HardwareIdentity>, HardwareError> {
     #[cfg(windows)]
     {
+        tracing::info!("⚓ Probing for Hardware Root of Trust (Windows CNG)...");
         if allow_fallback {
+            tracing::info!("⚙️ Fallback allowed. Using Deterministic Identity (VEX-Seed).");
             return Ok(Box::new(stub_impl::StubIdentity));
         }
+        tracing::info!("✅ Using Windows CNG Hardware Identity.");
         Ok(Box::new(windows_impl::CngIdentity))
     }
 
     #[cfg(target_os = "linux")]
     {
-        match linux_impl::Tpm2Identity::new() {
-            Ok(tpm) => Ok(Box::new(tpm)),
-            Err(e) => {
-                if allow_fallback {
-                    Ok(Box::new(stub_impl::StubIdentity))
-                } else {
-                    Err(HardwareError::NoTpmFound(e.to_string()))
+        tracing::info!("⚓ Probing for Hardware Root of Trust (Linux TPM)...");
+        // Silent probe: Check if the TPM device exists before letting the noisy library try to open it
+        if std::path::Path::new("/dev/tpm0").exists() || std::path::Path::new("/dev/tpmrm0").exists() {
+            match linux_impl::Tpm2Identity::new() {
+                Ok(tpm) => {
+                    tracing::info!("✅ Hardware TPM found and initialized.");
+                    return Ok(Box::new(tpm));
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️ Hardware TPM found but initialization failed: {}. Falling back.", e);
                 }
             }
+        } else {
+            tracing::info!("ℹ️ No physical TPM device found (/dev/tpm0).");
+        }
+
+        if allow_fallback {
+            tracing::info!("⚙️ Falling back to Deterministic Identity (VEX-Seed).");
+            Ok(Box::new(stub_impl::StubIdentity))
+        } else {
+            Err(HardwareError::NoTpmFound(
+                "No TPM device (/dev/tpm0) found in system".to_string(),
+            ))
         }
     }
 
     #[cfg(not(any(windows, target_os = "linux")))]
     {
+        tracing::info!("⚓ Probing for Hardware Root of Trust (Generic)...");
         if allow_fallback {
+            tracing::info!("⚙️ Platform not supported. Falling back to Deterministic Identity.");
             Ok(Box::new(stub_impl::StubIdentity))
         } else {
             Err(HardwareError::NoTpmFound(
