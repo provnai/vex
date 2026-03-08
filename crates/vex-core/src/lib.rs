@@ -56,6 +56,8 @@ pub mod fitness;
 pub mod genome_experiment;
 pub mod merkle;
 pub mod rule;
+pub mod segment;
+pub mod vep;
 
 pub use agent::{Agent, AgentConfig, AgentHandle, AgentId};
 pub use audit::{ActorType, AuditEvent, AuditEventType, HashParams, Signature};
@@ -68,3 +70,5 @@ pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicE
 pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
+pub use segment::{AuthorityData, IdentityData, IntentData};
+pub use vep::{VepHeader, VepPacket, VepSegmentHeader, VepSegmentType, VEP_MAGIC, VEP_VERSION_V2};

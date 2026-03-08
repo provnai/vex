@@ -32,6 +32,7 @@ rayon = "1.10"
 ed25519-dalek = { workspace = true }
 vex-algoswitch = { workspace = true, optional = true }
 vex-hardware = { workspace = true }
+zerocopy = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 criterion = "0.5"

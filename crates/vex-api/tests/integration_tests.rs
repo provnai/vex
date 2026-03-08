@@ -73,6 +73,9 @@ async fn setup_state() -> AppState {
         None,
         gate,
         orchestrator,
+        Arc::new(vex_chora::AuthorityBridge::new(Box::new(
+            vex_chora::client::MockChoraClient,
+        ))),
     )
 }
 

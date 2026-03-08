@@ -157,6 +157,21 @@ impl From<vex_persist::StorageError> for ApiError {
     }
 }
 
+impl From<crate::sanitize::SanitizeError> for ApiError {
+    fn from(e: crate::sanitize::SanitizeError) -> Self {
+        tracing::debug!(error = ?e, "Converting SanitizeError to ApiError");
+        match e {
+            crate::sanitize::SanitizeError::SafetyRejection { reason } => {
+                ApiError::Forbidden(reason)
+            }
+            crate::sanitize::SanitizeError::ForbiddenPattern { pattern } => {
+                ApiError::Forbidden(format!("Forbidden pattern detected: {}", pattern))
+            }
+            _ => ApiError::Validation(e.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

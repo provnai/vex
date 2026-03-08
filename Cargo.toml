@@ -18,6 +18,7 @@ members = [
     "crates/vex-server",
     "crates/vex-hardware",
     "crates/vex-chora",
+    "crates/vex-sidecar", "parity-test",
 ]
 
 [workspace.package]
@@ -34,10 +35,15 @@ tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json"] }
+axum = "0.7"
+hyper = { version = "1", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["full"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_jcs = "0.1.0"
 
 # Cryptography (Merkle trees)
 sha2 = "0.10"
@@ -61,6 +67,9 @@ jsonschema = "0.18" # Keeping it conservative
 zeroize = { version = "1.8", features = ["derive"] }
 curve25519-dalek = "4.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+
+# Performance - Zero-copy binary parsing
+zerocopy = { version = "0.8", features = ["derive"] }
 
 # Internal VEX crates
 vex-core = { path = "crates/vex-core", version = "1.0.0" }

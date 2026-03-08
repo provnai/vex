@@ -16,6 +16,7 @@ vex-core = { workspace = true }
 vex-queue = { workspace = true }
 vex-runtime = { workspace = true }
 vex-router = { workspace = true }
+vex-chora = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
