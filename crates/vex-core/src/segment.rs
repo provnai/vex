@@ -51,8 +51,11 @@ impl IntentData {
 /// Proves the governance decision.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorityData {
-    pub nonce: u64,
+    pub capsule_id: String,
+    pub outcome: String,
+    pub reason_code: String,
     pub trace_root: [u8; 32],
+    pub nonce: u64,
 }
 
 /// Witness Data (CHORA Append-Only Log)

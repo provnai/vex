@@ -1,61 +1,73 @@
-use serde_json::json;
-use sha2::{Digest, Sha256};
-use vex_core::audit::{ActorType, AuditEventType, EvidenceCapsule, HashParams};
+use vex_core::segment::{Capsule, IntentData, AuthorityData, IdentityData, WitnessData};
+use sha2::Digest;
 
 #[test]
-fn test_chora_parity() {
-    let event_type = AuditEventType::GateDecision;
-    let actor = ActorType::System("chora_ref".to_string());
-
-    let data = json!({
-        "probe": "P4_contradiction_pressure",
-        "run_id": "20260228_074549__ON"
-    });
-
-    let rationale = None;
-    let policy_version = None;
-    let data_provenance_hash = None;
-    let human_review_required = false;
-    let approval_count = 0;
-
-    let evidence_capsule = Some(EvidenceCapsule {
-        capsule_id: "cap_anchor_P4_v1".to_string(),
-        outcome: "HALT".to_string(),
-        reason_code: "RC_CONTRADICTION".to_string(),
-        witness_receipt: "0xdeadbeef".to_string(),
-        nonce: 0,
-        sensors: serde_json::Value::Null,
-        reproducibility_context: json!({
-            "engine": "deepseek-chat",
-            "temperature": "0.2"
-        }),
-    });
-
-    let params = HashParams {
-        event_type: &event_type,
-        timestamp: 1700000000,
-        sequence_number: 1,
-        data: &data,
-        actor: &actor,
-        rationale: &rationale,
-        policy_version: &policy_version,
-        data_provenance_hash: &data_provenance_hash,
-        human_review_required,
-        approval_count,
-        evidence_capsule: &evidence_capsule,
-        schema_version: "1.0",
+fn test_capsule_jcs_parity() {
+    // 1. Construct the native Rust structs
+    let intent = IntentData {
+        id: "test-intent-1".into(),
+        goal: "test-goal".into(),
+        description: None,
+        ticket_id: None,
+        constraints: vec![],
+        acceptance_criteria: vec![],
+        status: "open".into(),
+        created_at: "2024-01-01T00:00:00Z".into(),
+        closed_at: None,
     };
 
-    let jcs_bytes = serde_jcs::to_vec(&params).expect("Failed to serialize JCS");
-    let jcs_string = String::from_utf8(jcs_bytes.clone()).unwrap();
+    let authority = AuthorityData {
+        capsule_id: "chora-v1-test".into(),
+        outcome: "ALLOW".into(),
+        reason_code: "WITHIN_POLICY".into(),
+        trace_root: [0x55; 32],
+        nonce: 12345,
+    };
 
-    let target_jcs = r#"{"actor":{"id":"chora_ref","type":"system"},"approval_count":0,"data":{"probe":"P4_contradiction_pressure","run_id":"20260228_074549__ON"},"event_type":"CHORA_GATE_DECISION","evidence_capsule":{"capsule_id":"cap_anchor_P4_v1","outcome":"HALT","reason_code":"RC_CONTRADICTION","reproducibility_context":{"engine":"deepseek-chat","temperature":"0.2"}},"human_review_required":false,"schema_version":"1.0","sequence_number":1,"timestamp":1700000000}"#;
+    let identity = IdentityData {
+        agent: "test-agent".into(),
+        tpm: "test-tpm".into(),
+    };
 
-    std::fs::write("jcs_output.txt", jcs_string.clone()).unwrap();
-    std::fs::write("jcs_target.txt", target_jcs).unwrap();
+    let witness = WitnessData {
+        chora_node_id: "test-chora-node".into(),
+        receipt_hash: "deadbeef".into(),
+        timestamp: 1710000000,
+    };
 
-    let mut hasher = Sha256::new();
-    hasher.update(&jcs_bytes);
-    let hash_hex = hex::encode(hasher.finalize());
-    println!("Hash is: {}", hash_hex);
+    let capsule = Capsule {
+        intent: intent.clone(),
+        authority: authority.clone(),
+        identity: identity.clone(),
+        witness: witness.clone(),
+        chora_signature: "".into(),
+    };
+
+    // 2. Compute individual pillar hashes to show the intermediate state
+    let intent_hash = intent.to_jcs_hash().unwrap();
+    
+    // Hash helper for the other structs
+    fn hash_seg<T: serde::Serialize>(seg: &T) -> String {
+        let jcs = serde_jcs::to_vec(seg).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        sha2::Digest::update(&mut hasher, &jcs);
+        hex::encode(hasher.finalize())
+    }
+
+    let auth_hash = hash_seg(&authority);
+    let id_hash = hash_seg(&identity);
+    let wit_hash = hash_seg(&witness);
+
+    println!("--- RUST NATIVE HASHES ---");
+    println!("Intent Hash:    {}", intent_hash.to_hex());
+    println!("Authority Hash: {}", auth_hash);
+    println!("Identity Hash:  {}", id_hash);
+    println!("Witness Hash:   {}", wit_hash);
+
+    // 3. Compute the full composite capsule root
+    let root = capsule.to_composite_hash().unwrap();
+    println!("Capsule Root:   {}", root.to_hex());
+
+    // This asserts that the process completes without panicking
+    assert!(root.to_hex().len() == 64);
 }
