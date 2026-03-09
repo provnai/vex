@@ -47,13 +47,13 @@ anyhow = { workspace = true }
 # Observability (OpenTelemetry)
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-opentelemetry = { version = "0.27", optional = true }
-opentelemetry-otlp = { version = "0.27", features = ["tonic"], optional = true }
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"], optional = true }
-tracing-opentelemetry = { version = "0.28", optional = true }
+opentelemetry = { version = "0.31", optional = true }
+opentelemetry-otlp = { version = "0.31", features = ["tonic"], optional = true }
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
+tracing-opentelemetry = { version = "0.32", optional = true }
 
 # Security
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 argon2 = "0.5"
 base64 = "0.22"
 zeroize = { workspace = true }
@@ -66,8 +66,8 @@ rand = { workspace = true }
 http-body-util = "0.1"
 
 # Rate limiting (GCRA via governor)
-governor = "0.8"
-tower_governor = "0.5"
+governor = "0.10"
+tower_governor = "0.8"
 
 # Security utilities
 regex = "1.10"
