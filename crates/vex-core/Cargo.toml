@@ -37,6 +37,7 @@ zerocopy = { workspace = true, features = ["derive"] }
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.4"
+attest-rs = { path = "../../../attest/attest-rs" }
 
 [[bench]]
 name = "merkle_benchmark"

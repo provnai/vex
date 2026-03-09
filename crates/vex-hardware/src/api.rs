@@ -29,7 +29,7 @@ impl HardwareKeystore {
             .map(|v| v != "true")
             .unwrap_or(true);
 
-        let provider = create_identity_provider(allow_fallback)?;
+        let provider = create_identity_provider(allow_fallback);
         Ok(Self { provider })
     }
 
