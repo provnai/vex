@@ -5,6 +5,19 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-08
+
+### Added
+
+- **🤝 Capsule V1 Alignment**: Implemented hash-of-hashes commitment model using JCS to match CHORA specification.
+- **🛡️ Binary Wire Format**: Aligned VEP to the 76-byte header and TLV segment structure.
+- **📜 Segment Refactor**: Promoted Witness and Signature data to top-level segments for improved data/proof separation.
+- **� Root-Hash Verification**: Simplified signature verification to Ed25519 over the capsule root.
+- **🛰️ Sidecar Logging**: Added unencrypted traffic inspection capabilities before protocol termination in the sidecar.
+- **🛑 Active Enforcement**: Integrated strict enforcement mode to handle non-capsule traffic according to policy.
+- **🐧 WSL Compatibility**: Resolved linkage issues for `tss-esapi` and `sqlx` in virtualized environments.
+
+
 ## [1.0.0] - 2026-03-07
 
 ### Added

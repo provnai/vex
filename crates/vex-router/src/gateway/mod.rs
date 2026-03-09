@@ -68,6 +68,7 @@ impl Server {
         let app = Router::new()
             .route("/v1/chat/completions", post(chat_completions))
             .route("/v1/route", post(route_query))
+            .route("/v2/vep", post(vep_routing))
             .route("/v1/feedback", post(submit_feedback))
             .route("/v1/cache/stats", get(cache_stats))
             .route("/v1/cache/clear", post(clear_cache))
@@ -328,6 +329,16 @@ async fn route_query(
     };
 
     Ok(Json(response))
+}
+
+async fn vep_routing(
+    State(state): State<Arc<AppState>>,
+    body: axum::body::Bytes,
+) -> Result<String, StatusCode> {
+    state.engine.verify_and_route(&body).await.map_err(|e| {
+        tracing::error!("VEP Routing Error: {}", e);
+        StatusCode::BAD_REQUEST
+    })
 }
 
 #[derive(Debug, Deserialize)]

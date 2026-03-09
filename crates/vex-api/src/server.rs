@@ -265,6 +265,10 @@ impl VexServer {
 
         let a2a_state = Arc::new(crate::a2a::handler::A2aState::default());
 
+        let bridge = Arc::new(vex_chora::AuthorityBridge::new(Box::new(
+            vex_chora::client::MockChoraClient,
+        )));
+
         let app_state = AppState::new(
             jwt_auth,
             rate_limiter,
@@ -277,6 +281,7 @@ impl VexServer {
             Some(router_arc),
             gate.clone(),
             orchestrator.clone(),
+            bridge,
         );
 
         Ok(Self { config, app_state })

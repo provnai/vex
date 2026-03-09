@@ -22,6 +22,8 @@ fn test_chora_parity() {
         capsule_id: "cap_anchor_P4_v1".to_string(),
         outcome: "HALT".to_string(),
         reason_code: "RC_CONTRADICTION".to_string(),
+        witness_receipt: "0xdeadbeef".to_string(),
+        nonce: 0,
         sensors: serde_json::Value::Null,
         reproducibility_context: json!({
             "engine": "deepseek-chat",

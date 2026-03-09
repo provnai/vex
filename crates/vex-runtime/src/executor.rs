@@ -207,6 +207,7 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
                         "verified": verified,
                     }),
                     self.identity.as_ref().map(|id| id.as_ref()),
+                    Some(capsule.witness_receipt.clone()),
                 )
                 .await;
         }

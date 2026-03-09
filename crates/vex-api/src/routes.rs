@@ -222,6 +222,8 @@ pub struct ExecuteResponse {
     pub confidence: f64,
     pub context_hash: String,
     pub latency_ms: u64,
+    /// The CHORA Witness Receipt (v0.2.0)
+    pub witness_receipt: Option<String>,
     /// Merkle Tree root of the execution trace (available when polling job result)
     pub merkle_root: Option<String>,
 }
@@ -249,12 +251,47 @@ pub async fn execute_agent(
     Json(req): Json<ExecuteRequest>,
 ) -> ApiResult<Json<ExecuteResponse>> {
     let start = std::time::Instant::now();
-
     // Sanitize and validate prompt with async safety judge
     let llm = state.llm();
-    let prompt = sanitize_prompt_async(&req.prompt, Some(&*llm))
+    let prompt = sanitize_prompt_async(&req.prompt, Some(&*llm)).await?;
+
+    // Phase 2.1: Generate IntentData and segmented commitment (trace_root)
+    let trace_root_hash = vex_core::Hash::digest(prompt.as_bytes());
+    let intent = vex_core::IntentData {
+        id: claims.sub.clone(),
+        goal: "TASK_EXECUTION".to_string(),
+        description: Some(format!("Trace root: {}", trace_root_hash.to_hex())),
+        ticket_id: None,
+        constraints: vec![],
+        acceptance_criteria: vec![],
+        status: "OPEN".to_string(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+        closed_at: None,
+    };
+    let intent_hash = intent
+        .to_jcs_hash()
+        .map_err(|e| ApiError::Internal(format!("JCS Hashing error: {}", e)))?;
+
+    tracing::info!(
+        intent_hash = %intent_hash.to_hex(),
+        trace_root = %trace_root_hash.to_hex(),
+        "Intent segment generated for v0.2.0 Singularity"
+    );
+
+    // Phase 2.2: Authority Handshake (CHORA Witness)
+    let capsule = state
+        .bridge()
+        .perform_handshake(intent.clone())
         .await
-        .map_err(|e| ApiError::Validation(format!("Invalid prompt: {}", e)))?;
+        .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?;
+
+    let witness_receipt = capsule.witness.receipt_hash.clone();
+
+    tracing::info!(
+        witness_receipt = %witness_receipt,
+        chora_node = %capsule.witness.chora_node_id,
+        "Authority Handshake complete: Witness-Hash secured."
+    );
 
     // Check ownership/existence
     let store = AgentStore::new(state.db());
@@ -268,6 +305,27 @@ pub async fn execute_agent(
         return Err(ApiError::NotFound("Agent not found".to_string()));
     }
 
+    // Phase 2.1: Evidence Store - Log pre-encryption GateDecision
+    let audit_store = vex_persist::AuditStore::new(state.db());
+    let _ = audit_store
+        .log(
+            &claims.sub,
+            vex_core::AuditEventType::GateDecision,
+            vex_core::ActorType::Bot(agent_id),
+            Some(agent_id),
+            serde_json::json!({
+                "intent": intent,
+                "intent_hash": intent_hash.to_hex(),
+                "authority": capsule.authority,
+                "witness": capsule.witness,
+                "chora_signature": capsule.chora_signature,
+                "status": "APPROVED_WITNESS"
+            }),
+            None,
+            Some(witness_receipt.clone()),
+        )
+        .await;
+
     // Create job payload with sanitized prompt and adversarial config
     let payload = serde_json::json!({
         "agent_id": agent_id,
@@ -276,7 +334,13 @@ pub async fn execute_agent(
         "enable_adversarial": req.enable_adversarial,
         "enable_self_correction": req.enable_self_correction,
         "max_debate_rounds": req.max_debate_rounds,
-        "tenant_id": claims.sub
+        "tenant_id": claims.sub,
+        "trace_root": trace_root_hash.to_hex(),
+        "intent_hash": intent_hash.to_hex(),
+        "witness_receipt": witness_receipt,
+        "authority_data": capsule.authority,
+        "witness_data": capsule.witness,
+        "chora_signature": capsule.chora_signature,
     });
 
     // Enqueue job with explicit type checks
@@ -301,6 +365,7 @@ pub async fn execute_agent(
         confidence: 1.0,
         context_hash: "pending".to_string(),
         latency_ms: start.elapsed().as_millis() as u64,
+        witness_receipt: Some(witness_receipt),
         merkle_root: None,
     }))
 }

@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, master, develop, feat/harden-vex-inspection]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.gemini/**'
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, master, develop, feat/harden-vex-inspection]
     paths-ignore:
       - '**.md'
       - 'docs/**'

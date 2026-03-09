@@ -48,6 +48,10 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         format!("{}tenant:{}:chain", self.prefix, tenant_id)
     }
 
+    fn receipt_key(&self, tenant_id: &str, receipt: &str) -> String {
+        format!("{}tenant:{}:receipt:{}", self.prefix, tenant_id, receipt)
+    }
+
     fn chain_state_key(&self, tenant_id: &str) -> String {
         format!("{}tenant:{}:chain_state", self.prefix, tenant_id)
     }
@@ -74,6 +78,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
     /// Log an audit event (automatically chained with sequence number)
     ///
     /// Chain state is stored per-tenant to ensure proper isolation.
+    #[allow(clippy::too_many_arguments)]
     pub async fn log(
         &self,
         tenant_id: &str,
@@ -82,6 +87,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         agent_id: Option<Uuid>,
         data: serde_json::Value,
         identity: Option<&AgentIdentity>,
+        witness_receipt: Option<String>,
     ) -> Result<AuditEvent, StorageError> {
         // Pseudonymize actor to protect PII (Centralized in vex-core)
         let actor = actor.pseudonymize();
@@ -91,12 +97,46 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         let seq = chain_state.sequence;
 
         let mut event = match &chain_state.last_hash {
-            Some(prev) => AuditEvent::chained(event_type, agent_id, data, prev.clone(), seq),
-            None => AuditEvent::new(event_type, agent_id, data, seq),
+            Some(prev) => {
+                AuditEvent::chained(event_type, agent_id, data.clone(), prev.clone(), seq)
+            }
+            None => AuditEvent::new(event_type, agent_id, data.clone(), seq),
         };
 
         // Set actor after creation to override default system actor
         event.actor = actor;
+
+        // Phase 2.2: Populating EvidenceCapsule if witness_receipt is present
+        if let Some(wr) = witness_receipt {
+            let capsule_data = data
+                .get("authority")
+                .cloned()
+                .unwrap_or(serde_json::json!({}));
+            event.evidence_capsule = Some(vex_core::audit::EvidenceCapsule {
+                capsule_id: capsule_data
+                    .get("capsule_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+                outcome: capsule_data
+                    .get("outcome")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("ALLOW")
+                    .to_string(),
+                reason_code: capsule_data
+                    .get("reason_code")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("APPROVED_WITNESS")
+                    .to_string(),
+                witness_receipt: wr,
+                nonce: capsule_data
+                    .get("nonce")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0),
+                sensors: serde_json::Value::Null,
+                reproducibility_context: serde_json::Value::Null,
+            });
+        }
 
         // Rehash after setting actor
         event.hash = AuditEvent::compute_hash(HashParams {
@@ -161,7 +201,35 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         chain_state.sequence += 1;
         self.set_chain_state(tenant_id, &chain_state).await?;
 
+        // Phase 2.2: Index by witness receipt for O(1) lookup
+        if let Some(capsule) = &event.evidence_capsule {
+            self.backend
+                .set_value(
+                    &self.receipt_key(tenant_id, &capsule.witness_receipt),
+                    serde_json::Value::String(event.id.to_string()),
+                )
+                .await?;
+        }
+
         Ok(event)
+    }
+
+    /// Retrieve an audit event by its CHORA witness receipt hash (Phase 2.2)
+    pub async fn get_by_witness_receipt(
+        &self,
+        tenant_id: &str,
+        witness_receipt: &str,
+    ) -> Result<Option<AuditEvent>, StorageError> {
+        let receipt_key = self.receipt_key(tenant_id, witness_receipt);
+        let event_id_val: Option<serde_json::Value> = self.backend.get_value(&receipt_key).await?;
+
+        if let Some(serde_json::Value::String(id_str)) = event_id_val {
+            if let Ok(id) = Uuid::parse_str(&id_str) {
+                return self.backend.get(&self.event_key(tenant_id, id)).await;
+            }
+        }
+
+        Ok(None)
     }
 
     /// Get event by ID
@@ -472,6 +540,7 @@ mod tests {
                 None,
                 serde_json::json!({}),
                 None,
+                None,
             )
             .await
             .unwrap();
@@ -484,6 +553,7 @@ mod tests {
                 ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
+                None,
                 None,
             )
             .await
@@ -510,5 +580,47 @@ mod tests {
             .root_hash()
             .cloned();
         assert_ne!(root1, root2);
+    }
+
+    #[tokio::test]
+    async fn test_audit_witness_receipt_lookup() {
+        let backend = Arc::new(MemoryBackend::new());
+        let store = AuditStore::new(backend);
+        let tenant = "tenant-test";
+        let receipt = "witness-receipt-abc-123";
+
+        // Log an event with a witness receipt
+        let event = store
+            .log(
+                tenant,
+                AuditEventType::GateDecision,
+                ActorType::System("test".to_string()),
+                None,
+                serde_json::json!({
+                    "authority": {
+                        "capsule_id": "capsule-1",
+                        "outcome": "ALLOW",
+                        "reason_code": "APPROVED",
+                        "nonce": 42
+                    }
+                }),
+                None,
+                Some(receipt.to_string()),
+            )
+            .await
+            .unwrap();
+
+        // Retrieve by receipt
+        let found = store.get_by_witness_receipt(tenant, receipt).await.unwrap();
+
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, event.id);
+
+        // Retrieve non-existent
+        let not_found = store
+            .get_by_witness_receipt(tenant, "non-existent")
+            .await
+            .unwrap();
+        assert!(not_found.is_none());
     }
 }

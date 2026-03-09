@@ -33,6 +33,8 @@ pub struct RouterConfig {
     pub cache_enabled: bool,
     pub guardrails_enabled: bool,
     pub compression_level: CompressionLevel,
+    pub chora_public_key: Option<Vec<u8>>,
+    pub strict_mode: bool,
 }
 
 impl Default for RouterConfig {
@@ -45,6 +47,8 @@ impl Default for RouterConfig {
             cache_enabled: true,
             guardrails_enabled: true,
             compression_level: CompressionLevel::Balanced,
+            chora_public_key: None,
+            strict_mode: false,
         }
     }
 }
@@ -60,6 +64,8 @@ pub enum RouterError {
     AllModelsFailed,
     #[error("Guardrails blocked request")]
     GuardrailsBlocked,
+    #[error("VEP verification failed: {0}")]
+    VepVerificationFailed(String),
 }
 
 /// The main Router - implements LlmProvider trait for VEX
@@ -138,6 +144,12 @@ impl Router {
 
     /// Execute a query through the router
     pub async fn execute(&self, prompt: &str, system: &str) -> Result<String, RouterError> {
+        if self.config.strict_mode {
+            return Err(RouterError::VepVerificationFailed(
+                "Strict Mode Enabled: Unenveloped requests are blocked. Use VEP encapsulation."
+                    .to_string(),
+            ));
+        }
         let decision = self.route(prompt, system)?;
 
         // For now, return a mock response
@@ -149,6 +161,42 @@ impl Router {
             if system.to_lowercase().contains("shadow") { "Adversarial" } else { "Primary" },
             decision.estimated_savings
         ))
+    }
+
+    /// Stateless verification and routing of a VEP packet (Phase 3.2)
+    pub async fn verify_and_route(&self, vep_data: &[u8]) -> Result<String, RouterError> {
+        use vex_core::VepPacket;
+
+        // 1. Parse and verify the VEP packet
+        let packet = VepPacket::new(vep_data)
+            .map_err(|e| RouterError::VepVerificationFailed(e.to_string()))?;
+
+        if let Some(pub_key) = &self.config.chora_public_key {
+            if !packet
+                .verify(pub_key)
+                .map_err(RouterError::VepVerificationFailed)?
+            {
+                return Err(RouterError::VepVerificationFailed(
+                    "Cryptographic signature mismatch".to_string(),
+                ));
+            }
+        }
+
+        // 2. Reconstruct the capsule (intent + authority)
+        let capsule = packet
+            .to_capsule()
+            .map_err(RouterError::VepVerificationFailed)?;
+
+        // 3. Extract prompt from intent (trace_root or data)
+        // For proxy/sidecar integration, we route based on the Intent segment
+        let prompt = format!(
+            "Encapsulated Intent: {} (Root: {})",
+            capsule.intent.goal.clone(),
+            capsule.intent.description.clone().unwrap_or_default()
+        );
+        let system = "VEP Enveloped Request";
+
+        self.execute(&prompt, system).await
     }
 
     /// Convenience method - ask a question
@@ -321,6 +369,16 @@ impl RouterBuilder {
         self
     }
 
+    pub fn chora_public_key(mut self, key: Vec<u8>) -> Self {
+        self.config.chora_public_key = Some(key);
+        self
+    }
+
+    pub fn strict_mode(mut self, enabled: bool) -> Self {
+        self.config.strict_mode = enabled;
+        self
+    }
+
     pub fn add_model(mut self, model: crate::config::ModelConfig) -> Self {
         self.custom_models.push(model);
         self
@@ -431,5 +489,21 @@ mod tests {
         let request = LlmRequest::simple("test");
         assert_eq!(request.system, "You are a helpful assistant.");
         assert_eq!(request.prompt, "test");
+    }
+
+    #[tokio::test]
+    async fn test_strict_mode() {
+        let router = Router::builder().strict_mode(true).build();
+
+        // Standard execution should fail
+        let result = router.execute("hello", "").await;
+        assert!(result.is_err());
+
+        match result {
+            Err(crate::router::RouterError::VepVerificationFailed(msg)) => {
+                assert!(msg.contains("Strict Mode Enabled"));
+            }
+            _ => panic!("Expected Strict Mode error"),
+        }
     }
 }

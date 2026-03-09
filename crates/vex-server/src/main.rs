@@ -190,6 +190,10 @@ async fn main() -> Result<()> {
 
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
 
+    let bridge = Arc::new(vex_chora::AuthorityBridge::new(Box::new(
+        vex_chora::client::MockChoraClient,
+    )));
+
     let app_state = AppState::new(
         jwt_auth,
         rate_limiter,
@@ -202,6 +206,7 @@ async fn main() -> Result<()> {
         None, // We skip the broken router entirely
         gate.clone(),
         orchestrator.clone(),
+        bridge,
     );
 
     let mut app = api_router(app_state.clone());
