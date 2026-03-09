@@ -38,6 +38,9 @@ impl AuthorityClient for MockChoraClient {
         let _witness_receipt = hex::encode(hash);
 
         let authority = AuthorityData {
+            capsule_id: "chora-mock-id".into(),
+            outcome: "ALLOW".into(),
+            reason_code: "MOCK_OK".into(),
             nonce: 42,
             trace_root: [0u8; 32], // Mocked trace root
         };
