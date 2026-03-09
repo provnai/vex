@@ -299,6 +299,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "attest-rs"
 version = "0.1.0"
+source = "git+https://github.com/provnai/attest?branch=fix%2Fci-hardening#1c1ec43d649ac1f1843fbcffc281179c71556809"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -344,9 +345,9 @@ dependencies = [
  "tracing-subscriber",
  "tss-esapi",
  "uuid",
- "vex-anchor 1.0.0 (git+https://github.com/provnai/vex)",
- "vex-core 1.0.0 (git+https://github.com/provnai/vex)",
- "vex-hardware 1.0.0",
+ "vex-anchor",
+ "vex-core",
+ "vex-hardware 1.0.0 (git+https://github.com/provnai/attest?branch=fix%2Fci-hardening)",
  "windows",
  "windows-sys 0.61.2",
  "zeroize",
@@ -5784,7 +5785,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-llm",
 ]
 
@@ -5812,25 +5813,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "uuid",
- "vex-core 1.0.0",
-]
-
-[[package]]
-name = "vex-anchor"
-version = "1.0.0"
-source = "git+https://github.com/provnai/vex#3b8e1327ea2b0b2974825bc795e8d652721e7669"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "subtle",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
- "vex-core 1.0.0 (git+https://github.com/provnai/vex)",
+ "vex-core",
 ]
 
 [[package]]
@@ -5873,9 +5856,9 @@ dependencies = [
  "utoipa-swagger-ui",
  "uuid",
  "vex-adversarial",
- "vex-anchor 1.0.0",
+ "vex-anchor",
  "vex-chora",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-hardware 1.0.0",
  "vex-llm",
  "vex-persist",
@@ -5902,7 +5885,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-hardware 1.0.0",
 ]
 
@@ -5934,30 +5917,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vex-core"
-version = "1.0.0"
-source = "git+https://github.com/provnai/vex#3b8e1327ea2b0b2974825bc795e8d652721e7669"
-dependencies = [
- "async-trait",
- "chrono",
- "ed25519-dalek",
- "hex",
- "metrics 0.22.4",
- "rand 0.8.5",
- "rayon",
- "serde",
- "serde_jcs",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
- "vex-hardware 1.0.0 (git+https://github.com/provnai/vex)",
- "zerocopy",
-]
-
-[[package]]
 name = "vex-demo"
 version = "0.1.0"
 dependencies = [
@@ -5967,7 +5926,7 @@ dependencies = [
  "tokio",
  "uuid",
  "vex-adversarial",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-llm",
  "vex-persist",
  "vex-runtime",
@@ -6004,14 +5963,16 @@ dependencies = [
 [[package]]
 name = "vex-hardware"
 version = "1.0.0"
-source = "git+https://github.com/provnai/vex#3b8e1327ea2b0b2974825bc795e8d652721e7669"
+source = "git+https://github.com/provnai/attest?branch=fix%2Fci-hardening#1c1ec43d649ac1f1843fbcffc281179c71556809"
 dependencies = [
  "aes-gcm",
  "anyhow",
  "argon2",
  "async-trait",
+ "chrono",
  "ed25519-dalek",
  "hex",
+ "provn-sdk",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -6021,7 +5982,9 @@ dependencies = [
  "tracing",
  "tss-esapi",
  "uuid",
+ "windows",
  "windows-sys 0.61.2",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -6051,7 +6014,7 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-macros",
 ]
 
@@ -6085,7 +6048,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-hardware 1.0.0",
  "vex-queue",
 ]
@@ -6105,7 +6068,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-llm",
  "vex-persist",
 ]
@@ -6154,7 +6117,7 @@ dependencies = [
  "tracing-subscriber",
  "utoipa",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-llm",
  "vex-persist",
 ]
@@ -6174,8 +6137,8 @@ dependencies = [
  "tracing",
  "uuid",
  "vex-adversarial",
- "vex-anchor 1.0.0",
- "vex-core 1.0.0",
+ "vex-anchor",
+ "vex-core",
  "vex-hardware 1.0.0",
  "vex-llm",
  "vex-persist",
@@ -6198,10 +6161,10 @@ dependencies = [
  "tower-http 0.6.8",
  "tracing",
  "uuid",
- "vex-anchor 1.0.0",
+ "vex-anchor",
  "vex-api",
  "vex-chora",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-hardware 1.0.0",
  "vex-llm",
  "vex-persist",
@@ -6228,7 +6191,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "zerocopy",
 ]
 
@@ -6243,7 +6206,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
- "vex-core 1.0.0",
+ "vex-core",
  "vex-llm",
  "vex-persist",
 ]

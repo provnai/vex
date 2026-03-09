@@ -99,3 +99,8 @@ overflow-checks = true
 strip = "symbols"
 # Link-time optimization for better security analysis
 lto = "thin"
+
+[patch."https://github.com/provnai/vex"]
+vex-core = { path = "crates/vex-core" }
+vex-hardware = { path = "crates/vex-hardware" }
+vex-anchor = { path = "crates/vex-anchor" }
