@@ -8,9 +8,7 @@ use axum::{
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::{error, info};
-use vex_core::{
-    Hash, IntentData, VepHeader, VepSegmentHeader, VEP_MAGIC, VEP_VERSION_V2,
-};
+use vex_core::{Hash, IntentData, VepHeader, VepSegmentHeader, VEP_MAGIC, VEP_VERSION_V2};
 use zerocopy::U32;
 
 #[derive(Clone)]
@@ -88,7 +86,8 @@ async fn proxy_handler(
     let auth_data = b"{\"nonce\":12345,\"trace_root\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}";
     let sig_data = vec![0u8; 64]; // Mock Ed25519 signature
 
-    let _total_payload_len = intent_json.len() + ident_data.len() + auth_data.len() + sig_data.len();
+    let _total_payload_len =
+        intent_json.len() + ident_data.len() + auth_data.len() + sig_data.len();
 
     let header = VepHeader {
         magic: VEP_MAGIC,
