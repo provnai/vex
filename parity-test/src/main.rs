@@ -1,7 +1,7 @@
 use attest_rs::runtime::hashing::{AuthoritySegment, WitnessSegment as AttestWitnessSegment};
 use attest_rs::runtime::intent::Intent;
 use attest_rs::runtime::noise::MockKeyProvider;
-use attest_rs::runtime::vep::{VepBuilder, VepPacket as AttestVepPacket};
+use attest_rs::runtime::vep::{VepBuilder, VepBuildInput, VepPacket as AttestVepPacket};
 use serde_json::json;
 use snow::Builder;
 use std::sync::Arc;
@@ -56,16 +56,16 @@ async fn main() {
     let payload = b"Hello, ProvnAI Ecosystem!";
 
     // 3. Construct VEP using attest-rs
-    let vep_bytes = VepBuilder::build_with_hardware_quote(
-        999,
-        &intent,
-        &auth,
-        &identity,
-        &witness,
-        kp.clone(),
-        None,
+    let vep_bytes = VepBuilder::build_with_hardware_quote(VepBuildInput {
+        nonce: 999,
+        intent: &intent,
+        auth: &auth,
+        identity: &identity,
+        witness: &witness,
+        kp: kp.clone(),
+        transport: None,
         payload,
-    )
+    })
     .await
     .expect("Failed to build VEP from attest-rs");
 
