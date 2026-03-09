@@ -1,4 +1,4 @@
-use ed25519_dalek::{SigningKey, Signer, Signature};
+use ed25519_dalek::{Signature, Signer, SigningKey};
 use provn_sdk::{sign_claim, Claim};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;

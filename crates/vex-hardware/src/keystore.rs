@@ -130,7 +130,9 @@ impl KeyManager {
             .map_err(|_| anyhow!("Decryption failed: Invalid password or corrupted file"))?;
 
         // 3. TPM Multi-Factor (Hardware Sealing)
-        let (seed, sealed_seed): ([u8; 32], Option<Vec<u8>>) = if let Some(tpm_blobs) = store.tpm_blobs {
+        let (seed, sealed_seed): ([u8; 32], Option<Vec<u8>>) = if let Some(tpm_blobs) =
+            store.tpm_blobs
+        {
             let provider = crate::tpm::create_identity_provider(true);
             let private = base64::decode(tpm_blobs.private).context("Invalid TPM private blob")?;
             // public blob is ignored in new trait model (CNG doesn't need it for persisted keys)

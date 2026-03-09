@@ -65,7 +65,7 @@ mod windows_impl {
 
     impl Default for CngIdentity {
         fn default() -> Self {
-            Self { 
+            Self {
                 sealed_seed: None,
                 identity_public_key: None,
             }
@@ -80,7 +80,8 @@ mod windows_impl {
                 let provider_name: Vec<u16> = "Microsoft Platform Crypto Provider\0"
                     .encode_utf16()
                     .collect();
-                let mut status = NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
+                let mut status =
+                    NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
                 if status != 0 {
                     return Err(anyhow!(
                         "TPM provider not available ({})",
@@ -177,7 +178,8 @@ mod windows_impl {
                 let provider_name: Vec<u16> = "Microsoft Platform Crypto Provider\0"
                     .encode_utf16()
                     .collect();
-                let mut status = NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
+                let mut status =
+                    NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
                 if status != 0 {
                     return Err(anyhow!("TPM provider not available"));
                 }
@@ -312,7 +314,8 @@ mod windows_impl {
                 let provider_name: Vec<u16> = "Microsoft Platform Crypto Provider\0"
                     .encode_utf16()
                     .collect();
-                let mut status = NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
+                let mut status =
+                    NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
                 if status != 0 {
                     return Err(anyhow!(
                         "TPM provider not available ({})",
@@ -387,7 +390,8 @@ mod windows_impl {
                 let provider_name: Vec<u16> = "Microsoft Platform Crypto Provider\0"
                     .encode_utf16()
                     .collect();
-                let mut status = NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
+                let mut status =
+                    NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
                 if status != 0 {
                     return Err(anyhow!(
                         "TPM provider not available ({})",
@@ -464,7 +468,7 @@ mod linux_impl {
 
     impl Tpm2Identity {
         pub fn new() -> Result<Self> {
-            Ok(Self { 
+            Ok(Self {
                 sealed_seed: None,
                 identity_public_key: None,
             })

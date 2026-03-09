@@ -21,21 +21,20 @@ jobs:
     steps:
       - name: Checkout VEX
         uses: actions/checkout@v4
-        with:
-          path: vex
       - name: Checkout Attest
         uses: actions/checkout@v4
         with:
           repository: provnai/attest
-          path: attest
+          path: attest-dep
           token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
       - name: Check formatting
-        run: cargo fmt --all -- --check
-        working-directory: vex
+        run: cargo fmt --check
 
   clippy:
     name: Lint (Clippy)
@@ -43,14 +42,14 @@ jobs:
     steps:
       - name: Checkout VEX
         uses: actions/checkout@v4
-        with:
-          path: vex
       - name: Checkout Attest
         uses: actions/checkout@v4
         with:
           repository: provnai/attest
-          path: attest
+          path: attest-dep
           token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,7 +58,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libtss2-dev pkg-config
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: vex
 
   test:
     name: Test
@@ -67,18 +65,17 @@ jobs:
     steps:
       - name: Checkout VEX
         uses: actions/checkout@v4
-        with:
-          path: vex
       - name: Checkout Attest
         uses: actions/checkout@v4
         with:
           repository: provnai/attest
-          path: attest
+          path: attest-dep
           token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install TPM dependencies
         run: sudo apt-get update && sudo apt-get install -y libtss2-dev pkg-config
       - name: Run Tests
         run: cargo test --all-features --workspace
-        working-directory: vex
