@@ -299,7 +299,6 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "attest-rs"
 version = "0.1.0"
-source = "git+https://github.com/provnai/attest?branch=fix%2Fci-hardening#1c1ec43d649ac1f1843fbcffc281179c71556809"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -347,7 +346,7 @@ dependencies = [
  "uuid",
  "vex-anchor",
  "vex-core",
- "vex-hardware 1.0.0 (git+https://github.com/provnai/attest?branch=fix%2Fci-hardening)",
+ "vex-hardware",
  "windows",
  "windows-sys 0.61.2",
  "zeroize",
@@ -5859,7 +5858,7 @@ dependencies = [
  "vex-anchor",
  "vex-chora",
  "vex-core",
- "vex-hardware 1.0.0",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
  "vex-queue",
@@ -5886,7 +5885,7 @@ dependencies = [
  "tracing",
  "uuid",
  "vex-core",
- "vex-hardware 1.0.0",
+ "vex-hardware",
 ]
 
 [[package]]
@@ -5912,7 +5911,7 @@ dependencies = [
  "tracing",
  "uuid",
  "vex-algoswitch",
- "vex-hardware 1.0.0",
+ "vex-hardware",
  "zerocopy",
 ]
 
@@ -5936,34 +5935,6 @@ dependencies = [
 [[package]]
 name = "vex-hardware"
 version = "1.0.0"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "argon2",
- "async-trait",
- "chrono",
- "ed25519-dalek",
- "hex",
- "provn-sdk",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tss-esapi",
- "uuid",
- "windows",
- "windows-sys 0.61.2",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
-name = "vex-hardware"
-version = "1.0.0"
-source = "git+https://github.com/provnai/attest?branch=fix%2Fci-hardening#1c1ec43d649ac1f1843fbcffc281179c71556809"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -6049,7 +6020,7 @@ dependencies = [
  "tracing",
  "uuid",
  "vex-core",
- "vex-hardware 1.0.0",
+ "vex-hardware",
  "vex-queue",
 ]
 
@@ -6139,7 +6110,7 @@ dependencies = [
  "vex-adversarial",
  "vex-anchor",
  "vex-core",
- "vex-hardware 1.0.0",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
 ]
@@ -6165,7 +6136,7 @@ dependencies = [
  "vex-api",
  "vex-chora",
  "vex-core",
- "vex-hardware 1.0.0",
+ "vex-hardware",
  "vex-llm",
  "vex-persist",
  "vex-queue",
