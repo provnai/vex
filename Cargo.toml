@@ -104,3 +104,6 @@ lto = "thin"
 vex-core = { path = "crates/vex-core" }
 vex-hardware = { path = "crates/vex-hardware" }
 vex-anchor = { path = "crates/vex-anchor" }
+
+[patch."https://github.com/provnai/attest"]
+attest-rs = { path = "../attest/attest-rs" }

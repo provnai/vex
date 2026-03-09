@@ -48,6 +48,9 @@ async fn test_singularity_high_fidelity_tpm() {
     intent.created_at = chrono::Utc::now();
 
     let auth = AuthoritySegment {
+        capsule_id: "singularity-cap-v1".into(),
+        outcome: "ALLOW".into(),
+        reason_code: "HARDWARE_ROOTED_OK".into(),
         nonce: 888888,
         trace_root: [0x55; 32],
     };
@@ -60,7 +63,7 @@ async fn test_singularity_high_fidelity_tpm() {
     let witness = attest_rs::runtime::hashing::WitnessSegment {
         chora_node_id: "chora-singularity".into(),
         receipt_hash: "deadbeefdeadbeef".into(),
-        timestamp: 1710000000,
+        timestamp: "2024-03-09T10:00:00Z".into(),
     };
 
     let payload = b"Operational Singularity Verified with Hardware-Anchored Seed.";

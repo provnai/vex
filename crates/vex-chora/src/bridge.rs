@@ -33,7 +33,7 @@ impl AuthorityBridge {
         let witness = WitnessData {
             chora_node_id: "node-0".to_string(),
             receipt_hash: hex::encode(vec![0u8; 32]),
-            timestamp: 1700000000,
+            timestamp: "2024-03-09T10:00:00Z".to_string(),
         };
 
         Ok(Capsule {
