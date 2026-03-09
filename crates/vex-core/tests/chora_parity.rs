@@ -1,5 +1,5 @@
-use vex_core::segment::{Capsule, IntentData, AuthorityData, IdentityData, WitnessData};
 use sha2::Digest;
+use vex_core::segment::{AuthorityData, Capsule, IdentityData, IntentData, WitnessData};
 
 #[test]
 fn test_capsule_jcs_parity() {
@@ -45,7 +45,7 @@ fn test_capsule_jcs_parity() {
 
     // 2. Compute individual pillar hashes to show the intermediate state
     let intent_hash = intent.to_jcs_hash().unwrap();
-    
+
     // Hash helper for the other structs
     fn hash_seg<T: serde::Serialize>(seg: &T) -> String {
         let jcs = serde_jcs::to_vec(seg).unwrap();
