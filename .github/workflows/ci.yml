@@ -19,19 +19,39 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout VEX
+        uses: actions/checkout@v4
+      - name: Checkout Attest
+        uses: actions/checkout@v4
+        with:
+          repository: provnai/attest
+          ref: fix/ci-hardening
+          path: attest-dep
+          token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: cargo fmt --check
 
   clippy:
     name: Lint (Clippy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout VEX
+        uses: actions/checkout@v4
+      - name: Checkout Attest
+        uses: actions/checkout@v4
+        with:
+          repository: provnai/attest
+          ref: fix/ci-hardening
+          path: attest-dep
+          token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,7 +65,17 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout VEX
+        uses: actions/checkout@v4
+      - name: Checkout Attest
+        uses: actions/checkout@v4
+        with:
+          repository: provnai/attest
+          ref: fix/ci-hardening
+          path: attest-dep
+          token: ${{ secrets.GH_PAT || github.token }}
+      - name: Setup sibling dependency
+        run: mv attest-dep ../attest
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install TPM dependencies
