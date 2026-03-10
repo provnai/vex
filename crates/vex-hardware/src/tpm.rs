@@ -64,7 +64,6 @@ mod windows_impl {
         pub identity_public_key: Option<Vec<u8>>,
     }
 
-
     #[async_trait]
     impl HardwareIdentity for CngIdentity {
         async fn seal(&self, _label: &str, data: &[u8]) -> Result<Vec<u8>> {

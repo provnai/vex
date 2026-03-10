@@ -7,14 +7,14 @@ WORKDIR /usr/src/vex
 # Mask udevadm and divert tpm-udev postinst to prevent crashes on read-only /sys platforms like Railway
 RUN apt-get update && \
     # 1. Mask udevadm in all common locations
-    ln -s /bin/true /usr/local/bin/udevadm && \
-    ln -s /bin/true /usr/bin/udevadm && \
-    ln -s /bin/true /bin/udevadm && \
-    ln -s /bin/true /sbin/udevadm && \
+    ln -sf /bin/true /usr/local/bin/udevadm && \
+    ln -sf /bin/true /usr/bin/udevadm && \
+    ln -sf /bin/true /bin/udevadm && \
+    ln -sf /bin/true /sbin/udevadm && \
     # 2. Divert tpm-udev script before it's even installed
     mkdir -p /var/lib/dpkg/info/ && \
     dpkg-divert --local --rename --add /var/lib/dpkg/info/tpm-udev.postinst && \
-    ln -s /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
+    ln -sf /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential curl libtss2-dev golang && \
     rm -rf /var/lib/apt/lists/*
@@ -35,14 +35,14 @@ FROM debian:bookworm-slim
 # Mask udevadm and divert tpm-udev postinst to prevent crashes on Railway
 RUN apt-get update && \
     # 1. Mask udevadm in all common locations
-    ln -s /bin/true /usr/local/bin/udevadm && \
-    ln -s /bin/true /usr/bin/udevadm && \
-    ln -s /bin/true /bin/udevadm && \
-    ln -s /bin/true /sbin/udevadm && \
+    ln -sf /bin/true /usr/local/bin/udevadm && \
+    ln -sf /bin/true /usr/bin/udevadm && \
+    ln -sf /bin/true /bin/udevadm && \
+    ln -sf /bin/true /sbin/udevadm && \
     # 2. Divert tpm-udev script before it's even installed
     mkdir -p /var/lib/dpkg/info/ && \
     dpkg-divert --local --rename --add /var/lib/dpkg/info/tpm-udev.postinst && \
-    ln -s /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
+    ln -sf /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates libssl3 curl libtss2-esys-3.0.2-0 libtss2-tctildr0 && \
     rm -rf /var/lib/apt/lists/*
@@ -67,7 +67,7 @@ USER 1000:1000
 # Expose the port
 EXPOSE 8080
 
-# Healthcheck to aid# Start correctly
+# Healthcheck to start correctly
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:${VEX_PORT:-8080}/health || exit 1
 
