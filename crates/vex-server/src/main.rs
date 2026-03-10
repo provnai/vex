@@ -164,7 +164,8 @@ async fn main() -> Result<()> {
         Some(evolution_store.clone()),
         gate.clone(),
     );
-    let orchestrator = Arc::new(base_orchestrator.with_identity(identity.clone(), audit_store.clone()));
+    let orchestrator =
+        Arc::new(base_orchestrator.with_identity(identity.clone(), audit_store.clone()));
 
     tracing::info!("⚓ Hardware Identity Active: {}", identity.agent_id);
     tracing::info!("🛡️ Cognitive Orchestrator initialized (Unified Signing)");
@@ -219,7 +220,8 @@ async fn main() -> Result<()> {
             vex_chora::client::make_mock_client()
         }
     };
-    let bridge = Arc::new(vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()));
+    let bridge =
+        Arc::new(vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()));
 
 
     let app_state = AppState::new(

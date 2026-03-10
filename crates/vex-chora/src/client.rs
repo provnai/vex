@@ -161,10 +161,7 @@ impl AuthorityClient for HttpChoraClient {
             .unwrap_or_else(|_| "empty response".to_string());
 
         if !status.is_success() {
-            return Err(format!(
-                "CHORA gate returned status {}: {}",
-                status, text
-            ));
+            return Err(format!("CHORA gate returned status {}: {}", status, text));
         }
 
         let api_resp: ChoraApiResponse = serde_json::from_str(&text)
@@ -247,19 +244,16 @@ impl AuthorityClient for HttpChoraClient {
             .collect::<Vec<_>>()
             .join("");
 
-        let key_bytes = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            b64.trim(),
-        )
-        .map_err(|e| format!("Public key base64 decode failed: {}", e))?;
+        let key_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64.trim())
+                .map_err(|e| format!("Public key base64 decode failed: {}", e))?;
 
         // Ed25519 SubjectPublicKeyInfo DER is 44 bytes; raw key is the last 32
         let raw_key: [u8; 32] = key_bytes[key_bytes.len().saturating_sub(32)..]
             .try_into()
             .map_err(|_| "Invalid Ed25519 public key length".to_string())?;
 
-        let verifying_key =
-            VerifyingKey::from_bytes(&raw_key).map_err(|e| e.to_string())?;
+        let verifying_key = VerifyingKey::from_bytes(&raw_key).map_err(|e| e.to_string())?;
 
         let sig_bytes: [u8; 64] = signature
             .try_into()

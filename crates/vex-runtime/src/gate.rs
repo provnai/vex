@@ -161,9 +161,12 @@ impl Gate for HttpGate {
                     match serde_json::from_str::<VanguardResponse>(&text) {
                         Ok(v_resp) => {
                             // witness_receipt: prefer top-level field, fall back to signed_payload field
-                            let witness = v_resp.witness_receipt
+                            let witness = v_resp
+                                .witness_receipt
                                 .or(v_resp.signed_payload.witness_receipt)
-                                .unwrap_or_else(|| format!("chora-{}", v_resp.signed_payload.capsule_id));
+                                .unwrap_or_else(|| {
+                                    format!("chora-{}", v_resp.signed_payload.capsule_id)
+                                });
                             EvidenceCapsule {
                                 capsule_id: v_resp.signed_payload.capsule_id,
                                 outcome: v_resp.signed_payload.outcome,
@@ -171,9 +174,11 @@ impl Gate for HttpGate {
                                 witness_receipt: witness,
                                 nonce: v_resp.signed_payload.nonce.unwrap_or(0),
                                 sensors: v_resp.sensors.unwrap_or(serde_json::Value::Null),
-                                reproducibility_context: v_resp.reproducibility_context.unwrap_or(serde_json::Value::Null),
+                                reproducibility_context: v_resp
+                                    .reproducibility_context
+                                    .unwrap_or(serde_json::Value::Null),
                             }
-                        },
+                        }
                         Err(e) => EvidenceCapsule {
                             capsule_id: "error".to_string(),
                             outcome: "HALT".to_string(),
