@@ -298,8 +298,8 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "attest-rs"
-version = "0.1.0"
-source = "git+https://github.com/provnai/attest?branch=fix%2Fci-hardening#04a28d8f8f363995482c535a6cbe659b8cfe3e34"
+version = "0.3.1"
+source = "git+https://github.com/provnai/attest?branch=master#dd12c363ebb48ace970185c31f78c7ff8fa2b2f7"
 dependencies = [
  "aes-gcm",
  "anyhow",

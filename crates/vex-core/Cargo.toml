@@ -37,7 +37,7 @@ zerocopy = { workspace = true, features = ["derive"] }
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.4"
-attest-rs = { version = "0.3.1", git = "https://github.com/provnai/attest", branch = "fix/ci-hardening", package = "attest-rs" }
+attest-rs = { version = "0.3.1", git = "https://github.com/provnai/attest", branch = "master", package = "attest-rs" }
 
 [[bench]]
 name = "merkle_benchmark"
