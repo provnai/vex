@@ -58,19 +58,12 @@ mod windows_impl {
         }
     }
 
+    #[derive(Default)]
     pub struct CngIdentity {
         pub sealed_seed: Option<Vec<u8>>,
         pub identity_public_key: Option<Vec<u8>>,
     }
 
-    impl Default for CngIdentity {
-        fn default() -> Self {
-            Self {
-                sealed_seed: None,
-                identity_public_key: None,
-            }
-        }
-    }
 
     #[async_trait]
     impl HardwareIdentity for CngIdentity {

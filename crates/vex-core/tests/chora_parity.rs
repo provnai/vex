@@ -5,7 +5,8 @@ use vex_core::segment::{AuthorityData, Capsule, IdentityData, IntentData, Witnes
 fn test_capsule_jcs_parity() {
     // 1. Construct the native Rust structs
     let intent = IntentData {
-        request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e".to_string(),
+        request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e"
+            .to_string(),
         confidence: 0.95,
         capabilities: vec!["TPM_VERIFY".into()],
     };

@@ -4,9 +4,17 @@ FROM rust:slim-bookworm AS builder
 WORKDIR /usr/src/vex
 
 # Install required dependencies for building
-# Mask udevadm to prevent tpm-udev from crashing on read-only /sys platforms like Railway
+# Mask udevadm and divert tpm-udev postinst to prevent crashes on read-only /sys platforms like Railway
 RUN apt-get update && \
+    # 1. Mask udevadm in all common locations
     ln -s /bin/true /usr/local/bin/udevadm && \
+    ln -s /bin/true /usr/bin/udevadm && \
+    ln -s /bin/true /bin/udevadm && \
+    ln -s /bin/true /sbin/udevadm && \
+    # 2. Divert tpm-udev script before it's even installed
+    mkdir -p /var/lib/dpkg/info/ && \
+    dpkg-divert --local --rename --add /var/lib/dpkg/info/tpm-udev.postinst && \
+    ln -s /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential curl libtss2-dev golang && \
     rm -rf /var/lib/apt/lists/*
@@ -24,8 +32,17 @@ RUN cd attest && go build -v -o ../attest-bin ./cmd/attest
 FROM debian:bookworm-slim
 
 # Install runtime dependencies (CA certs are essential for LLM API calls)
+# Mask udevadm and divert tpm-udev postinst to prevent crashes on Railway
 RUN apt-get update && \
+    # 1. Mask udevadm in all common locations
     ln -s /bin/true /usr/local/bin/udevadm && \
+    ln -s /bin/true /usr/bin/udevadm && \
+    ln -s /bin/true /bin/udevadm && \
+    ln -s /bin/true /sbin/udevadm && \
+    # 2. Divert tpm-udev script before it's even installed
+    mkdir -p /var/lib/dpkg/info/ && \
+    dpkg-divert --local --rename --add /var/lib/dpkg/info/tpm-udev.postinst && \
+    ln -s /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates libssl3 curl libtss2-esys-3.0.2-0 libtss2-tctildr0 && \
     rm -rf /var/lib/apt/lists/*
