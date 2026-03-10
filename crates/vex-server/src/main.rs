@@ -152,9 +152,8 @@ async fn main() -> Result<()> {
             vex_chora::client::make_mock_client()
         }
     };
-    let bridge = Arc::new(
-        vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()),
-    );
+    let bridge =
+        Arc::new(vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()));
 
     // 3. Initialize Gate (using unified bridge)
     let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::ChoraGate {
@@ -163,7 +162,7 @@ async fn main() -> Result<()> {
 
     // 4. Initialize Audit Store (Merkle-Chained)
     let audit_store = Arc::new(vex_persist::AuditStore::new(
-        db.clone() as Arc<dyn vex_persist::StorageBackend>,
+        db.clone() as Arc<dyn vex_persist::StorageBackend>
     ));
 
     // 5. Initialize Unified Orchestrator (Cognitive Hub)

@@ -25,15 +25,17 @@ impl std::fmt::Debug for HardwareKeystore {
 impl HardwareKeystore {
     /// Initialize connection to the TPM (or CNG on Windows)
     pub async fn new() -> Result<Self, HardwareError> {
-        let dev_mode = std::env::var("VEX_DEV_MODE").map(|v| v == "1").unwrap_or(false);
+        let dev_mode = std::env::var("VEX_DEV_MODE")
+            .map(|v| v == "1")
+            .unwrap_or(false);
         let allow_fallback = std::env::var("VEX_HARDWARE_ATTESTATION")
             .map(|v| v != "true")
             .unwrap_or(true);
 
         // Force stub identity in dev mode if fallback is allowed, bypassing potential TPM malfunctions
         if dev_mode && allow_fallback {
-            return Ok(Self { 
-                provider: Box::new(crate::tpm::StubIdentity::default()) 
+            return Ok(Self {
+                provider: Box::new(crate::tpm::StubIdentity::default()),
             });
         }
 

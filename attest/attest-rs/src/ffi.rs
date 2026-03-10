@@ -217,11 +217,15 @@ pub extern "C" fn attest_chora_handshake(
         
         // Safely extract C strings
         let url_str = unsafe {
-            if base_url.is_null() { return std::ptr::null_mut(); }
+            if base_url.is_null() {
+                return std::ptr::null_mut();
+            }
             CStr::from_ptr(base_url).to_string_lossy().into_owned()
         };
         let key_str = unsafe {
-            if api_key.is_null() { return std::ptr::null_mut(); }
+            if api_key.is_null() {
+                return std::ptr::null_mut();
+            }
             CStr::from_ptr(api_key).to_string_lossy().into_owned()
         };
 

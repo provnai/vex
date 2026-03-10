@@ -15,7 +15,10 @@ pub fn create_identity_provider(allow_fallback: bool) -> Box<dyn HardwareIdentit
                     tracing::warn!("⚠️  CNG/TPM provider not available on Windows: {}. Falling back to StubIdentity.", e);
                     Box::new(stub_impl::StubIdentity::default())
                 } else {
-                    panic!("❌ Critical: CNG/TPM required but initialization failed: {}", e);
+                    panic!(
+                        "❌ Critical: CNG/TPM required but initialization failed: {}",
+                        e
+                    );
                 }
             }
         }
@@ -82,9 +85,8 @@ mod windows_impl {
                 let provider_name: Vec<u16> = "Microsoft Platform Crypto Provider\0"
                     .encode_utf16()
                     .collect();
-                let status =
-                    NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
-                
+                let status = NCryptOpenStorageProvider(&mut provider, provider_name.as_ptr(), 0);
+
                 if status == 0 {
                     NCryptFreeObject(provider);
                     Ok(Self::default())

@@ -91,9 +91,7 @@ impl HttpGate {
 
     /// Attach a hardware identity to the underlying bridge.
     pub fn with_identity(self, identity: std::sync::Arc<vex_hardware::api::AgentIdentity>) -> Self {
-        let bridge = (*self.inner.bridge)
-            .clone()
-            .with_identity(identity);
+        let bridge = (*self.inner.bridge).clone().with_identity(identity);
         Self {
             inner: std::sync::Arc::new(ChoraGate {
                 bridge: std::sync::Arc::new(bridge),
@@ -113,7 +111,13 @@ impl Gate for HttpGate {
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
         self.inner
-            .execute_gate(agent_id, task_prompt, suggested_output, confidence, capabilities)
+            .execute_gate(
+                agent_id,
+                task_prompt,
+                suggested_output,
+                confidence,
+                capabilities,
+            )
             .await
     }
 }

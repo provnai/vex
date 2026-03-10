@@ -139,7 +139,8 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
         persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
         gate: Arc<dyn crate::gate::Gate>,
     ) -> Self {
-        let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone(), gate.clone());
+        let executor =
+            AgentExecutor::new(llm.clone(), config.executor_config.clone(), gate.clone());
         let evolution_memory = if config.enable_self_correction {
             Some(RwLock::new(vex_core::EvolutionMemory::new()))
         } else {
