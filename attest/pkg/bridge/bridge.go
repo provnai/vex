@@ -7,10 +7,12 @@ package bridge
 #include <stdlib.h>
 #include <stdbool.h>
 
+#cgo LDFLAGS: -L../../attest-rs/target/debug -L../../attest-rs/target/release -lattest_rs -lm -ldl -lpthread
+
 void* attest_agent_new();
 void attest_agent_free(void* ptr);
-char* attest_agent_get_id(void* ptr);
 void attest_free_string(char* ptr);
+char* attest_agent_get_id(void* ptr);
 unsigned char* attest_seal(const unsigned char* data, size_t data_len, size_t* out_len);
 unsigned char* attest_unseal(const unsigned char* blob, size_t blob_len, size_t* out_len);
 void attest_free_buffer(unsigned char* ptr, size_t len);
