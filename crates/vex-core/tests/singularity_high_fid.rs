@@ -45,7 +45,7 @@ async fn test_singularity_high_fidelity_tpm() {
 
     // 3. Define Production-Spec Data
     let mut intent = Intent::new("singularity-agent".into(), "verify-v1-lock".into());
-    intent.created_at = chrono::Utc::now();
+    intent.created_at = chrono::Utc::now().to_string();
 
     let auth = AuthoritySegment {
         capsule_id: "singularity-cap-v1".into(),
