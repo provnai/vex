@@ -1,0 +1,44 @@
+{
+  "name": "@attest/sdk",
+  "version": "0.1.0",
+  "description": "JavaScript/Node.js SDK for the Attest verifiable agent action system",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "attest-agent": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node test/index.js",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "attest",
+    "attestation",
+    "agent",
+    "verification",
+    "security",
+    "cryptography"
+  ],
+  "author": "Attest Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/attest.git",
+    "directory": "sdk/js"
+  },
+  "bugs": {
+    "url": "https://github.com/anomalyco/attest/issues"
+  },
+  "homepage": "https://github.com/anomalyco/attest#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "js-yaml": "^4.1.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0"
+  }
+}

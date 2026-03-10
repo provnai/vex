@@ -1,0 +1,86 @@
+[package]
+name = "attest-rs"
+version = "0.3.1"
+edition = "2021"
+license = "Apache-2.0"
+description = "Ecosystem-aligned trust layer for AI agents (Rust)"
+homepage = "https://provnai.com"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+
+
+[dependencies]
+# Async & Utility
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+hex = { workspace = true }
+async-trait = { workspace = true }
+dirs = { workspace = true }
+clap = { workspace = true }
+config = { workspace = true }
+
+# Cryptography & Security
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+aes-gcm = { workspace = true }
+rand = { workspace = true }
+argon2 = { workspace = true }
+zeroize = { workspace = true }
+rpassword = { workspace = true }
+
+# Networking
+reqwest = { workspace = true }
+
+# Storage (Ecosystem Aligned)
+sqlx = { workspace = true }
+# Cryptography & Tunneling
+snow = { workspace = true }
+serde_jcs = { workspace = true }
+ring = { workspace = true }
+
+# Environmental Monitoring
+notify = { workspace = true }
+
+# Ecosystem Alignment (Now using Workspace Paths/Versions)
+vex-hardware = { workspace = true }
+vex-core = { workspace = true }
+vex-anchor = { workspace = true }
+provn-sdk = { workspace = true }
+portable-pty = { workspace = true }
+regex = { workspace = true }
+
+# Plonky3 (ZK Proofs)
+p3-field = "0.4.2"
+p3-matrix = "0.4.2"
+p3-goldilocks = "0.4.2"
+p3-poseidon = "0.4.2"
+p3-poseidon2 = "0.4.2"
+p3-merkle-tree = "0.4.2"
+p3-fri = "0.4.2"
+p3-challenger = "0.4.2"
+p3-commit = "0.4.2"
+p3-uni-stark = "0.4.2"
+p3-dft = "0.4.2"
+p3-air = "0.4.2"
+p3-symmetric = "0.4.2"
+p3-util = "0.4.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog"] }
+windows = { version = "0.62.2", features = ["Win32_Security_Tpm", "Win32_Foundation", "Win32_System_SystemServices", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tss-esapi = "7.5.0"
+
+[dev-dependencies]
+tempfile = "3.24.0"
+tokio-test = "0.4"

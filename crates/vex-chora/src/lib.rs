@@ -17,26 +17,20 @@ mod tests {
     async fn test_bridge_handshake() {
         let bridge = AuthorityBridge::new(Box::new(MockChoraClient));
         let intent = vex_core::segment::IntentData {
-            id: "test-agent".to_string(),
-            goal: "TASK_EXECUTION".to_string(),
-            description: None,
-            ticket_id: None,
-            constraints: vec![],
-            acceptance_criteria: vec![],
-            status: "OPEN".to_string(),
-            created_at: "2024-01-01T00:00:00Z".to_string(),
-            closed_at: None,
+            request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e".to_string(),
+            confidence: 0.95,
+            capabilities: vec![],
         };
 
         let capsule = bridge.perform_handshake(intent).await.unwrap();
 
         // Verify segments are present
-        assert_eq!(capsule.intent.id, "test-agent");
+        assert_eq!(capsule.intent.confidence, 0.95);
         assert_eq!(capsule.authority.nonce, 42);
-        assert_eq!(capsule.identity.agent, "mock-hardware-id-01");
+        assert_eq!(capsule.identity.aid, "mock-aid-01");
 
-        // Verify signature is present (hex string)
-        assert!(!capsule.chora_signature.is_empty());
+        // Verify signature is present (base64)
+        assert!(!capsule.crypto.signature_b64.is_empty());
 
         // Verify composite hash generation
         let root = capsule.to_composite_hash().unwrap();

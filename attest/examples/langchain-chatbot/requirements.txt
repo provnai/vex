@@ -1,0 +1,20 @@
+# LangChain + Attest Example Dependencies
+# Install with: pip install -r requirements.txt
+
+# Attest SDK
+-e ../../sdk/python
+
+# LangChain and related packages
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.10
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Optional: For web search tool
+google-search-results>=2.4.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

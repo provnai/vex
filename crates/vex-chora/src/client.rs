@@ -42,7 +42,7 @@ impl AuthorityClient for MockChoraClient {
             outcome: "ALLOW".into(),
             reason_code: "OK".into(),
             nonce: 42,
-            trace_root: [0u8; 32], // Mocked trace root
+            trace_root: "00".repeat(32), // Mocked trace root
         };
 
         // Generate mock signature
@@ -168,34 +168,24 @@ impl AuthorityClient for HttpChoraClient {
             .map_err(|e| format!("CHORA response parse failed: {} (raw: {})", e, text))?;
 
         // Support both response shapes: nested signed_payload or flat fields
-        let (capsule_id, outcome, reason_code, nonce, trace_root_hex) =
+        let (capsule_id, outcome, reason_code, nonce, trace_root) =
             if let Some(auth) = api_resp.authority {
                 (
                     auth.capsule_id,
                     auth.outcome,
                     auth.reason_code,
                     auth.nonce.unwrap_or(0),
-                    auth.trace_root,
+                    auth.trace_root.unwrap_or(payload_hash.clone()),
                 )
             } else {
                 (
-                    api_resp.capsule_id.unwrap_or_else(|| payload_hash.clone()),
-                    api_resp.outcome.unwrap_or_else(|| "ALLOW".to_string()),
-                    api_resp.reason_code.unwrap_or_else(|| "OK".to_string()),
+                    api_resp.capsule_id.clone().unwrap_or(payload_hash.clone()),
+                    api_resp.outcome.clone().unwrap_or_else(|| "ALLOW".to_string()),
+                    api_resp.reason_code.clone().unwrap_or_else(|| "OK".to_string()),
                     0u64,
-                    None,
+                    api_resp.witness_receipt.clone().unwrap_or(payload_hash.clone()),
                 )
             };
-
-        // Convert trace_root hex string to [u8; 32], default to zeros
-        let mut trace_root = [0u8; 32];
-        if let Some(hex_str) = trace_root_hex {
-            if let Ok(bytes) = hex::decode(&hex_str) {
-                if bytes.len() == 32 {
-                    trace_root.copy_from_slice(&bytes);
-                }
-            }
-        }
 
         let authority = AuthorityData {
             capsule_id,

@@ -10,7 +10,7 @@ use zeroize::Zeroize;
 /// providing a 1:1 mapping between Attest identity and VEX execution.
 /// Alignment: This public key hash is used as the Uuid for vex-core agents,
 /// providing a 1:1 mapping between Attest identity and VEX execution.
-#[derive(Debug, Zeroize)]
+#[derive(Debug, Zeroize, Clone)]
 #[zeroize(drop)]
 pub struct AttestAgent {
     #[zeroize(skip)]

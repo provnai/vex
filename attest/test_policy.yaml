@@ -1,0 +1,9 @@
+id: block-secrets
+name: Secret Data Protection
+description: Prevents access to sensitive files
+condition:
+  actionType: ["shell"]
+  targetRegex: ".*secret.*"
+action: block
+severity: critical
+enabled: true

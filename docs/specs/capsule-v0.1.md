@@ -1,5 +1,5 @@
 # .capsule — Verifiable Agent Receipt
-## VEX × CHORA Joint Specification v0.1 (LOCKED)
+## VEX × CHORA Joint Specification v0.1 (LOCKED - Hardened)
 
 A `.capsule` is a portable, cryptographically-sealed artifact that proves an AI agent's action was **intended, authorized, and hardware-rooted** — verifiable offline by any third party without access to either node's internal logic.
 
@@ -35,15 +35,9 @@ The `capsule_root` is the single canonical commitment. Field keys **MUST** be or
 Proves the proposed action before execution.
 ```json
 {
-  "id": "string",
-  "goal": "string",
-  "description": "string (optional)",
-  "ticketId": "string (optional)",
-  "constraints": [],
-  "acceptanceCriteria": [],
-  "status": "string",
-  "createdAt": "RFC3339 UTC",
-  "closedAt": "RFC3339 UTC (optional)"
+  "request_sha256": "hex[32]",
+  "confidence": "float64 (0.0 - 1.0)",
+  "capabilities": ["string"]
 }
 ```
 
@@ -63,8 +57,8 @@ Proves the governance decision.
 Proves the hardware source (Silicon).
 ```json
 {
-  "agent": "string",
-  "tpm": "string"
+  "aid": "string (Attest ID)",
+  "identity_type": "string"
 }
 ```
 
@@ -80,7 +74,32 @@ Proves the custody record was independently appended.
 
 ---
 
-## 3. Wire Format (VEP Header — 76 bytes)
+## 3. Verification Segment (Root)
+Binds the pillars into a single commitment.
+```json
+ {
+   "capsule_id": "string",
+   "intent": "IntentSegment",
+   "authority": "AuthoritySegment",
+   "identity": "IdentitySegment",
+   "witness": "WitnessSegment",
+   "intent_hash": "hex",
+   "authority_hash": "hex",
+   "identity_hash": "hex",
+   "witness_hash": "hex",
+   "capsule_root": "hex",
+   "crypto": {
+     "algo": "ed25519",
+     "public_key_endpoint": "string",
+     "signature_scope": "capsule_root",
+     "signature_b64": "base64"
+   }
+ }
+```
+
+---
+
+## 4. Wire Format (VEP Header — 76 bytes)
 
 ```
 magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
@@ -94,7 +113,7 @@ magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 
 ---
 
-## 4. Verification Flow (Offline)
+## 5. Verification Flow (Offline)
 
 1. **Parse** the JCS structure and extract the four segments.
 2. **Recompute** the four pillar hashes from raw segment bytes.
@@ -102,19 +121,19 @@ magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 4. **Verify** the Ed25519 signature against the CHORA public key.
 
 **Reference parity vector (Consensus v0.1):**
-- **Intent Hash**: `db3bcbbe6796d6ae763e752306941b0159fff0b86043be21889e8db1ecf42baa`
-- **Authority Hash**: `b4865793e475cb3170d8f6574ac82ab3068af648cf2f120bc616c0c7e8fd403a`
-- **Identity Hash**: `367747b4379df5fb142a9672c0d8663eed95fb6fbcbfb99555bb58c6714f3e93`
-- **Witness Hash**: `de78acc160b76505cab011011ff8c50878ed14b37da6a39131f185ec29291c32`
+- **Intent Hash**: `e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb`
+- **Authority Hash**: `6fac0de31355fc1dfe36eee1e0c226f7cc36dd58eaad0aca0c2d3873b4784d35`
+- **Identity Hash**: `7869bae0249b33e09b881a0b44faba6ee3f4bab7edcc2aa5a5e9290e2563c828`
+- **Witness Hash**: `174dfb80917cca8a8d4760b82656e78df0778cb3aadd60b51cd018b3313d5733`
 
 **Definitive Capsule Root:**
-`c07b0a4e9c49c861d69205a82fef35379894771ac30927b3d1ac48d5b36d9d71`
+`71d0324716f378b724e6186340289ecad5b99d6301d1585a322f2518db52693e`
 
 ---
 
-## 5. Design Principles
+## 6. Design Principles
 
-- **No floats.** All values are integers or strings to avoid drift.
+- **No floats in hashing.** All values are integers or strings during JCS to avoid drift.
 - **None fields are omitted.** Do not use `null` keys.
 - **Witness before Silicon.** The log record is appended prior to the final seal.
 - **OTS Finality is post-seal.** The Bitcoin timestamp covers the completed capsule.

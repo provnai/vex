@@ -122,7 +122,8 @@ impl<'a> VepPacket<'a> {
 
     /// Reconstructs a full VEX Capsule from the VEP segments.
     pub fn to_capsule(&self) -> Result<crate::segment::Capsule, String> {
-        use crate::segment::{AuthorityData, Capsule, IdentityData, IntentData, WitnessData};
+        use crate::segment::{AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData};
+        use serde::Serialize;
 
         let intent_bytes = self
             .get_segment_data(VepSegmentType::Intent)
@@ -149,13 +150,46 @@ impl<'a> VepPacket<'a> {
         let witness: WitnessData = serde_json::from_slice(witness_bytes)
             .map_err(|e| format!("Failed to parse Witness segment: {}", e))?;
 
-        Ok(Capsule {
+        let intent_hash = intent.to_jcs_hash()?.to_hex();
+        
+        fn hash_seg<T: Serialize>(seg: &T) -> Result<String, String> {
+            let jcs = serde_jcs::to_vec(seg).map_err(|e| e.to_string())?;
+            let mut hasher = sha2::Sha256::new();
+            use sha2::Digest;
+            hasher.update(&jcs);
+            Ok(hex::encode(hasher.finalize()))
+        }
+
+        let authority_hash = hash_seg(&authority)?;
+        let identity_hash = hash_seg(&identity)?;
+        let witness_hash = hash_seg(&witness)?;
+
+        let mut capsule = Capsule {
+            capsule_id: authority.capsule_id.clone(),
             intent,
             authority,
             identity,
             witness,
-            chora_signature: hex::encode(sig_bytes),
-        })
+            intent_hash,
+            authority_hash,
+            identity_hash,
+            witness_hash,
+            capsule_root: String::new(),
+            crypto: CryptoData {
+                algo: "ed25519".to_string(),
+                public_key_endpoint: "/public_key".to_string(),
+                signature_scope: "capsule_root".to_string(),
+                signature_b64: base64::Engine::encode(
+                    &base64::engine::general_purpose::STANDARD,
+                    sig_bytes
+                ),
+            },
+        };
+
+        let root = capsule.to_composite_hash()?;
+        capsule.capsule_root = root.to_hex();
+
+        Ok(capsule)
     }
 }
 #[cfg(test)]

@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/yourusername/attest/discussions
+    about: Ask questions, share ideas, and connect with the community
+  - name: Discord Community
+    url: https://discord.gg/attest
+    about: Real-time chat with other contributors and maintainers
+  - name: Documentation
+    url: https://attest.readthedocs.io/
+    about: Read the full documentation and API reference
+  - name: Security Issues
+    url: https://github.com/yourusername/attest/security/advisories
+    about: Report security vulnerabilities responsibly
+  - name: Roadmap
+    url: https://github.com/yourusername/attest/projects
+    about: View our project roadmap and feature planning

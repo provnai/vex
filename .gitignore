@@ -42,6 +42,12 @@ vercel.json
 
 # Node (if accidentally created)
 node_modules/
+/attest/attest.exe
+/attest/attest_bin
+/attest/attest_new.exe
+/attest/attest_rs.dll
+/attest/temp_data/
+/attest/temp_live_fire/
 
 # OS files
 Thumbs.db

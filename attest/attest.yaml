@@ -1,0 +1,58 @@
+# Attest Configuration
+version: "1.0"
+
+# Framework settings
+framework: llamaindex
+
+# Validation rules
+validation:
+  # Check for prompt injection vulnerabilities
+  prompt_injection: true
+  
+  # Validate agent outputs
+  output_validation: true
+  
+  # Monitor tool usage
+  tool_monitoring: true
+  
+  # Track token usage and costs
+  cost_tracking: true
+
+# Test settings
+testing:
+  # Run tests on every commit
+  run_on_commit: true
+  
+  # Required test coverage
+  min_coverage: 80
+  
+  # Test scenarios
+  scenarios:
+    - name: basic_functionality
+      description: "Basic agent functionality test"
+    - name: edge_cases
+      description: "Edge case handling"
+    - name: safety_checks
+      description: "Safety and security validation"
+
+# Monitoring
+monitoring:
+  # Log all agent interactions
+  logging: true
+  
+  # Export metrics
+  metrics: true
+  
+  # Alert on anomalies
+  alerting: true
+
+# Integration settings
+integration:
+  # Git hooks
+  git_hooks: true
+  
+  # CI/CD integration
+  ci_integration: true
+  
+  # IDE plugins
+  ide_support: true

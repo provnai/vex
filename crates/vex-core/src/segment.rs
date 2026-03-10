@@ -1,38 +1,20 @@
 //! # VEX Segments
 //!
-//! Provides the data structures and JCS canonicalization for the v0.2.0 "Segmented Commitment" model.
+//! Provides the data structures and JCS canonicalization for the v0.1.0 "Hardened" Commitment model.
 
 use crate::merkle::Hash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Intent Data (VEX Pillar)
-/// Proves the proposed action before encryption.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+/// Proves the proposed action before execution.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IntentData {
-    pub id: String,
-    pub goal: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(rename = "ticketId", skip_serializing_if = "Option::is_none")]
-    pub ticket_id: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub constraints: Vec<String>,
-    #[serde(
-        rename = "acceptanceCriteria",
-        skip_serializing_if = "Vec::is_empty",
-        default
-    )]
-    pub acceptance_criteria: Vec<String>,
-    pub status: String,
-    #[serde(rename = "createdAt")]
-    pub created_at: String,
-    #[serde(rename = "closedAt", skip_serializing_if = "Option::is_none")]
-    pub closed_at: Option<String>,
+    pub request_sha256: String,
+    pub confidence: f64,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
-
-// IntentSegment removed - IntentData used directly
 
 impl IntentData {
     pub fn to_jcs_hash(&self) -> Result<Hash, String> {
@@ -54,7 +36,7 @@ pub struct AuthorityData {
     pub capsule_id: String,
     pub outcome: String,
     pub reason_code: String,
-    pub trace_root: [u8; 32],
+    pub trace_root: String,
     pub nonce: u64,
 }
 
@@ -71,14 +53,24 @@ pub struct WitnessData {
 /// Proves the silicon source.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IdentityData {
-    pub agent: String,
-    pub tpm: String,
+    pub aid: String,
+    pub identity_type: String,
 }
 
-/// A Composite Evidence Capsule (The v0.2.0 "Zero-Trust Singularity" Root)
-/// Binds Intent, Authority, Identity, and Witness into a single commitment.
+/// Crypto verification details.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CryptoData {
+    pub algo: String,
+    pub public_key_endpoint: String,
+    pub signature_scope: String,
+    pub signature_b64: String,
+}
+
+/// A Composite Evidence Capsule (The v0.1.0 "Zero-Trust Singularity" Root)
+/// Binds Intent, Authority, Identity, and Witness into a single commitment.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Capsule {
+    pub capsule_id: String,
     /// VEX Pillar: What was intended
     pub intent: IntentData,
     /// CHORA Pillar: Who authorized it
@@ -87,8 +79,16 @@ pub struct Capsule {
     pub identity: IdentityData,
     /// CHORA Log Pillar: Where the receipt lives
     pub witness: WitnessData,
-    /// Ed25519 signature from the CHORA witness node
-    pub chora_signature: String,
+    
+    // Derived hashes for transparency
+    pub intent_hash: String,
+    pub authority_hash: String,
+    pub identity_hash: String,
+    pub witness_hash: String,
+    pub capsule_root: String,
+
+    /// Ed25519 signature details
+    pub crypto: CryptoData,
 }
 
 impl Capsule {
@@ -103,8 +103,8 @@ impl Capsule {
             Ok(hex::encode(hasher.finalize()))
         }
 
-        let intent_hash = self.intent.to_jcs_hash()?; // returns Hash, need hex
-        let intent_hash_hex = intent_hash.to_hex();
+        let intent_h = self.intent.to_jcs_hash()?; 
+        let intent_hash_hex = intent_h.to_hex();
 
         let authority_hash_hex = hash_seg(&self.authority)?;
         let identity_hash_hex = hash_seg(&self.identity)?;
@@ -136,20 +136,10 @@ mod tests {
 
     #[test]
     fn test_intent_segment_jcs_deterministic() {
-        let id = "agent-1".to_string();
-        let goal = "test goal".to_string();
-        let status = "OPEN".to_string();
-
         let segment1 = IntentData {
-            id: id.clone(),
-            goal: goal.clone(),
-            description: None,
-            ticket_id: None,
-            constraints: vec![],
-            acceptance_criteria: vec![],
-            status: status.clone(),
-            created_at: "2024-01-01T00:00:00Z".to_string(),
-            closed_at: None,
+            request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e".to_string(),
+            confidence: 0.95,
+            capabilities: vec![],
         };
         let segment2 = segment1.clone();
 
@@ -162,18 +152,12 @@ mod tests {
     #[test]
     fn test_intent_segment_content_change() {
         let segment1 = IntentData {
-            id: "a".into(),
-            goal: "g".into(),
-            description: None,
-            ticket_id: None,
-            constraints: vec![],
-            acceptance_criteria: vec![],
-            status: "s".into(),
-            created_at: "t".into(),
-            closed_at: None,
+            request_sha256: "a".into(),
+            confidence: 0.5,
+            capabilities: vec![],
         };
         let mut segment2 = segment1.clone();
-        segment2.goal = "different".into();
+        segment2.confidence = 0.9;
 
         let hash1 = segment1.to_jcs_hash().unwrap();
         let hash2 = segment2.to_jcs_hash().unwrap();

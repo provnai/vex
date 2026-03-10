@@ -1,0 +1,14 @@
+# AutoGen + Attest Multi-Agent Team Dependencies
+# Install with: pip install -r requirements.txt
+
+# Attest SDK
+-e ../../sdk/python
+
+# AutoGen framework
+autogen>=0.2.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Development
+pytest>=7.4.0

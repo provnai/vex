@@ -33,6 +33,7 @@ ed25519-dalek = { workspace = true }
 vex-algoswitch = { workspace = true, optional = true }
 vex-hardware = { workspace = true }
 zerocopy = { workspace = true, features = ["derive"] }
+base64 = "0.22"
 
 [dev-dependencies]
 criterion = "0.5"

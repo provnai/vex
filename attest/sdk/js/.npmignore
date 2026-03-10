@@ -1,0 +1,17 @@
+.DS_Store
+*.log
+node_modules/
+npm-debug.log*
+coverage/
+.nyc_output/
+dist/
+test/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+.env
+.eslintrc
+.eslintcache

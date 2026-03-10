@@ -66,13 +66,22 @@ impl HardwareKeystore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AgentIdentity {
     pub agent_id: String,
     inner: AttestAgent,
 }
 
 impl AgentIdentity {
+    /// Create a fresh hardware identity (for simulation or new agents)
+    pub fn new() -> Self {
+        let agent = crate::id::AttestAgent::new();
+        Self {
+            agent_id: agent.to_vex_uuid().to_string(),
+            inner: agent,
+        }
+    }
+
     /// Generate an Ed25519 signature over the provided deterministic bytes
     pub fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.inner.sign(message).to_bytes().to_vec()

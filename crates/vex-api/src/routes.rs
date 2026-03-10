@@ -258,15 +258,9 @@ pub async fn execute_agent(
     // Phase 2.1: Generate IntentData and segmented commitment (trace_root)
     let trace_root_hash = vex_core::Hash::digest(prompt.as_bytes());
     let intent = vex_core::IntentData {
-        id: claims.sub.clone(),
-        goal: "TASK_EXECUTION".to_string(),
-        description: Some(format!("Trace root: {}", trace_root_hash.to_hex())),
-        ticket_id: None,
-        constraints: vec![],
-        acceptance_criteria: vec![],
-        status: "OPEN".to_string(),
-        created_at: chrono::Utc::now().to_rfc3339(),
-        closed_at: None,
+        request_sha256: trace_root_hash.to_hex(),
+        confidence: 1.0,
+        capabilities: vec!["api-execution".to_string()],
     };
     let intent_hash = intent
         .to_jcs_hash()
@@ -318,7 +312,6 @@ pub async fn execute_agent(
                 "intent_hash": intent_hash.to_hex(),
                 "authority": capsule.authority,
                 "witness": capsule.witness,
-                "chora_signature": capsule.chora_signature,
                 "status": "APPROVED_WITNESS"
             }),
             None,
@@ -340,7 +333,6 @@ pub async fn execute_agent(
         "witness_receipt": witness_receipt,
         "authority_data": capsule.authority,
         "witness_data": capsule.witness,
-        "chora_signature": capsule.chora_signature,
     });
 
     // Enqueue job with explicit type checks

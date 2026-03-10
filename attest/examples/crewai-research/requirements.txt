@@ -1,0 +1,14 @@
+# CrewAI + Attest Research Team Dependencies
+# Install with: pip install -r requirements.txt
+
+# Attest SDK
+-e ../../sdk/python
+
+# CrewAI framework
+crewai>=0.1.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Development
+pytest>=7.4.0

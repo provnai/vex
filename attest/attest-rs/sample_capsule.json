@@ -1,0 +1,25 @@
+{
+  "intent": {
+    "id": "test-intent-1",
+    "goal": "test-goal",
+    "status": "open",
+    "createdAt": "2024-01-01T00:00:00Z"
+  },
+  "authority": {
+    "capsule_id": "chora-v1-test",
+    "outcome": "ALLOW",
+    "reason_code": "WITHIN_POLICY",
+    "trace_root": [85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85],
+    "nonce": 12345
+  },
+  "identity": {
+    "agent": "test-agent",
+    "tpm": "test-tpm"
+  },
+  "witness": {
+    "chora_node_id": "test-chora-node",
+    "receipt_hash": "deadbeef",
+    "timestamp": "2024-03-09T10:00:00Z"
+  },
+  "chora_signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+}

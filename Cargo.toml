@@ -19,6 +19,7 @@ members = [
     "crates/vex-hardware",
     "crates/vex-chora",
     "crates/vex-sidecar",
+    "attest/attest-rs",
 ]
 
 [workspace.package]
@@ -62,6 +63,20 @@ chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 hex = "0.4"
 jsonschema = "0.18" # Keeping it conservative
+provn-sdk = "0.3.0"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
+portable-pty = "0.9.0"
+regex = "1.12.2"
+clap = { version = "4.4", features = ["derive"] }
+config = "0.13"
+dirs = "5.0"
+aes-gcm = "0.10"
+argon2 = "0.5"
+rpassword = "7.0"
+snow = "0.9"
+ring = "0.17"
+notify = "6"
+base64 = "0.22"
 
 # Security - Secure secret memory handling
 zeroize = { version = "1.8", features = ["derive"] }
@@ -100,11 +115,3 @@ overflow-checks = true
 strip = "symbols"
 # Link-time optimization for better security analysis
 lto = "thin"
-
-[patch."https://github.com/provnai/vex"]
-vex-core = { path = "crates/vex-core" }
-vex-hardware = { path = "crates/vex-hardware" }
-vex-anchor = { path = "crates/vex-anchor" }
-
-[patch."https://github.com/provnai/provn-sdk"]
-provn-sdk = { version = "0.3.0" }

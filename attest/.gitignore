@@ -1,0 +1,63 @@
+.DS_Store
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+/attest
+attest.exe
+
+# Go
+go.work
+go.work.sum
+
+# Rust & Cargo
+**/target/
+**/*.rs.bk
+Cargo.lock
+
+# Secrets & Configs
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+*.log
+
+# Attest data
+.attest/
+~/.attest/
+*.attest.db
+
+# Backup files
+*~
+*.bak
+*.backup
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# SQLite
+*.db
+*.db-journal

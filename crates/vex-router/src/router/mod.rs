@@ -187,12 +187,10 @@ impl Router {
             .to_capsule()
             .map_err(RouterError::VepVerificationFailed)?;
 
-        // 3. Extract prompt from intent (trace_root or data)
-        // For proxy/sidecar integration, we route based on the Intent segment
+        // 3. Extract prompt from intent (hardened identifier)
         let prompt = format!(
-            "Encapsulated Intent: {} (Root: {})",
-            capsule.intent.goal.clone(),
-            capsule.intent.description.clone().unwrap_or_default()
+            "Encapsulated Intent (Hardened): {}",
+            capsule.intent.request_sha256.clone()
         );
         let system = "VEP Enveloped Request";
 
