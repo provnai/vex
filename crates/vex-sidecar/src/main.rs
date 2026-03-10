@@ -28,7 +28,9 @@ async fn main() {
     // VEX_HARDWARE_SEED (64 hex chars) gates real hardware vs dev fallback.
     let seed: [u8; 32] = if let Ok(hex_seed) = std::env::var("VEX_HARDWARE_SEED") {
         let bytes = hex::decode(&hex_seed).expect("VEX_HARDWARE_SEED must be 64 hex chars");
-        bytes.try_into().expect("VEX_HARDWARE_SEED must be exactly 32 bytes")
+        bytes
+            .try_into()
+            .expect("VEX_HARDWARE_SEED must be exactly 32 bytes")
     } else if std::env::var("VEX_DEV_MODE").is_ok() {
         warn!("⚠️  VEX_DEV_MODE: zero seed — NOT FOR PRODUCTION.");
         [0u8; 32]
@@ -47,7 +49,10 @@ async fn main() {
             .expect("Failed to get hardware identity"),
     );
 
-    info!("⚓ Sidecar Hardware Identity Active: agent_id={}", identity.agent_id);
+    info!(
+        "⚓ Sidecar Hardware Identity Active: agent_id={}",
+        identity.agent_id
+    );
 
     let state = Arc::new(AppState {
         _vex_api_url: std::env::var("VEX_API_URL")

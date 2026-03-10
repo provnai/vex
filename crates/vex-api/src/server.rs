@@ -216,15 +216,14 @@ impl VexServer {
         let audit_store = Arc::new(vex_persist::AuditStore::new(db.clone()));
         let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
 
-        let orchestrator = Arc::new(
-            vex_runtime::Orchestrator::new(
-                llm.clone(),
-                vex_runtime::OrchestratorConfig::default(),
-                Some(evolution_store.clone()),
-                gate.clone(),
-            )
-            .with_identity(identity.clone(), audit_store.clone()),
+        let base_orchestrator = vex_runtime::Orchestrator::new(
+            llm.clone(),
+            vex_runtime::OrchestratorConfig::default(),
+            Some(evolution_store.clone()),
+            gate.clone(),
         );
+        let orchestrator =
+            Arc::new(base_orchestrator.with_identity(identity.clone(), audit_store.clone()));
 
         // Register Agent Job
         let llm_clone = llm.clone();
