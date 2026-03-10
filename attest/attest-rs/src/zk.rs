@@ -128,11 +128,9 @@ pub fn generate_trace_rows(initial: Val, _s: Val, num_steps: usize) -> RowMajorM
     current_state[0] = initial;
     for step in 0..num_steps {
         let is_full = !(FULL_ROUNDS_START..FULL_ROUNDS_START + PARTIAL_ROUNDS).contains(&step);
-        for i in 0..WIDTH {
-            values.push(current_state[i]);
-        }
-        for i in 0..WIDTH {
-            values.push(current_state[i] * current_state[i] * current_state[i]);
+        values.extend_from_slice(&current_state);
+        for item in current_state.iter().take(WIDTH) {
+            values.push(*item * *item * *item);
         }
         for i in 0..WIDTH {
             values.push(Val::from_u64(get_round_constant(step, i)));
@@ -169,11 +167,9 @@ pub fn generate_trace_rows(initial: Val, _s: Val, num_steps: usize) -> RowMajorM
         }
         current_state = next_state;
     }
-    for i in 0..WIDTH {
-        values.push(current_state[i]);
-    }
-    for i in 0..WIDTH {
-        values.push(current_state[i] * current_state[i] * current_state[i]);
+    values.extend_from_slice(&current_state);
+    for item in current_state.iter().take(WIDTH) {
+        values.push(*item * *item * *item);
     }
     for _ in 0..8 {
         values.push(Val::ZERO);

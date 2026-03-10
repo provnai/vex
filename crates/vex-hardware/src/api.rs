@@ -72,14 +72,20 @@ pub struct AgentIdentity {
     inner: AttestAgent,
 }
 
-impl AgentIdentity {
-    /// Create a fresh hardware identity (for simulation or new agents)
-    pub fn new() -> Self {
+impl Default for AgentIdentity {
+    fn default() -> Self {
         let agent = crate::id::AttestAgent::new();
         Self {
             agent_id: agent.to_vex_uuid().to_string(),
             inner: agent,
         }
+    }
+}
+
+impl AgentIdentity {
+    /// Create a fresh hardware identity (for simulation or new agents)
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Generate an Ed25519 signature over the provided deterministic bytes
