@@ -5,28 +5,22 @@ use vex_core::segment::{AuthorityData, Capsule, IdentityData, IntentData, Witnes
 fn test_capsule_jcs_parity() {
     // 1. Construct the native Rust structs
     let intent = IntentData {
-        id: "test-intent-1".into(),
-        goal: "test-goal".into(),
-        description: None,
-        ticket_id: None,
-        constraints: vec![],
-        acceptance_criteria: vec![],
-        status: "open".into(),
-        created_at: "2024-01-01T00:00:00Z".into(),
-        closed_at: None,
+        request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e".to_string(),
+        confidence: 0.95,
+        capabilities: vec!["TPM_VERIFY".into()],
     };
 
     let authority = AuthorityData {
         capsule_id: "chora-v1-test".into(),
         outcome: "ALLOW".into(),
         reason_code: "WITHIN_POLICY".into(),
-        trace_root: [0x55; 32],
+        trace_root: "5555555555555555555555555555555555555555555555555555555555555555".into(),
         nonce: 12345,
     };
 
     let identity = IdentityData {
-        agent: "test-agent".into(),
-        tpm: "test-tpm".into(),
+        aid: "test-agent-aid".into(),
+        identity_type: "VEX_TPM_v1".into(),
     };
 
     let witness = WitnessData {
@@ -36,11 +30,22 @@ fn test_capsule_jcs_parity() {
     };
 
     let capsule = Capsule {
+        capsule_id: "test-capsule-1".into(),
         intent: intent.clone(),
         authority: authority.clone(),
         identity: identity.clone(),
         witness: witness.clone(),
-        chora_signature: "".into(),
+        intent_hash: "".into(),
+        authority_hash: "".into(),
+        identity_hash: "".into(),
+        witness_hash: "".into(),
+        capsule_root: "".into(),
+        crypto: vex_core::segment::CryptoData {
+            algo: "ed25519".into(),
+            public_key_endpoint: "https://auth.provnai.com/keys/test".into(),
+            signature_scope: "capsule_root".into(),
+            signature_b64: "dGVzdC1zaWduYXR1cmU=".into(),
+        },
     };
 
     // 2. Compute individual pillar hashes to show the intermediate state

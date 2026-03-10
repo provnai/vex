@@ -39,6 +39,7 @@ jobs:
       - name: Build
         run: |
           cd attest/attest-rs && cargo build
+          cd ../..
           cd attest && go build -o ../attest-bin ./cmd/attest
           sudo cp attest-bin /usr/local/bin/attest
 
