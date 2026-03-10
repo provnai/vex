@@ -1,7 +1,7 @@
 # VEX Protocol — Roadmap to v1.0
 
 > **Mission**: Researching Accountable Intelligence.
-> **Vision**: Building the Cognitive Layer of the ProvnAI "Immune System for AI".
+> **Vision**: Building a cognitive infrastructure for verifiable AI reasoning.
 
 This document outlines the strategic evolution of the VEX protocol following the v0.1.5 milestone.
 

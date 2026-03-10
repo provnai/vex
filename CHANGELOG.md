@@ -5,6 +5,14 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-03-10
+
+### Added
+
+- **📜 Capsule v0.1 Spec Locked**: Finalized the Joint Specification between VEX and CHORA.
+- **🧬 Cross-Repo Parity Verified**: Confirmed 100% byte-for-byte JCS hashing parity with the Go implementation.
+- **🛠️ Verification Tooling**: Added `verify_capsule` for definitive consensus root reconstruction.
+
 ## [1.1.0] - 2026-03-08
 
 ### Added

@@ -2,7 +2,7 @@
 
 ## Overview
 
-VEX (Verified Evolutionary Xenogenesis) is the **Cognitive Layer** of the ProvnAI "Immune System for AI". It is a multi-layered Rust framework for building adversarial, temporal, and cryptographically-verified AI agents.
+VEX (Verified Evolutionary Xenogenesis) is a cognitive framework for building verifiable AI agents. It provides a multi-layered Rust infrastructure for adversarial, temporal, and cryptographically-verified reasoning.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

@@ -129,28 +129,50 @@ impl Gate for HttpGate {
                 if status.is_success() {
                     let text = resp.text().await.unwrap_or_else(|_| "".to_string());
 
-                    // Vanguard specific response shape:
-                    // { "signed_payload": { "capsule_id": "...", "outcome": "...", "reason_code": "..." }, ... }
+                    // CHORA response shape:
+                    // {
+                    //   "signed_payload": { "capsule_id": "...", "outcome": "...", "reason_code": "..." },
+                    //   "witness_receipt": "...",   // optional
+                    //   "nonce": 0,                 // optional
+                    //   "sensors": {...},           // optional
+                    //   "reproducibility_context": {...} // optional
+                    // }
                     #[derive(serde::Deserialize)]
                     struct VanguardSignedPayload {
                         capsule_id: String,
                         outcome: String,
                         reason_code: String,
+                        #[serde(default)]
+                        witness_receipt: Option<String>,
+                        #[serde(default)]
+                        nonce: Option<u64>,
                     }
                     #[derive(serde::Deserialize)]
                     struct VanguardResponse {
                         signed_payload: VanguardSignedPayload,
+                        #[serde(default)]
+                        witness_receipt: Option<String>,
+                        #[serde(default)]
+                        sensors: Option<serde_json::Value>,
+                        #[serde(default)]
+                        reproducibility_context: Option<serde_json::Value>,
                     }
 
                     match serde_json::from_str::<VanguardResponse>(&text) {
-                        Ok(v_resp) => EvidenceCapsule {
-                            capsule_id: v_resp.signed_payload.capsule_id,
-                            outcome: v_resp.signed_payload.outcome,
-                            reason_code: v_resp.signed_payload.reason_code,
-                            witness_receipt: "api-witness-pending".to_string(), // TODO: Extract from API if possible
-                            nonce: 0,
-                            sensors: serde_json::Value::Null,
-                            reproducibility_context: serde_json::Value::Null,
+                        Ok(v_resp) => {
+                            // witness_receipt: prefer top-level field, fall back to signed_payload field
+                            let witness = v_resp.witness_receipt
+                                .or(v_resp.signed_payload.witness_receipt)
+                                .unwrap_or_else(|| format!("chora-{}", v_resp.signed_payload.capsule_id));
+                            EvidenceCapsule {
+                                capsule_id: v_resp.signed_payload.capsule_id,
+                                outcome: v_resp.signed_payload.outcome,
+                                reason_code: v_resp.signed_payload.reason_code,
+                                witness_receipt: witness,
+                                nonce: v_resp.signed_payload.nonce.unwrap_or(0),
+                                sensors: v_resp.sensors.unwrap_or(serde_json::Value::Null),
+                                reproducibility_context: v_resp.reproducibility_context.unwrap_or(serde_json::Value::Null),
+                            }
                         },
                         Err(e) => EvidenceCapsule {
                             capsule_id: "error".to_string(),

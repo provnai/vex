@@ -120,9 +120,13 @@ async fn main() -> Result<()> {
             anyhow::anyhow!("VEX_HARDWARE_SEED must be exactly 32 bytes (64 hex characters)")
         })?;
         bytes_array
-    } else {
-        tracing::warn!("VEX_HARDWARE_SEED not found. Using deterministic fallback seed.");
+    } else if std::env::var("VEX_DEV_MODE").is_ok() {
+        tracing::warn!("⚠️  VEX_DEV_MODE active: Using zero hardware seed. NOT FOR PRODUCTION.");
         [0u8; 32]
+    } else {
+        return Err(anyhow::anyhow!(
+            "VEX_HARDWARE_SEED is required in production. Set VEX_DEV_MODE=1 to bypass for local development."
+        ));
     };
 
     let identity = Arc::new(
@@ -131,7 +135,22 @@ async fn main() -> Result<()> {
             .await
             .map_err(|e| anyhow::anyhow!("Hardware identity failed: {}", e))?,
     );
-    let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
+    // Task 1: Gate is driven by env vars — no hardcoded endpoint.
+    // Set CHORA_GATE_URL + CHORA_API_KEY to connect to a live CHORA node.
+    // Defaults to GenericGateMock (behavioral heuristics) for local dev.
+    let gate: Arc<dyn vex_runtime::Gate> = match (
+        std::env::var("CHORA_GATE_URL"),
+        std::env::var("CHORA_API_KEY"),
+    ) {
+        (Ok(url), Ok(key)) => {
+            tracing::info!("🔗 CHORA HttpGate active: {}", url);
+            Arc::new(vex_runtime::HttpGate::new(url, key))
+        }
+        _ => {
+            tracing::warn!("⚠️  CHORA_GATE_URL/CHORA_API_KEY not set. Using GenericGateMock (local heuristics only).");
+            Arc::new(vex_runtime::GenericGateMock)
+        }
+    };
 
     // 2. Initialize Audit Store (Merkle-Chained)
     let audit_store = Arc::new(vex_persist::AuditStore::new(
@@ -190,9 +209,26 @@ async fn main() -> Result<()> {
 
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
 
-    let bridge = Arc::new(vex_chora::AuthorityBridge::new(Box::new(
-        vex_chora::client::MockChoraClient,
-    )));
+    // Tasks 2 + 3: AuthorityBridge with real HttpChoraClient + real hardware identity.
+    // CHORA_GATE_URL = live CHORA node. Without it, falls back to MockChoraClient.
+    // identity is always wired in so capsule IdentityData carries real agent_id.
+    let bridge = Arc::new(
+        vex_chora::AuthorityBridge::new(
+            match std::env::var("CHORA_GATE_URL") {
+                Ok(url) => {
+                    let key = std::env::var("CHORA_API_KEY").unwrap_or_default();
+                    tracing::info!("🔗 CHORA AuthorityBridge: HttpChoraClient active.");
+                    vex_chora::client::make_authority_client(url, key)
+                }
+                Err(_) => {
+                    tracing::warn!("⚠️  CHORA_GATE_URL not set. Using MockChoraClient for authority.");
+                    vex_chora::client::make_mock_client()
+                }
+            },
+        )
+        .with_identity(identity.clone()),
+    );
+
 
     let app_state = AppState::new(
         jwt_auth,

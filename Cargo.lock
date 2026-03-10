@@ -5873,10 +5873,12 @@ name = "vex-chora"
 version = "1.0.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "ed25519-dalek",
  "hex",
  "rand 0.8.5",
+ "reqwest 0.12.28",
  "serde",
  "serde_jcs",
  "serde_json",
@@ -6151,11 +6153,13 @@ version = "0.2.0"
 dependencies = [
  "axum 0.7.9",
  "chrono",
+ "hex",
  "hyper 1.8.1",
  "reqwest 0.12.28",
  "serde",
  "serde_jcs",
  "serde_json",
+ "sha2",
  "tokio",
  "tokio-test",
  "tower 0.4.13",
@@ -6164,6 +6168,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "vex-core",
+ "vex-hardware",
  "zerocopy",
 ]
 

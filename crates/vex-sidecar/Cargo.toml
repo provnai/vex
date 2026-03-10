@@ -1,8 +1,9 @@
 [package]
 name = "vex-sidecar"
-version = "0.2.0"
-edition = "2021"
-authors = ["ProvnAI Team"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Transparent VEX Proxy for legacy API encapsulation"
 
 [dependencies]
@@ -21,6 +22,9 @@ vex-core = { path = "../vex-core" }
 zerocopy = { workspace = true }
 serde_jcs = { workspace = true }
 chrono.workspace = true
+vex-hardware = { path = "../vex-hardware" }
+sha2.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

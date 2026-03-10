@@ -101,8 +101,14 @@ magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 3. **Recompute** `capsule_root` (ensuring JCS lexicographical sorting).
 4. **Verify** the Ed25519 signature against the CHORA public key.
 
-**Reference parity vector:**
-`ef1286c435ab62c46634913c3364eb76b6dc9be14bfeaa3416bf3ebcacbfc04e`
+**Reference parity vector (Consensus v0.1):**
+- **Intent Hash**: `db3bcbbe6796d6ae763e752306941b0159fff0b86043be21889e8db1ecf42baa`
+- **Authority Hash**: `b4865793e475cb3170d8f6574ac82ab3068af648cf2f120bc616c0c7e8fd403a`
+- **Identity Hash**: `367747b4379df5fb142a9672c0d8663eed95fb6fbcbfb99555bb58c6714f3e93`
+- **Witness Hash**: `de78acc160b76505cab011011ff8c50878ed14b37da6a39131f185ec29291c32`
+
+**Definitive Capsule Root:**
+`c07b0a4e9c49c861d69205a82fef35379894771ac30927b3d1ac48d5b36d9d71`
 
 ---
 

@@ -1,8 +1,8 @@
 # VEX Protocol
 
-> **The trust layer for AI agents.**
+> **A protocol for verifiable AI reasoning.**
 
-Adversarial verification • Temporal memory • Cryptographic proofs • Production-ready API — all in Rust.
+Adversarial verification • Temporal memory • Cryptographic proofs • Production-oriented API — all in Rust.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/vex-core.svg)](https://crates.io/crates/vex-core)
@@ -41,7 +41,7 @@ Adversarial verification • Temporal memory • Cryptographic proofs • Produc
 | **Rate Limiting** | Tenant-scoped limits with configurable tiers |
 | **Agent Isolation** | A2A protocol for secure inter-agent communication |
 
-VEX is a **production-grade verification and memory layer** that works with any LLM provider.
+VEX provides a verification and memory layer designed for production environments that works with any LLM provider.
 
 📚 **[Full Documentation →](https://www.provnai.dev/docs)** | 🔧 **[API Docs (Swagger) →](https://api.provnai.dev/swagger-ui)**
 
@@ -51,8 +51,9 @@ VEX is a **production-grade verification and memory layer** that works with any 
 
 - ⚓ **Silicon-Rooted Identity** - Native hardware-level identity via TPM (Linux) and CNG (Windows) via the new `vex-hardware` crate.
 - 🛡️ **Authority Bridge** - Native bridge to external witness networks via the new `vex-chora` crate.
-- 💎 **Transparent Trust Probing** - VEX now honestly probes and logs its hardware roots at startup for a verifiable security anchor.
-- 🏗️ **v1.0 Workspace Synchronization** - All 16 crates now synchronized to v1.0.0 with perfectly aligned build pipelines.
+- 📜 **.capsule v0.1 Spec Locked** - Consensus reached on the Joint Specification between VEX × CHORA. See [SPEC.md](./SPEC.md).
+- 🧱 **Consensus Parity** - 100% byte-for-byte hashing parity verified across Rust and Go implementations.
+- 🏗️ **v1.0 Workspace Synchronization** - All 17 crates now synchronized to v1.0.0 with perfectly aligned build pipelines.
 - 📦 **One-Click Railway Launch** - Fully optimized Docker infrastructure for Debian Bookworm with auto-configured TSS2 libraries.
 
 ---
@@ -70,8 +71,8 @@ cargo test --workspace
 cargo run --release -p vex-api
 
 # CLI tools
-cargo run -p vex-cli -- tools list
-cargo run -p vex-cli -- tools run calculator '{"expression": "2+2"}'
+cargo run -p vex-protocol-cli -- tools list
+cargo run -p vex-protocol-cli -- tools run calculator '{"expression": "2+2"}'
 ```
 
 ### Environment Variables
@@ -134,7 +135,7 @@ Then visit:
 ---
 
 
-📐 **[Full Architecture →](https://www.provnai.dev/docs/architecture)**
+
 
 ```               
 ┌─────────────────────────────────────────────────────────────────┐

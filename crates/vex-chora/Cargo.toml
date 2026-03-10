@@ -22,3 +22,5 @@ rand.workspace = true
 sha2.workspace = true
 uuid.workspace = true
 tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true, features = ["json"] }
+base64 = "0.22"
