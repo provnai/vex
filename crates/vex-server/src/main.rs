@@ -120,7 +120,11 @@ async fn main() -> Result<()> {
             anyhow::anyhow!("VEX_HARDWARE_SEED must be exactly 32 bytes (64 hex characters)")
         })?;
         bytes_array
-    } else if std::env::var("VEX_DEV_MODE").is_ok() || std::env::var("VEX_ENV").map(|v| v == "railway").unwrap_or(false) {
+    } else if std::env::var("VEX_DEV_MODE").is_ok()
+        || std::env::var("VEX_ENV")
+            .map(|v| v == "railway")
+            .unwrap_or(false)
+    {
         tracing::warn!("⚠️  Hardware fallback active (DEV_MODE or Railway): Using zero seed. NOT FOR PRODUCTION.");
         [0u8; 32]
     } else {
