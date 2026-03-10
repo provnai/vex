@@ -223,7 +223,6 @@ async fn main() -> Result<()> {
     let bridge =
         Arc::new(vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()));
 
-
     let app_state = AppState::new(
         jwt_auth,
         rate_limiter,
