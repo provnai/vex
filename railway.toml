@@ -9,7 +9,8 @@ watchPatterns = [
   "Cargo.lock",
   "Dockerfile",
   "railway.toml",
-  "railway.json"
+  "railway.json",
+  "attest/**"
 ]
 
 [deploy]

@@ -38,9 +38,9 @@ jobs:
 
       - name: Build
         run: |
-          cd attest-rs && cargo build
-          go build -o attest ./cmd/attest
-          sudo cp attest /usr/local/bin/
+          cd attest/attest-rs && cargo build
+          cd attest && go build -o ../attest-bin ./cmd/attest
+          sudo cp attest-bin /usr/local/bin/attest
 
       - name: Run Attest validation
         run: attest validate --ci

@@ -5,7 +5,7 @@ WORKDIR /usr/src/vex
 
 # Install required dependencies for building
 RUN apt-get update && \
-    apt-get install -y pkg-config libssl-dev build-essential curl libtss2-dev && \
+    apt-get install -y pkg-config libssl-dev build-essential curl libtss2-dev golang && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the entire workspace
@@ -13,6 +13,9 @@ COPY . .
 
 # Build the API server in release mode
 RUN cargo build --release -p vex-server
+
+# Build the Attest CLI
+RUN cd attest && go build -v -o ../attest-bin ./cmd/attest
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -24,8 +27,9 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
+# Copy the compiled binaries from the builder stage
 COPY --from=builder /usr/src/vex/target/release/vex-server /usr/local/bin/
+COPY --from=builder /usr/src/vex/attest-bin /usr/local/bin/attest
 
 # Create a data directory for the persistent SQLite volume
 RUN mkdir -p /data && chown -R 1000:1000 /data

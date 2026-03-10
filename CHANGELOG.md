@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **📜 Capsule v0.1 Spec Locked**: Finalized the Joint Specification between VEX and CHORA.
-- **🧬 Cross-Repo Parity Verified**: Confirmed 100% byte-for-byte JCS hashing parity with the Go implementation.
+- **🧬 Cross-Repo Parity Verified**: Confirmed 100% byte-for-byte JCS hashing parity across Rust and Go.
+- **🛡️ Persistent Guardrails (Attest)**: Integrated reloadable YAML safety policies for automated command interception.
 - **🛠️ Verification Tooling**: Added `verify_capsule` for definitive consensus root reconstruction.
 
 ## [1.1.0] - 2026-03-08

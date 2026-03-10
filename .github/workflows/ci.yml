@@ -44,7 +44,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
-    name: Test
+    name: Test (Rust)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout VEX
@@ -55,3 +55,35 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libtss2-dev pkg-config
       - name: Run Tests
         run: cargo test --all-features --workspace
+
+  attest-lint:
+    name: Lint (Attest/Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - name: Run linter
+        run: cd attest && golangci-lint run ./...
+
+  attest-test:
+    name: Test (Attest/Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install TPM dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libtss2-dev pkg-config
+      - name: Build Rust Core (Attest)
+        run: cd attest/attest-rs && cargo build
+      - name: Run Tests
+        run: cd attest && go test -v -race ./...
