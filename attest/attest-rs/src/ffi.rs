@@ -214,7 +214,7 @@ pub extern "C" fn attest_chora_handshake(
 ) -> *mut c_char {
     let result = std::panic::catch_unwind(|| {
         let rt = get_runtime();
-        
+
         // Safely extract C strings
         let url_str = unsafe {
             if base_url.is_null() {

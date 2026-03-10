@@ -56,7 +56,7 @@ async fn test_orchestrator_chora_gate_flow() {
 
     // 7. Verify Results
     assert!(!result.response.is_empty(), "Response should not be empty");
-    
+
     // Verify Evidence Capsule
     let capsule = result.evidence.expect("Missing evidence capsule");
     assert_eq!(
