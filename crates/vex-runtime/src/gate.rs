@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sha2::Digest;
 use uuid::Uuid;
 use vex_core::audit::EvidenceCapsule;
 use vex_llm::Capability;
@@ -72,20 +73,31 @@ impl Gate for GenericGateMock {
     }
 }
 
-/// Networked Gate provider communicating over HTTP
-#[derive(Debug)]
+/// Networked Gate provider communicating over HTTP.
+/// Legacy wrapper: Now uses ChoraGate internally for unified handshake logic.
+#[derive(Debug, Clone)]
 pub struct HttpGate {
-    pub client: reqwest::Client,
-    pub url: String,
-    pub api_key: String,
+    pub inner: std::sync::Arc<ChoraGate>,
 }
 
 impl HttpGate {
     pub fn new(url: String, api_key: String) -> Self {
+        let client = vex_chora::client::make_authority_client(url, api_key);
+        let bridge = std::sync::Arc::new(vex_chora::AuthorityBridge::new(client));
         Self {
-            client: reqwest::Client::new(),
-            url,
-            api_key,
+            inner: std::sync::Arc::new(ChoraGate { bridge }),
+        }
+    }
+
+    /// Attach a hardware identity to the underlying bridge.
+    pub fn with_identity(self, identity: std::sync::Arc<vex_hardware::api::AgentIdentity>) -> Self {
+        let bridge = (*self.inner.bridge)
+            .clone()
+            .with_identity(identity);
+        Self {
+            inner: std::sync::Arc::new(ChoraGate {
+                bridge: std::sync::Arc::new(bridge),
+            }),
         }
     }
 }
@@ -100,112 +112,56 @@ impl Gate for HttpGate {
         confidence: f64,
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
-        // Note: The Vanguard gate only cares about confidence and capabilities.
-        // It does not need agent_id or task_prompt for the core policy check.
-        let payload = serde_json::json!({
-            "agent_id": agent_id,
-            "task_prompt": task_prompt,
-            "suggested_output": suggested_output,
-            "confidence": confidence,
-            "capabilities": capabilities.iter().map(|c| format!("{:?}", c)).collect::<Vec<String>>(),
-        });
+        self.inner
+            .execute_gate(agent_id, task_prompt, suggested_output, confidence, capabilities)
+            .await
+    }
+}
 
-        let gate_url = if self.url.ends_with('/') {
-            format!("{}gate", self.url)
-        } else {
-            format!("{}/gate", self.url)
+/// The default CHORA Gate implementation using the unified AuthorityBridge.
+#[derive(Debug, Clone)]
+pub struct ChoraGate {
+    pub bridge: std::sync::Arc<vex_chora::AuthorityBridge>,
+}
+
+#[async_trait]
+impl Gate for ChoraGate {
+    async fn execute_gate(
+        &self,
+        _agent_id: Uuid,
+        _task_prompt: &str,
+        suggested_output: &str,
+        confidence: f64,
+        capabilities: Vec<Capability>,
+    ) -> EvidenceCapsule {
+        // 1. Build IntentData from execution context
+        let intent = vex_core::segment::IntentData {
+            request_sha256: hex::encode(sha2::Sha256::digest(suggested_output.as_bytes())),
+            confidence,
+            capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
         };
 
-        match self
-            .client
-            .post(&gate_url)
-            .header("x-api-key", &self.api_key)
-            .json(&payload)
-            .send()
-            .await
-        {
-            Ok(resp) => {
-                let status = resp.status();
-                if status.is_success() {
-                    let text = resp.text().await.unwrap_or_else(|_| "".to_string());
-
-                    // CHORA response shape:
-                    // {
-                    //   "signed_payload": { "capsule_id": "...", "outcome": "...", "reason_code": "..." },
-                    //   "witness_receipt": "...",   // optional
-                    //   "nonce": 0,                 // optional
-                    //   "sensors": {...},           // optional
-                    //   "reproducibility_context": {...} // optional
-                    // }
-                    #[derive(serde::Deserialize)]
-                    struct VanguardSignedPayload {
-                        capsule_id: String,
-                        outcome: String,
-                        reason_code: String,
-                        #[serde(default)]
-                        witness_receipt: Option<String>,
-                        #[serde(default)]
-                        nonce: Option<u64>,
-                    }
-                    #[derive(serde::Deserialize)]
-                    struct VanguardResponse {
-                        signed_payload: VanguardSignedPayload,
-                        #[serde(default)]
-                        witness_receipt: Option<String>,
-                        #[serde(default)]
-                        sensors: Option<serde_json::Value>,
-                        #[serde(default)]
-                        reproducibility_context: Option<serde_json::Value>,
-                    }
-
-                    match serde_json::from_str::<VanguardResponse>(&text) {
-                        Ok(v_resp) => {
-                            // witness_receipt: prefer top-level field, fall back to signed_payload field
-                            let witness = v_resp
-                                .witness_receipt
-                                .or(v_resp.signed_payload.witness_receipt)
-                                .unwrap_or_else(|| {
-                                    format!("chora-{}", v_resp.signed_payload.capsule_id)
-                                });
-                            EvidenceCapsule {
-                                capsule_id: v_resp.signed_payload.capsule_id,
-                                outcome: v_resp.signed_payload.outcome,
-                                reason_code: v_resp.signed_payload.reason_code,
-                                witness_receipt: witness,
-                                nonce: v_resp.signed_payload.nonce.unwrap_or(0),
-                                sensors: v_resp.sensors.unwrap_or(serde_json::Value::Null),
-                                reproducibility_context: v_resp
-                                    .reproducibility_context
-                                    .unwrap_or(serde_json::Value::Null),
-                            }
-                        }
-                        Err(e) => EvidenceCapsule {
-                            capsule_id: "error".to_string(),
-                            outcome: "HALT".to_string(),
-                            reason_code: format!("API_PARSE_ERROR: {} (Raw: {})", e, text),
-                            witness_receipt: "error-none".to_string(),
-                            nonce: 0,
-                            sensors: serde_json::Value::Null,
-                            reproducibility_context: serde_json::Value::Null,
-                        },
-                    }
-                } else {
-                    let text = resp.text().await.unwrap_or_else(|_| "".to_string());
-                    EvidenceCapsule {
-                        capsule_id: "error".to_string(),
-                        outcome: "HALT".to_string(),
-                        reason_code: format!("API_STATUS_ERROR: {} (Raw: {})", status, text),
-                        witness_receipt: "error-none".to_string(),
-                        nonce: 0,
-                        sensors: serde_json::Value::Null,
-                        reproducibility_context: serde_json::Value::Null,
-                    }
-                }
-            }
+        // 2. Perform Handshake via Unified Bridge
+        match self.bridge.perform_handshake(intent).await {
+            Ok(capsule) => EvidenceCapsule {
+                capsule_id: capsule.capsule_id,
+                outcome: capsule.authority.outcome,
+                reason_code: capsule.authority.reason_code,
+                witness_receipt: capsule.witness.receipt_hash,
+                nonce: capsule.authority.nonce,
+                sensors: serde_json::json!({
+                    "trace_root": capsule.authority.trace_root,
+                    "identity_type": capsule.identity.identity_type,
+                }),
+                reproducibility_context: serde_json::json!({
+                    "gate_provider": "ChoraGate",
+                    "bridge_version": "v0.2.0",
+                }),
+            },
             Err(e) => EvidenceCapsule {
                 capsule_id: "error".to_string(),
                 outcome: "HALT".to_string(),
-                reason_code: format!("API_CONNECTION_ERROR: {}", e),
+                reason_code: format!("CHORA_BRIDGE_ERROR: {}", e),
                 witness_receipt: "error-none".to_string(),
                 nonce: 0,
                 sensors: serde_json::Value::Null,

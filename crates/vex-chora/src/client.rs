@@ -12,7 +12,7 @@ pub struct ChoraResponse {
 /// Trait for external authority clients.
 /// This ensures VEX remains neutral and can support multiple witness providers.
 #[async_trait]
-pub trait AuthorityClient: Send + Sync {
+pub trait AuthorityClient: Send + Sync + std::fmt::Debug {
     async fn request_attestation(&self, payload: &[u8]) -> Result<ChoraResponse, String>;
     async fn verify_witness_signature(
         &self,
@@ -23,6 +23,7 @@ pub trait AuthorityClient: Send + Sync {
 
 /// A Mock Authority Client for test/dev environments.
 /// Generates deterministic signatures based on a test key.
+#[derive(Debug)]
 pub struct MockChoraClient;
 
 #[async_trait]
@@ -71,6 +72,7 @@ impl AuthorityClient for MockChoraClient {
 /// A real HTTP Authority Client for production environments.
 /// Connects to any CHORA-compatible gate node via HTTP.
 /// Configure with CHORA_GATE_URL and CHORA_API_KEY environment variables.
+#[derive(Debug)]
 pub struct HttpChoraClient {
     client: reqwest::Client,
     base_url: String,
@@ -138,10 +140,9 @@ impl AuthorityClient for HttpChoraClient {
         let hash = hasher.finalize();
         let payload_hash = hex::encode(hash);
 
-        // POST to /gate with JSON payload (authority handshake)
+        // POST to /gate with confidence (authority handshake)
         let body = serde_json::json!({
-            "payload_hash": payload_hash,
-            "payload_size": payload.len(),
+            "confidence": 0.95,
         });
 
         let resp = self
@@ -265,11 +266,11 @@ impl AuthorityClient for HttpChoraClient {
 
 /// Factory: creates a real HttpChoraClient.
 /// Used by vex-server to avoid importing the concrete type directly.
-pub fn make_authority_client(url: String, api_key: String) -> Box<dyn AuthorityClient> {
-    Box::new(HttpChoraClient::new(url, api_key))
+pub fn make_authority_client(url: String, api_key: String) -> std::sync::Arc<dyn AuthorityClient> {
+    std::sync::Arc::new(HttpChoraClient::new(url, api_key))
 }
 
 /// Factory: creates a MockChoraClient for local dev / CI.
-pub fn make_mock_client() -> Box<dyn AuthorityClient> {
-    Box::new(MockChoraClient)
+pub fn make_mock_client() -> std::sync::Arc<dyn AuthorityClient> {
+    std::sync::Arc::new(MockChoraClient)
 }

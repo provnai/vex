@@ -6,15 +6,16 @@ use vex_hardware::api::AgentIdentity;
 
 /// The Bridge manages the relationship between local agent intent
 /// and external authority validation.
+#[derive(Debug, Clone)]
 pub struct AuthorityBridge {
-    pub client: Box<dyn AuthorityClient>,
+    pub client: Arc<dyn AuthorityClient>,
     /// Optional hardware identity — when present, IdentityData in the capsule
     /// carries the real agent_id and a hardware-signed attestation.
     pub identity: Option<Arc<AgentIdentity>>,
 }
 
 impl AuthorityBridge {
-    pub fn new(client: Box<dyn AuthorityClient>) -> Self {
+    pub fn new(client: Arc<dyn AuthorityClient>) -> Self {
         Self {
             client,
             identity: None,

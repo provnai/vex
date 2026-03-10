@@ -16,14 +16,17 @@ vex-hardware = { workspace = true }
 vex-llm = { workspace = true }
 vex-persist = { workspace = true }
 vex-anchor = { workspace = true }
+vex-chora = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
-tracing = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }
 reqwest = { workspace = true }
 [dev-dependencies]
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }

@@ -16,6 +16,10 @@ use vex_persist::sqlite::SqliteBackend;
 use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
 async fn setup_gatekeeping_state(llm_responses: Vec<String>) -> AppState {
+    // Force dev mode and fallback for tests to avoid hardware-rooted failures
+    std::env::set_var("VEX_DEV_MODE", "1");
+    std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+
     let jwt = JwtAuth::new("test-secret-key-123");
     let metrics = Arc::new(Metrics::new());
     let rate_limiter = Arc::new(TenantRateLimiter::new(RateLimitTier::Standard));
@@ -58,7 +62,7 @@ async fn setup_gatekeeping_state(llm_responses: Vec<String>) -> AppState {
         None,
         gate,
         orchestrator,
-        Arc::new(vex_chora::AuthorityBridge::new(Box::new(
+        Arc::new(vex_chora::AuthorityBridge::new(Arc::new(
             vex_chora::client::MockChoraClient,
         ))),
     )

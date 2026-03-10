@@ -15,7 +15,7 @@ mod tests {
     use crate::client::MockChoraClient;
     #[tokio::test]
     async fn test_bridge_handshake() {
-        let bridge = AuthorityBridge::new(Box::new(MockChoraClient));
+        let bridge = AuthorityBridge::new(std::sync::Arc::new(MockChoraClient));
         let intent = vex_core::segment::IntentData {
             request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e"
                 .to_string(),

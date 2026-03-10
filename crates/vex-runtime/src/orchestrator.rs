@@ -74,6 +74,8 @@ pub struct OrchestrationResult {
     pub levels_processed: u8,
     /// Overall confidence
     pub confidence: f64,
+    /// Evidence from the final decision gate
+    pub evidence: Option<vex_core::audit::EvidenceCapsule>,
 }
 
 /// Tracked agent with creation timestamp for TTL-based cleanup
@@ -107,6 +109,8 @@ pub struct Orchestrator<L: LlmProvider + ?Sized> {
     audit_store: Option<Arc<vex_persist::AuditStore<dyn vex_persist::StorageBackend>>>,
     /// Hardware Identity (Phase 5)
     identity: Option<Arc<vex_hardware::api::AgentIdentity>>,
+    /// Gate provider for final decision verification
+    gate: Arc<dyn crate::gate::Gate>,
 }
 
 impl std::fmt::Debug for TrackedAgent {
@@ -135,7 +139,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
         persistence_layer: Option<Arc<dyn vex_persist::EvolutionStore>>,
         gate: Arc<dyn crate::gate::Gate>,
     ) -> Self {
-        let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone(), gate);
+        let executor = AgentExecutor::new(llm.clone(), config.executor_config.clone(), gate.clone());
         let evolution_memory = if config.enable_self_correction {
             Some(RwLock::new(vex_core::EvolutionMemory::new()))
         } else {
@@ -157,6 +161,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
             persistence_layer,
             audit_store: None,
             identity: None,
+            gate,
         }
     }
 
@@ -336,14 +341,14 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
             }
         }
 
-        // Build trace merkle tree from agent trace roots
+        // Build trace merkle tree from agent trace roots (ISO 42001 compliance)
         let trace_leaves: Vec<(String, Hash)> = all_results
             .iter()
             .filter_map(|(id, r)| r.trace_root.clone().map(|tr| (id.to_string(), tr)))
             .collect();
         let trace_merkle = MerkleTree::from_leaves(trace_leaves);
 
-        // Anchoring Step
+        // Anchoring Step (Neutral Authority Sync)
         let mut anchor_receipts = Vec::new();
         if let Some(root_hash) = merkle_tree.root_hash() {
             let metadata = AnchorMetadata::new(tenant_id, all_results.len() as u64);
@@ -354,6 +359,18 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
                 }
             }
         }
+
+        // 4. Decision Gate (Final verification)
+        let gate_capsule = self
+            .gate
+            .execute_gate(
+                root_id,
+                query,
+                &root_result.response,
+                avg_confidence,
+                capabilities,
+            )
+            .await;
 
         Ok(OrchestrationResult {
             root_agent_id: root_id,
@@ -367,6 +384,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
             anchor_receipts,
             levels_processed: 2,
             confidence: avg_confidence,
+            evidence: Some(gate_capsule),
         })
     }
 

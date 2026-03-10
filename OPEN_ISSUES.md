@@ -4,8 +4,8 @@ Tracked issues that need resolution before v1.0.
 
 ## 🛡️ Security / Stability
 - [ ] **Missing WASM Sandbox**: `ToolExecutor` calculates capabilities but executes all tools in-process. This is a high-priority gap for production environments requiring strict isolation.
+- [x] **TPM Initialization (0x80280095)**: [RESOLVED] Hardened fallback logic and state recovery implemented in v1.1.4.
 - [ ] **LLM Timeout Hardening**: Improve HTTP-level cancellation for unresponsive providers.
-- [ ] **Audit Hash Collision Proofing**: Current Merkle implementation uses SHA-256. Need to verify leaf structure against length-extension attacks.
 
 ## 🧩 Architectural Gaps
 - [ ] **VectorStore Metadata Search**: Current SQLite implementation searching on vector similarity only; need SQL filters on the metadata JSON field.
@@ -17,3 +17,4 @@ Tracked issues that need resolution before v1.0.
 
 ## 🧪 Testing Gaps
 - [ ] **Real-World Benchmarks**: Integration tests using live Claude/GPT models (currently mostly mocked).
+- [ ] **Coverage Depth**: While all 45k lines compile and pass integration, we need deeper fuzzing for the JCS canonicalization layer.

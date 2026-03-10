@@ -5,6 +5,14 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-03-10
+
+### Added
+- **🛡️ Hardened TPM Integration**: Resolved critical `0x80280095` initialization errors on Windows. Physical TPM 2.0 is now functional for cryptographic signatures in production.
+- **📜 VEP Branding**: Formally adopted **Verifiable Evidence Packet (VEP)** branding for the cryptographic Evidence Capsule, aligned with the `0x564550` magic bytes specification.
+- **🧬 E2E Orchestrator Integration**: Completed full integration loop between the `Orchestrator`, `ChoraGate`, and `HardwareIdentity`.
+- **🧪 CI/CD Hygiene**: Standardized all integration tests with `VEX_DEV_MODE` fallbacks for consistent developer experiences while maintaining production strictness.
+
 ## [1.1.3] - 2026-03-10
 
 ### Added

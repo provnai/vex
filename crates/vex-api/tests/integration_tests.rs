@@ -16,6 +16,10 @@ use vex_persist::sqlite::SqliteBackend;
 use vex_queue::{QueueBackend, WorkerConfig, WorkerPool};
 
 async fn setup_state() -> AppState {
+    // Force dev mode and fallback for tests to avoid hardware-rooted failures
+    std::env::set_var("VEX_DEV_MODE", "1");
+    std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+
     // 1. Auth with known secret
     let jwt = JwtAuth::new("test-secret-key-123");
 
@@ -73,7 +77,7 @@ async fn setup_state() -> AppState {
         None,
         gate,
         orchestrator,
-        Arc::new(vex_chora::AuthorityBridge::new(Box::new(
+        Arc::new(vex_chora::AuthorityBridge::new(Arc::new(
             vex_chora::client::MockChoraClient,
         ))),
     )

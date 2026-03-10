@@ -201,3 +201,49 @@ pub extern "C" fn attest_verify_intent(
         }
     }
 }
+
+// -----------------------------------------------------------------------------
+// CHORA Client FFI
+// -----------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn attest_chora_handshake(
+    base_url: *const c_char,
+    api_key: *const c_char,
+    confidence: f64,
+) -> *mut c_char {
+    let result = std::panic::catch_unwind(|| {
+        let rt = get_runtime();
+        
+        // Safely extract C strings
+        let url_str = unsafe {
+            if base_url.is_null() { return std::ptr::null_mut(); }
+            CStr::from_ptr(base_url).to_string_lossy().into_owned()
+        };
+        let key_str = unsafe {
+            if api_key.is_null() { return std::ptr::null_mut(); }
+            CStr::from_ptr(api_key).to_string_lossy().into_owned()
+        };
+
+        let client = crate::cloud::chora::ChoraClient::new(url_str, key_str);
+
+        match rt.block_on(client.handshake(confidence)) {
+            Ok(json_val) => {
+                let json_str = json_val.to_string();
+                CString::new(json_str).unwrap().into_raw()
+            }
+            Err(e) => {
+                eprintln!("[FFI] CHORA handshake error: {}", e);
+                std::ptr::null_mut()
+            }
+        }
+    });
+
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => {
+            eprintln!("[FFI] attest_chora_handshake PANICKED");
+            std::ptr::null_mut()
+        }
+    }
+}

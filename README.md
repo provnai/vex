@@ -49,14 +49,12 @@ VEX provides a verification and memory layer designed for production environment
 
 ---
 
-## What's New in v1.0.0 🚀
+## What's New in v1.1.4 🚀
 
-- ⚓ **Silicon-Rooted Identity** - Native hardware-level identity via TPM (Linux) and CNG (Windows) via the new `vex-hardware` crate.
-- 🛡️ **Authority Bridge** - Native bridge to external witness networks via the new `vex-chora` crate.
-- 📜 **.capsule v0.1 Spec Locked** - Consensus reached on the Joint Specification between VEX × CHORA. See [SPEC.md](./SPEC.md).
-- 🧱 **Consensus Parity** - 100% byte-for-byte hashing parity verified across Rust and Go implementations.
-- 🏗️ **v1.0 Workspace Synchronization** - All 17 crates now synchronized to v1.0.0 with perfectly aligned build pipelines.
-- 📦 **One-Click Railway Launch** - Fully optimized Docker infrastructure for Debian Bookworm with auto-configured TSS2 libraries.
+- ⚓ **Hardened TPM Handshakes** - Resolved 0x80280095 initialization errors; physical TPM 2.0 is now performing real-world verifiable signatures in production.
+- 📜 **VEP (Verifiable Evidence Packet) v0.1** - Specification locked. The Evidence Capsule is now the protocol's atomic unit of trust.
+- 🛡️ **Orchestrator Integration** - End-to-end integration complete. Cognitive intent is now cryptographically bound to hardware identity and witness authority.
+- 🧱 **Consistency & Metrics** - Fully audited ~45k line source codebase with 100% compilation parity across Rust and Go.
 
 ---
 

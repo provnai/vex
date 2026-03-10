@@ -139,29 +139,34 @@ async fn main() -> Result<()> {
             .await
             .map_err(|e| anyhow::anyhow!("Hardware identity failed: {}", e))?,
     );
-    // Task 1: Gate is driven by env vars — no hardcoded endpoint.
-    // Set CHORA_GATE_URL + CHORA_API_KEY to connect to a live CHORA node.
-    // Defaults to GenericGateMock (behavioral heuristics) for local dev.
-    let gate: Arc<dyn vex_runtime::Gate> = match (
-        std::env::var("CHORA_GATE_URL"),
-        std::env::var("CHORA_API_KEY"),
-    ) {
-        (Ok(url), Ok(key)) => {
-            tracing::info!("🔗 CHORA HttpGate active: {}", url);
-            Arc::new(vex_runtime::HttpGate::new(url, key))
+
+    // 2. Initialize Authority Bridge (CHORA)
+    let authority_client = match std::env::var("CHORA_GATE_URL") {
+        Ok(url) => {
+            let key = std::env::var("CHORA_API_KEY").unwrap_or_default();
+            tracing::info!("🔗 CHORA AuthorityBridge: HttpChoraClient active.");
+            vex_chora::client::make_authority_client(url, key)
         }
-        _ => {
-            tracing::warn!("⚠️  CHORA_GATE_URL/CHORA_API_KEY not set. Using GenericGateMock (local heuristics only).");
-            Arc::new(vex_runtime::GenericGateMock)
+        Err(_) => {
+            tracing::warn!("⚠️  CHORA_GATE_URL not set. Using MockChoraClient for authority.");
+            vex_chora::client::make_mock_client()
         }
     };
+    let bridge = Arc::new(
+        vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()),
+    );
 
-    // 2. Initialize Audit Store (Merkle-Chained)
+    // 3. Initialize Gate (using unified bridge)
+    let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::ChoraGate {
+        bridge: bridge.clone(),
+    });
+
+    // 4. Initialize Audit Store (Merkle-Chained)
     let audit_store = Arc::new(vex_persist::AuditStore::new(
-        db.clone() as Arc<dyn vex_persist::StorageBackend>
+        db.clone() as Arc<dyn vex_persist::StorageBackend>,
     ));
 
-    // 3. Initialize Unified Orchestrator (Cognitive Hub)
+    // 5. Initialize Unified Orchestrator (Cognitive Hub)
     let base_orchestrator = vex_runtime::Orchestrator::new(
         llm.clone(),
         vex_runtime::OrchestratorConfig::default(),
@@ -174,7 +179,7 @@ async fn main() -> Result<()> {
     tracing::info!("⚓ Hardware Identity Active: {}", identity.agent_id);
     tracing::info!("🛡️ Cognitive Orchestrator initialized (Unified Signing)");
 
-    // Register Agent Job
+    // 6. Register Agent Job
     let llm_clone = llm.clone();
     let result_store_clone = result_store.clone();
     let db_for_factory = db.clone();
@@ -211,21 +216,6 @@ async fn main() -> Result<()> {
     });
 
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
-
-    // Tasks 2 + 3: AuthorityBridge with real HttpChoraClient + real hardware identity.
-    let authority_client = match std::env::var("CHORA_GATE_URL") {
-        Ok(url) => {
-            let key = std::env::var("CHORA_API_KEY").unwrap_or_default();
-            tracing::info!("🔗 CHORA AuthorityBridge: HttpChoraClient active.");
-            vex_chora::client::make_authority_client(url, key)
-        }
-        Err(_) => {
-            tracing::warn!("⚠️  CHORA_GATE_URL not set. Using MockChoraClient for authority.");
-            vex_chora::client::make_mock_client()
-        }
-    };
-    let bridge =
-        Arc::new(vex_chora::AuthorityBridge::new(authority_client).with_identity(identity.clone()));
 
     let app_state = AppState::new(
         jwt_auth,
