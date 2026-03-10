@@ -18,11 +18,11 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 reqwest = { workspace = true, features = ["json"] }
-vex-core = { path = "../vex-core" }
+vex-core = { workspace = true }
 zerocopy = { workspace = true }
 serde_jcs = { workspace = true }
 chrono.workspace = true
-vex-hardware = { path = "../vex-hardware" }
+vex-hardware = { workspace = true }
 sha2.workspace = true
 hex.workspace = true
 
