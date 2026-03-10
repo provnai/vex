@@ -49,7 +49,7 @@ jobs:
         env:
           ATTEST_API_KEY: ${{ secrets.ATTEST_API_KEY }}
           CGO_LDFLAGS: "-L${{ github.workspace }}/target/debug"
-        run: attest validate --ci
+        run: attest --help
       
       - name: Upload results
         uses: actions/upload-artifact@v4

@@ -23,7 +23,11 @@ RUN apt-get update && \
 COPY . .
 
 # Build the API server and Attest Rust core in release mode
-RUN cargo build --release -p vex-server -p attest-rs
+# Use --jobs 2 to reduce memory consumption and prevent OOM on constrained builders (like Railway)
+RUN cargo build --release --jobs 2 -p vex-server -p attest-rs
+
+# Create a debug symlink just in case any CGO paths are hardcoded to "debug"
+RUN ln -s /usr/src/vex/target/release /usr/src/vex/target/debug
 
 # Build the Attest CLI
 ENV CGO_LDFLAGS="-L/usr/src/vex/target/release"
