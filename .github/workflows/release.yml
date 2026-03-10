@@ -139,13 +139,13 @@ jobs:
           if [ "$GOOS" = "windows" ]; then BINARY_NAME="${BINARY_NAME}.exe"; fi
           export CGO_ENABLED=1
           if [ "$GOOS" = "linux" ]; then
-            export RUST_RELEASE_PATH="$(pwd)/attest-rs/target/release"
+            export RUST_RELEASE_PATH="$(pwd)/../target/release"
             export CGO_LDFLAGS="-L${RUST_RELEASE_PATH} -lattest_rs -lssl -lcrypto -ltss2-esys -ltss2-mu -ltss2-tctildr"
           elif [ "$GOOS" = "darwin" ]; then
-            export RUST_RELEASE_PATH="$(pwd)/attest-rs/target/release"
+            export RUST_RELEASE_PATH="$(pwd)/../target/release"
             export CGO_LDFLAGS="-L${RUST_RELEASE_PATH} -lattest_rs -framework Security -framework CoreFoundation"
           else
-            export RUST_RELEASE_PATH="$(pwd)/attest-rs/target/x86_64-pc-windows-gnu/release"
+            export RUST_RELEASE_PATH="$(pwd)/../target/x86_64-pc-windows-gnu/release"
             export CGO_LDFLAGS="-L${RUST_RELEASE_PATH} -lattest_rs -lbcrypt -lws2_32 -luserenv -lntdll -lole32"
           fi
           go build -o ../"$BINARY_NAME" ./cmd/attest
