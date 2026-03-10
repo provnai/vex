@@ -146,7 +146,7 @@ impl AuthorityClient for HttpChoraClient {
 
         let resp = self
             .client
-            .post(&self.gate_url())
+            .post(self.gate_url())
             .header("x-api-key", &self.api_key)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -208,7 +208,7 @@ impl AuthorityClient for HttpChoraClient {
         let signature = api_resp
             .signature
             .or(api_resp.witness_receipt)
-            .unwrap_or_else(|| payload_hash);
+            .unwrap_or(payload_hash);
 
         Ok(ChoraResponse {
             authority,
@@ -226,7 +226,7 @@ impl AuthorityClient for HttpChoraClient {
         // Fetch the CHORA node's Ed25519 public key via GET /public_key
         let resp = self
             .client
-            .get(&self.public_key_url())
+            .get(self.public_key_url())
             .header("x-api-key", &self.api_key)
             .send()
             .await
