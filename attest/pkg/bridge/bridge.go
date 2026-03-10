@@ -7,8 +7,6 @@ package bridge
 #include <stdlib.h>
 #include <stdbool.h>
 
-#cgo LDFLAGS: -L../../attest-rs/target/debug -L../../attest-rs/target/release -lattest_rs -lm -ldl -lpthread
-
 void* attest_agent_new();
 void attest_agent_free(void* ptr);
 void attest_free_string(char* ptr);

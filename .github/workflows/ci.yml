@@ -87,5 +87,5 @@ jobs:
         run: cd attest/attest-rs && cargo build
       - name: Run Tests
         env:
-          CGO_LDFLAGS: "-L${{ github.workspace }}/attest/attest-rs/target/debug"
+          CGO_LDFLAGS: "-L${{ github.workspace }}/target/debug"
         run: cd attest && go test -v -race ./...

@@ -44,9 +44,10 @@ jobs:
           sudo cp attest-bin /usr/local/bin/attest
 
       - name: Run Attest validation
-        run: attest validate --ci
         env:
           ATTEST_API_KEY: ${{ secrets.ATTEST_API_KEY }}
+          CGO_LDFLAGS: "-L${{ github.workspace }}/target/debug"
+        run: attest validate --ci
       
       - name: Upload results
         uses: actions/upload-artifact@v4
