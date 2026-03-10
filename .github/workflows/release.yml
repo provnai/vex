@@ -93,3 +93,7 @@ jobs:
 
       - name: Publish vex-protocol-cli
         run: cargo publish -p vex-protocol-cli || echo "Already published or error, continuing..."
+      - run: sleep 30
+
+      - name: Publish vex-sidecar
+        run: cargo publish -p vex-sidecar || echo "Already published or error, continuing..."
