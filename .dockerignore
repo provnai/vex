@@ -1,0 +1,17 @@
+target/
+attest/target/
+.git/
+.agents/
+.agent/
+.gemini/
+.env
+*.db
+*.log
+bin/
+obj/
+node_modules/
+dist/
+build/
+.next/
+.venv/
+__pycache__/
