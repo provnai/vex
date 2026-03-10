@@ -4,7 +4,9 @@ FROM rust:slim-bookworm AS builder
 WORKDIR /usr/src/vex
 
 # Install required dependencies for building
+# Mask udevadm to prevent tpm-udev from crashing on read-only /sys platforms like Railway
 RUN apt-get update && \
+    ln -s /bin/true /usr/local/bin/udevadm && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential curl libtss2-dev golang && \
     rm -rf /var/lib/apt/lists/*
@@ -23,6 +25,7 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies (CA certs are essential for LLM API calls)
 RUN apt-get update && \
+    ln -s /bin/true /usr/local/bin/udevadm && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates libssl3 curl libtss2-esys-3.0.2-0 libtss2-tctildr0 && \
     rm -rf /var/lib/apt/lists/*
