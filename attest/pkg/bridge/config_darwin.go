@@ -4,6 +4,6 @@
 package bridge
 
 /*
-#cgo LDFLAGS: -Wl,-rpath,${SRCDIR}/../../attest-rs/target/debug -L${SRCDIR}/../../attest-rs/target/debug -lattest_rs -framework Security -framework CoreFoundation
+#cgo LDFLAGS: -Wl,-rpath,${SRCDIR}/../../../target/debug -L${SRCDIR}/../../../target/debug -lattest_rs -framework Security -framework CoreFoundation
 */
 import "C"
