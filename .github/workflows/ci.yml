@@ -68,6 +68,8 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - name: Run linter
+        env:
+          CGO_LDFLAGS: "-L${{ github.workspace }}/target/debug"
         run: cd attest && golangci-lint run ./...
 
   attest-test:

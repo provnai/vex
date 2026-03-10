@@ -22,10 +22,11 @@ RUN apt-get update && \
 # Copy the entire workspace
 COPY . .
 
-# Build the API server in release mode
-RUN cargo build --release -p vex-server
+# Build the API server and Attest Rust core in release mode
+RUN cargo build --release -p vex-server -p attest-rs
 
 # Build the Attest CLI
+ENV CGO_LDFLAGS="-L/usr/src/vex/target/release"
 RUN cd attest && go build -v -o ../attest-bin ./cmd/attest
 
 # Runtime stage

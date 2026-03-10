@@ -37,11 +37,13 @@ jobs:
           pip install llama-index
 
       - name: Build
+        env:
+          CGO_LDFLAGS: "-L${{ github.workspace }}/target/debug"
         run: |
           cd attest/attest-rs && cargo build
           cd ../..
           cd attest && go build -o ../attest-bin ./cmd/attest
-          sudo cp attest-bin /usr/local/bin/attest
+          sudo cp ../attest-bin /usr/local/bin/attest
 
       - name: Run Attest validation
         env:
