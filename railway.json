@@ -64,6 +64,15 @@
         "MISTRAL_API_KEY": {
             "description": "Mistral API Key (optional if using other providers)",
             "required": false
+        },
+        "VEX_HARDWARE_SEED": {
+            "description": "64-character hex seed for hardware identity. If omitted in Railway, falls back to zero-seed with warning.",
+            "required": false
+        },
+        "VEX_DEV_MODE": {
+            "description": "Set to 1 to bypass strict hardware requirements and use dev fallbacks.",
+            "default": "1",
+            "required": false
         }
     }
 }

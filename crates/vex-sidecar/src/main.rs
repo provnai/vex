@@ -31,11 +31,11 @@ async fn main() {
         bytes
             .try_into()
             .expect("VEX_HARDWARE_SEED must be exactly 32 bytes")
-    } else if std::env::var("VEX_DEV_MODE").is_ok() {
-        warn!("⚠️  VEX_DEV_MODE: zero seed — NOT FOR PRODUCTION.");
+    } else if std::env::var("VEX_DEV_MODE").is_ok() || std::env::var("VEX_ENV").map(|v| v == "railway").unwrap_or(false) {
+        warn!("⚠️  Hardware fallback active (DEV_MODE or Railway): Using zero seed. NOT FOR PRODUCTION.");
         [0u8; 32]
     } else {
-        panic!("VEX_HARDWARE_SEED required. Set VEX_DEV_MODE=1 for local dev.");
+        panic!("VEX_HARDWARE_SEED required. Set VEX_DEV_MODE=1 for local dev or template testing.");
     };
 
     let keystore = HardwareKeystore::new()
