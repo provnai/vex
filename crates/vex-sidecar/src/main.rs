@@ -6,13 +6,15 @@ use axum::{
     routing::post,
     Router,
 };
+use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{error, info};
-use vex_core::segment::{AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData};
+use vex_core::segment::{
+    AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData,
+};
 use vex_core::VEP_MAGIC;
 use vex_hardware::api::AgentIdentity;
-use sha2::{Digest, Sha256};
 
 #[derive(Clone)]
 struct AppState {
@@ -27,11 +29,15 @@ async fn main() {
 
     // Initialize real hardware identity
     let identity = Arc::new(AgentIdentity::new());
-    info!("VEX Sidecar initialized with Agent ID: {}", identity.agent_id);
+    info!(
+        "VEX Sidecar initialized with Agent ID: {}",
+        identity.agent_id
+    );
 
     let state = AppState {
         identity,
-        target_url: std::env::var("TARGET_URL").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+        target_url: std::env::var("TARGET_URL")
+            .unwrap_or_else(|_| "http://localhost:8080".to_string()),
     };
 
     // Build our router
@@ -101,7 +107,7 @@ async fn proxy_handler(
 
     // 5. Build Pillar Hashes
     let intent_hash = intent.to_jcs_hash().unwrap().to_hex();
-    
+
     fn hash_seg<T: serde::Serialize>(seg: &T) -> String {
         let jcs = serde_jcs::to_vec(seg).unwrap();
         hex::encode(Sha256::digest(&jcs))
@@ -134,12 +140,10 @@ async fn proxy_handler(
     // 7. Compute Root and Sign
     let root = capsule.to_composite_hash().unwrap();
     capsule.capsule_root = root.to_hex();
-    
+
     let sig_bytes = state.identity.sign(&root.0);
-    capsule.crypto.signature_b64 = base64::Engine::encode(
-        &base64::engine::general_purpose::STANDARD,
-        &sig_bytes
-    );
+    capsule.crypto.signature_b64 =
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &sig_bytes);
 
     info!(
         "Capsule hardened and signed. Root={}",
@@ -149,17 +153,13 @@ async fn proxy_handler(
     // 8. Build VEP binary (Legacy TLV for now, but with hardened capsule)
     // In a real implementation, we would use the VEP builder.
     let capsule_json = serde_json::to_vec(&capsule).unwrap();
-    
+
     // For now, we'll just return the capsule JSON as the body to the target
     // in this simulation path.
     forward_request(&state.target_url, headers, Bytes::from(capsule_json)).await
 }
 
-async fn forward_request(
-    target_url: &str,
-    headers: HeaderMap,
-    body: Bytes,
-) -> impl IntoResponse {
+async fn forward_request(target_url: &str, headers: HeaderMap, body: Bytes) -> impl IntoResponse {
     let client = reqwest::Client::new();
     let mut req = client.post(target_url).body(body);
 

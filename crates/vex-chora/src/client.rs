@@ -180,10 +180,19 @@ impl AuthorityClient for HttpChoraClient {
             } else {
                 (
                     api_resp.capsule_id.clone().unwrap_or(payload_hash.clone()),
-                    api_resp.outcome.clone().unwrap_or_else(|| "ALLOW".to_string()),
-                    api_resp.reason_code.clone().unwrap_or_else(|| "OK".to_string()),
+                    api_resp
+                        .outcome
+                        .clone()
+                        .unwrap_or_else(|| "ALLOW".to_string()),
+                    api_resp
+                        .reason_code
+                        .clone()
+                        .unwrap_or_else(|| "OK".to_string()),
                     0u64,
-                    api_resp.witness_receipt.clone().unwrap_or(payload_hash.clone()),
+                    api_resp
+                        .witness_receipt
+                        .clone()
+                        .unwrap_or(payload_hash.clone()),
                 )
             };
 

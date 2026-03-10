@@ -122,7 +122,9 @@ impl<'a> VepPacket<'a> {
 
     /// Reconstructs a full VEX Capsule from the VEP segments.
     pub fn to_capsule(&self) -> Result<crate::segment::Capsule, String> {
-        use crate::segment::{AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData};
+        use crate::segment::{
+            AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData,
+        };
         use serde::Serialize;
 
         let intent_bytes = self
@@ -151,7 +153,7 @@ impl<'a> VepPacket<'a> {
             .map_err(|e| format!("Failed to parse Witness segment: {}", e))?;
 
         let intent_hash = intent.to_jcs_hash()?.to_hex();
-        
+
         fn hash_seg<T: Serialize>(seg: &T) -> Result<String, String> {
             let jcs = serde_jcs::to_vec(seg).map_err(|e| e.to_string())?;
             let mut hasher = sha2::Sha256::new();
@@ -181,7 +183,7 @@ impl<'a> VepPacket<'a> {
                 signature_scope: "capsule_root".to_string(),
                 signature_b64: base64::Engine::encode(
                     &base64::engine::general_purpose::STANDARD,
-                    sig_bytes
+                    sig_bytes,
                 ),
             },
         };

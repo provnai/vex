@@ -63,7 +63,7 @@ impl AuthorityBridge {
 
         // 5. Build Pillar Hashes
         let intent_hash = intent.to_jcs_hash()?.to_hex();
-        
+
         // Helper to hash a JCS segment
         fn hash_seg<T: Serialize>(seg: &T) -> Result<String, String> {
             let jcs = serde_jcs::to_vec(seg).map_err(|e| e.to_string())?;
@@ -95,7 +95,7 @@ impl AuthorityBridge {
                 signature_scope: "capsule_root".to_string(),
                 signature_b64: base64::Engine::encode(
                     &base64::engine::general_purpose::STANDARD,
-                    hex::decode(&response.signature).unwrap_or_default()
+                    hex::decode(&response.signature).unwrap_or_default(),
                 ),
             },
         };

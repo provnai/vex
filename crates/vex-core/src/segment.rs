@@ -79,7 +79,7 @@ pub struct Capsule {
     pub identity: IdentityData,
     /// CHORA Log Pillar: Where the receipt lives
     pub witness: WitnessData,
-    
+
     // Derived hashes for transparency
     pub intent_hash: String,
     pub authority_hash: String,
@@ -103,7 +103,7 @@ impl Capsule {
             Ok(hex::encode(hasher.finalize()))
         }
 
-        let intent_h = self.intent.to_jcs_hash()?; 
+        let intent_h = self.intent.to_jcs_hash()?;
         let intent_hash_hex = intent_h.to_hex();
 
         let authority_hash_hex = hash_seg(&self.authority)?;
@@ -137,7 +137,8 @@ mod tests {
     #[test]
     fn test_intent_segment_jcs_deterministic() {
         let segment1 = IntentData {
-            request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e".to_string(),
+            request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e"
+                .to_string(),
             confidence: 0.95,
             capabilities: vec![],
         };
