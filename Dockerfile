@@ -16,8 +16,12 @@ RUN apt-get update && \
     dpkg-divert --local --rename --add /var/lib/dpkg/info/tpm-udev.postinst && \
     ln -sf /bin/true /var/lib/dpkg/info/tpm-udev.postinst && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev build-essential curl libtss2-dev golang && \
+    pkg-config libssl-dev build-essential curl libtss2-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Copy pre-compiled Go toolchain directly from the official image to avoid curl/SSL issues
+COPY --from=golang:1.24.0-bookworm /usr/local/go /usr/local/go
+ENV PATH=$PATH:/usr/local/go/bin
 
 # Copy the entire workspace
 COPY . .
