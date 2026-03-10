@@ -2,7 +2,10 @@
 
 package cost
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type PricingData struct {
 	Provider       string
@@ -127,6 +130,7 @@ var GooglePricing = map[string]PricingData{
 }
 
 var AllPricing = map[string]PricingData{}
+var pricingMu sync.RWMutex
 
 func init() {
 	for k, v := range OpenAIPricing {
@@ -141,6 +145,8 @@ func init() {
 }
 
 func GetPricingData(modelID string) (PricingData, error) {
+	pricingMu.RLock()
+	defer pricingMu.RUnlock()
 	if pricing, ok := AllPricing[modelID]; ok {
 		return pricing, nil
 	}
@@ -171,6 +177,8 @@ func roundToCents(amount float64) float64 {
 }
 
 func AddOrUpdatePricing(modelID string, pricing PricingData) {
+	pricingMu.Lock()
+	defer pricingMu.Unlock()
 	pricing.ModelID = modelID
 	AllPricing[modelID] = pricing
 }

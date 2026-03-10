@@ -163,6 +163,11 @@ func TestAddOrUpdatePricing(t *testing.T) {
 	}
 
 	AddOrUpdatePricing("test-model", newPricing)
+	defer func() {
+		pricingMu.Lock()
+		delete(AllPricing, "test-model")
+		pricingMu.Unlock()
+	}()
 
 	if len(AllPricing) != initialLen+1 {
 		t.Errorf("expected length %d, got %d", initialLen+1, len(AllPricing))
@@ -183,7 +188,12 @@ func TestAddOrUpdatePricing(t *testing.T) {
 
 func TestAllPricingPopulated(t *testing.T) {
 	totalExpected := len(OpenAIPricing) + len(AnthropicPricing) + len(GooglePricing)
-	if len(AllPricing) != totalExpected {
-		t.Logf("AllPricing has %d entries, expected %d", len(AllPricing), totalExpected)
+	
+	pricingMu.RLock()
+	actualLen := len(AllPricing)
+	pricingMu.RUnlock()
+	
+	if actualLen != totalExpected {
+		t.Errorf("AllPricing has %d entries, expected %d", actualLen, totalExpected)
 	}
 }
