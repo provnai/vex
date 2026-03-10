@@ -26,7 +26,7 @@ aes-gcm = "0.10"
 rand = "0.8"
 argon2 = "0.5"
 zeroize = { version = "1", features = ["derive"] }
-
+provn-sdk = "0.3.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Security_Cryptography", "Win32_System_Threading", "Win32_Foundation"] }

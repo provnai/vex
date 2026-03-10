@@ -327,7 +327,7 @@ dependencies = [
  "p3-uni-stark",
  "p3-util",
  "portable-pty",
- "provn-sdk",
+ "provn-sdk 0.3.0 (git+https://github.com/provnai/provn-sdk)",
  "rand 0.8.5",
  "regex",
  "reqwest 0.11.27",
@@ -3779,6 +3779,20 @@ dependencies = [
 [[package]]
 name = "provn-sdk"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca00de3d46d390be2e8299ad6636fdbeb992abaf7e7f62e78dddc38230bff8ec"
+dependencies = [
+ "ed25519-dalek",
+ "hex",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "provn-sdk"
+version = "0.3.0"
 source = "git+https://github.com/provnai/provn-sdk#8c38e10adbf6d5b4ec60d0804ab341cbc5860e97"
 dependencies = [
  "ed25519-dalek",
@@ -5946,7 +5960,7 @@ dependencies = [
  "chrono",
  "ed25519-dalek",
  "hex",
- "provn-sdk",
+ "provn-sdk 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.8.5",
  "serde",
  "serde_json",
