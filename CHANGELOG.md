@@ -5,6 +5,14 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-03-11
+
+### Added
+- **🛡️ Titan Gate L2 Hardening**: Implemented word-boundary aware regex sanitization for Magpie intents. Prevents structural keyword injection while allowing legitimate instruction sets.
+- **🚀 Async Magpie Support**: Replaced synchronous compiler calls with `tokio` process management and `TempFileGuard` RAII for atomic resource cleanup.
+- **📜 VEP v0.1 Wire Parity**: Verified 76-byte binary header structure and JCS commitment surface against reference vectors. Added `vep_verification.rs` suite.
+- **🧪 Total Trust Trinity**: Formalized the L1 (Deterministic) -> L2 (Formal Intent) -> L3 (Hardware Attestation) execution path in `TitanGate`.
+
 ## [1.1.4] - 2026-03-10
 
 ### Added

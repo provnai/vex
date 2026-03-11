@@ -17,4 +17,4 @@ Tracked issues that need resolution before v1.0.
 
 ## 🧪 Testing Gaps
 - [ ] **Real-World Benchmarks**: Integration tests using live Claude/GPT models (currently mostly mocked).
-- [ ] **Coverage Depth**: While all 45k lines compile and pass integration, we need deeper fuzzing for the JCS canonicalization layer.
+- [ ] **JCS Fuzzing**: Need deeper fuzzing for the JCS canonicalization layer to ensure zero-collision commitment across all edge-case UTF-8 payloads.

@@ -174,3 +174,6 @@ impl Gate for ChoraGate {
         }
     }
 }
+
+pub mod titan;
+pub use titan::TitanGate;

@@ -49,12 +49,12 @@ VEX provides a verification and memory layer designed for production environment
 
 ---
 
-## What's New in v1.1.4 🚀
+## What's New in v1.1.5 🚀
 
-- ⚓ **Hardened TPM Handshakes** - Resolved 0x80280095 initialization errors; physical TPM 2.0 is now performing real-world verifiable signatures in production.
-- 📜 **VEP (Verifiable Evidence Packet) v0.1** - Specification locked. The Evidence Capsule is now the protocol's atomic unit of trust.
-- 🛡️ **Orchestrator Integration** - End-to-end integration complete. Cognitive intent is now cryptographically bound to hardware identity and witness authority.
-- 🧱 **Consistency & Metrics** - Fully audited ~45k line source codebase with 100% compilation parity across Rust and Go.
+- 🛡️ **Magpie L2 Hardening** - Integrated word-boundary aware sanitization for Magpie intents. Formal reasoning is now protected against structural code injection.
+- ⚡ **Non-Blocking Orchestration** - Fully migrated `vex-runtime` to async-first I/O with `TempFileGuard` for atomic cleanup of security artifacts.
+- ⚓ **CHORA & VEP v0.1 Parity** - Specification parity achieved. The 76-byte binary wire format is now mathematically verified against the CHORA authority network.
+- 🧬 **Total Trust Trinity** - Architectural completion of the L1 (Rules) -> L2 (Formal) -> L3 (Hardware) verification pipeline.
 
 ---
 
@@ -183,13 +183,15 @@ graph LR
 
     subgraph "ProvnAI Trust Trinity (Cloud)"
         V[VEX - Cognition]
+        M[Magpie - Intent]
         A[Attest - Identity]
         C[CHORA - Authority]
         G[Vanguard - Security]
     end
 
     U -->|Request| V
-    V -->|Seal Intent| A
+    V -->|Formalize| M
+    M -->|Seal Intent| A
     A -->|Hardware Signed| V
     V -->|Governance| C
     C -->|Evidence Capsule| V
@@ -352,6 +354,7 @@ VEX is the central pillar of a multi-layered trust stack designed for the agenti
 - **5. Marketing** ([provnai.com](https://provnai.com)): Global Open Research Initiative portal.
 - **6. Developer** ([provnai.dev](https://provnai.dev)): Documentation & Rustdoc portal.
 - **7. Authority** (vex-chora): Native bridge to the external CHORA witness network.
+- **8. Formal Intent** (Magpie): L2 Semantic verification layer for cognitive safety.
 
 
 ---
