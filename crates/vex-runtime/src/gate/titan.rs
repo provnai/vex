@@ -92,7 +92,7 @@ impl TitanGate {
 
         let tmp_filename = format!(
             "gate_intent_{}.mp",
-            Uuid::new_v4().to_string()[..8].to_string()
+            &Uuid::new_v4().to_string()[..8]
         );
         let mut tmp_path = std::env::temp_dir();
         tmp_path.push(&tmp_filename);
