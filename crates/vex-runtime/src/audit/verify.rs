@@ -1,5 +1,6 @@
-use super::vep::{AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, WitnessSegment};
-use ed25519_dalek::Verifier;
+use super::vep::{
+    AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, WitnessSegment,
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

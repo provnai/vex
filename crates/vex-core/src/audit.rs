@@ -45,14 +45,12 @@ pub struct EvidenceCapsule {
     /// Bundled Magpie AST for independent verification
     #[serde(skip_serializing_if = "Option::is_none")]
     pub magpie_source: Option<String>,
-    pub sensors: serde_json::Value,
+    pub gate_sensors: serde_json::Value,
     pub reproducibility_context: serde_json::Value,
     /// Optional full VEP binary blob
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vep_blob: Option<Vec<u8>>,
 }
-
-
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

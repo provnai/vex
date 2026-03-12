@@ -3,7 +3,6 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use vex_core::segment::AuthorityData;
 
-
 /// Response from the CHORA Authority.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChoraResponse {

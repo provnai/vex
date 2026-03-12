@@ -62,7 +62,7 @@ impl Gate for GenericGateMock {
             witness_receipt: "mock-receipt-0xdeadbeef".to_string(),
             nonce: 0,
             magpie_source: None,
-            sensors: serde_json::json!({
+            gate_sensors: serde_json::json!({
                 "confidence_sensor": if confidence > 0.5 { "GREEN" } else { "YELLOW" },
                 "content_length": suggested_output.len(),
             }),
@@ -157,7 +157,7 @@ impl Gate for ChoraGate {
                 witness_receipt: capsule.witness.receipt_hash,
                 nonce: capsule.authority.nonce,
                 magpie_source: None,
-                sensors: serde_json::json!({
+                gate_sensors: serde_json::json!({
                     "trace_root": capsule.authority.trace_root,
                     "identity_type": capsule.identity.identity_type,
                 }),
@@ -174,7 +174,7 @@ impl Gate for ChoraGate {
                 witness_receipt: "error-none".to_string(),
                 nonce: 0,
                 magpie_source: None,
-                sensors: serde_json::Value::Null,
+                gate_sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
                 vep_blob: None,
             },

@@ -26,7 +26,6 @@ async fn test_vep_end_to_end_bundling_and_reverification() {
             ";; Valid Magpie comment",
             0.95,
             vec![Capability::FileSystem],
-
         )
         .await;
 
