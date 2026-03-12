@@ -14,6 +14,8 @@ pub struct IntentData {
     pub confidence: f64,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub magpie_source: Option<String>,
 }
 
 impl IntentData {
@@ -38,6 +40,12 @@ pub struct AuthorityData {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+    #[serde(default = "default_sensor_value")]
+    pub gate_sensors: serde_json::Value,
+}
+
+fn default_sensor_value() -> serde_json::Value {
+    serde_json::Value::Null
 }
 
 /// Witness Data (CHORA Append-Only Log)
@@ -141,6 +149,7 @@ mod tests {
                 .to_string(),
             confidence: 0.95,
             capabilities: vec![],
+            magpie_source: None,
         };
         let segment2 = segment1.clone();
 
@@ -156,6 +165,7 @@ mod tests {
             request_sha256: "a".into(),
             confidence: 0.5,
             capabilities: vec![],
+            magpie_source: None,
         };
         let mut segment2 = segment1.clone();
         segment2.confidence = 0.9;

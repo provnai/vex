@@ -76,7 +76,7 @@ impl TitanGate {
         suggested_output: &str,
         _role: &str,
         digest: &str,
-    ) -> Result<(), String> {
+    ) -> Result<String, String> {
         use tokio::fs;
         use tokio::process::Command;
         use tokio::time::{timeout, Duration};
@@ -150,7 +150,7 @@ impl TitanGate {
             .map_err(|e| format!("MAGPIE_SPAWN_ERROR: {}", e))?;
 
         if output.status.success() {
-            Ok(())
+            Ok(mp_source)
         } else {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -282,6 +282,7 @@ impl Gate for TitanGate {
                     reason_code: format!("L1_RULE_VIOLATION: {:?}", rule),
                     witness_receipt: "deterministic-none".into(),
                     nonce: 0,
+                    magpie_source: None,
                     sensors: serde_json::json!({"layer": "L1", "rule": format!("{:?}", rule)}),
                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
                     vep_blob: None,
@@ -302,7 +303,7 @@ impl Gate for TitanGate {
             .verify_formal_intent(suggested_output, "StandardAgent", &digest_hex)
             .await
         {
-            Ok(_) => {
+            Ok(mp_source) => {
                 // --- Layer 3: Cryptographic (VEX/CHORA) ---
                 // Transition to Spec v0.1: Handshake with CHORA Witness Network
                 let intent_payload = suggested_output.as_bytes();
@@ -319,6 +320,7 @@ impl Gate for TitanGate {
                             request_sha256: digest_hex.clone(),
                             confidence,
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
+                            magpie_source: Some(mp_source.clone()),
                         };
 
                         let authority = AuthoritySegment {
@@ -327,10 +329,14 @@ impl Gate for TitanGate {
                             reason_code: chora_resp.authority.reason_code.clone(),
                             trace_root: chora_resp.authority.trace_root.clone(),
                             nonce: chora_resp.authority.nonce,
+                            gate_sensors: serde_json::json!({
+                                "profile": format!("{:?}", self.profile),
+                                "l2_digest": digest_hex.clone()
+                            }),
                         };
 
                         let identity = IdentitySegment {
-                            aid: self.identity.agent_id.clone(),
+                            aid: self.identity.public_key_hex(),
                             identity_type: "TPM_ECC_PERSISTENT".to_string(), // Spec alignment
                         };
 
@@ -384,6 +390,7 @@ impl Gate for TitanGate {
                                 reason_code: v0_capsule.authority.reason_code.clone(),
                                 witness_receipt: v0_capsule.witness_hash.clone(),
                                 nonce: v0_capsule.authority.nonce,
+                                magpie_source: None,
                                 sensors: serde_json::json!({"layer": "L3", "chora_sig": chora_resp.signature}),
                                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
                                 vep_blob: v0_capsule.to_vep_binary().ok(),
@@ -396,6 +403,7 @@ impl Gate for TitanGate {
                         reason_code: format!("CHORA_CONNECTION_ERROR: {}", e),
                         witness_receipt: "none".into(),
                         nonce: 0,
+                        magpie_source: None,
                         sensors: serde_json::json!({"layer": "L3", "error": e}),
                         reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
                         vep_blob: None,
@@ -408,6 +416,7 @@ impl Gate for TitanGate {
                 reason_code: format!("L2_FORMAL_VIOLATION: {}", e),
                 witness_receipt: "semantic-none".into(),
                 nonce: 0,
+                magpie_source: None,
                 sensors: serde_json::json!({"layer": "L2", "error": e, "digest": digest_hex}),
                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L2"}),
                 vep_blob: None,

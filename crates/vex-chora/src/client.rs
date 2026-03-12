@@ -1,6 +1,8 @@
 use async_trait::async_trait;
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use vex_core::segment::AuthorityData;
+
 
 /// Response from the CHORA Authority.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +46,7 @@ impl AuthorityClient for MockChoraClient {
             reason_code: "OK".into(),
             nonce: 42,
             trace_root: "00".repeat(32), // Mocked trace root
+            gate_sensors: serde_json::Value::Null,
         };
 
         // Generate mock signature
@@ -140,9 +143,11 @@ impl AuthorityClient for HttpChoraClient {
         let hash = hasher.finalize();
         let payload_hash = hex::encode(hash);
 
-        // POST to /gate with confidence (authority handshake)
+        // POST to /gate with confidence and payload (authority handshake)
         let body = serde_json::json!({
             "confidence": 0.95,
+            "payload": base64::engine::general_purpose::STANDARD.encode(payload),
+            "payload_hash": payload_hash,
         });
 
         let resp = self
@@ -203,6 +208,7 @@ impl AuthorityClient for HttpChoraClient {
             reason_code,
             nonce,
             trace_root,
+            gate_sensors: serde_json::Value::Null,
         };
 
         let signature = api_resp

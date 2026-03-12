@@ -81,6 +81,7 @@ async fn proxy_handler(
         request_sha256: payload_hash.clone(),
         confidence: 1.0,
         capabilities: vec!["proxy-forwarding".to_string()],
+        magpie_source: None,
     };
 
     // 2. Construct IdentityData (Real Hardware ID)
@@ -96,6 +97,7 @@ async fn proxy_handler(
         reason_code: "PASSED_SIDECAR".to_string(),
         trace_root: payload_hash.clone(),
         nonce: 1,
+        gate_sensors: serde_json::Value::Null,
     };
 
     // 4. Construct WitnessData (Local timestamp)

@@ -139,6 +139,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     .get("nonce")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0),
+                magpie_source: None,
                 sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
                 vep_blob: vep_blob.clone(),

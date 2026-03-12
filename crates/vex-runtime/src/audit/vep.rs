@@ -25,6 +25,8 @@ pub struct IntentSegment {
     pub request_sha256: String,
     pub confidence: f64,
     pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub magpie_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +36,7 @@ pub struct AuthoritySegment {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+    pub gate_sensors: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,37 +135,57 @@ impl EvidenceCapsuleV0 {
     }
 
     pub fn to_vep_binary(&self) -> Result<Vec<u8>, VepError> {
-        let mut buffer = Vec::with_capacity(VEP_HEADER_SIZE);
+        let mut buffer = Vec::with_capacity(1024);
 
-        // Header: magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
+        // 1. Header: magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
         buffer.extend_from_slice(&VEP_MAGIC);
         buffer.push(VEP_VERSION);
 
         let aid_bytes = hex::decode(&self.identity.aid)
             .map_err(|e| VepError::BinaryFormat(format!("Invalid AID hex: {}", e)))?;
-        if aid_bytes.len() != 32 {
-            return Err(VepError::BinaryFormat(format!(
-                "AID must be 32 bytes, got {}",
-                aid_bytes.len()
-            )));
-        }
         buffer.extend_from_slice(&aid_bytes);
 
         let root_bytes = hex::decode(&self.capsule_root)
             .map_err(|e| VepError::BinaryFormat(format!("Invalid root hex: {}", e)))?;
-        if root_bytes.len() != 32 {
-            return Err(VepError::BinaryFormat(format!(
-                "Root must be 32 bytes, got {}",
-                root_bytes.len()
-            )));
-        }
         buffer.extend_from_slice(&root_bytes);
 
         buffer.extend_from_slice(&self.authority.nonce.to_be_bytes());
 
-        // Append full JCS JSON after header
-        let json_bytes = serde_jcs::to_vec(self).map_err(|e| VepError::Jcs(e.to_string()))?;
-        buffer.extend_from_slice(&json_bytes);
+        // 2. Helper to append TLV segment
+        fn append_segment(buffer: &mut Vec<u8>, segment_type: u8, data: &[u8]) {
+            buffer.push(segment_type);
+            buffer.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            buffer.extend_from_slice(data);
+        }
+
+        // 3. Main Pillars (JSON serialized)
+        let intent_bytes =
+            serde_jcs::to_vec(&self.intent).map_err(|e| VepError::Jcs(e.to_string()))?;
+        append_segment(&mut buffer, 1, &intent_bytes); // Intent
+
+        let auth_bytes =
+            serde_jcs::to_vec(&self.authority).map_err(|e| VepError::Jcs(e.to_string()))?;
+        append_segment(&mut buffer, 2, &auth_bytes); // Authority
+
+        let ident_bytes =
+            serde_jcs::to_vec(&self.identity).map_err(|e| VepError::Jcs(e.to_string()))?;
+        append_segment(&mut buffer, 3, &ident_bytes); // Identity
+
+        let witness_bytes =
+            serde_jcs::to_vec(&self.witness).map_err(|e| VepError::Jcs(e.to_string()))?;
+        append_segment(&mut buffer, 5, &witness_bytes); // Witness
+
+        // 4. Dedicated Magpie AST Segment (Raw Binary)
+        if let Some(ast) = &self.intent.magpie_source {
+            append_segment(&mut buffer, 7, ast.as_bytes());
+        }
+
+        // 5. Signature (Raw Binary)
+        use base64::Engine as _;
+        let sig_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&self.crypto.signature_b64)
+            .map_err(|e| VepError::Crypto(format!("Base64 decode failed: {}", e)))?;
+        append_segment(&mut buffer, 6, &sig_bytes);
 
         Ok(buffer)
     }

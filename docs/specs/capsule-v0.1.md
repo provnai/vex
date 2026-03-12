@@ -1,6 +1,9 @@
 # .capsule — Verifiable Agent Receipt
 ## VEX × CHORA Joint Specification v0.1 (LOCKED - Hardened)
 
+**Authors:** Quinten Stroobants (VEX), George Lagogiannis (CHORA)
+
+
 A `.capsule` is a portable, cryptographically-sealed artifact that proves an AI agent's action was **intended, authorized, and hardware-rooted** — verifiable offline by any third party without access to either node's internal logic.
 
 ---
@@ -37,7 +40,8 @@ Proves the proposed action before execution.
 {
   "request_sha256": "hex[32]",
   "confidence": "float64 (0.0 - 1.0)",
-  "capabilities": ["string"]
+  "capabilities": ["string"],
+  "magpie_source": "string (Optional - bundled formal AST)"
 }
 ```
 
@@ -49,7 +53,8 @@ Proves the governance decision.
   "outcome": "ALLOW | HALT | ESCALATE",
   "reason_code": "string",
   "trace_root": "hex[32]",
-  "nonce": "uint64 execution nonce"
+  "nonce": "uint64 execution nonce",
+  "gate_sensors": "object (Phase 11 telemetry)"
 }
 ```
 
@@ -99,26 +104,42 @@ Binds the pillars into a single commitment.
 
 ---
 
-## 4. Wire Format (VEP Header — 76 bytes)
+## 4. Wire Format (VEP Header & Body)
 
+### Header (76 bytes)
 ```
 magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 ```
 
 - `magic`: `0x564550` ("VEP")
-- `version`: `0x02`
+- `version`: `0x02` (CHORA Hardened)
 - `aid`: Attest ID — hardware-rooted identity hash
 - `capsule_root`: The canonical commitment root
 - `nonce`: 8-byte replay protection counter
+
+### Binary Body (TLV Segments)
+Following the header, the body consists of Type-Length-Value (TLV) segments. This enables loose coupling between the commitment (Pillars) and the bundling (Magpie AST).
+
+| Type | Name | Content |
+|---|---|---|
+| 0x01 | Intent | JCS JSON of IntentSegment |
+| 0x02 | Authority | JCS JSON of AuthoritySegment |
+| 0x03 | Identity | JCS JSON of IdentitySegment |
+| 0x05 | Witness | JCS JSON of WitnessSegment |
+| 0x06 | Signature | Raw 64-byte Ed25519 signature |
+| 0x07 | MagpieAst | Raw UTF-8 Magpie formal source code |
 
 ---
 
 ## 5. Verification Flow (Offline)
 
-1. **Parse** the JCS structure and extract the four segments.
-2. **Recompute** the four pillar hashes from raw segment bytes.
-3. **Recompute** `capsule_root` (ensuring JCS lexicographical sorting).
-4. **Verify** the Ed25519 signature against the CHORA public key.
+1. **Parse Header**: Extract `capsule_root`.
+2. **Extract Segments**: Traverse the TLV body to retrieve specific pillars and the Signature.
+3. **Recompute Commitment**: 
+    - Recompute pillar hashes from the extracted Segments.
+    - Recompute `capsule_root` using JCS lexicographical ordering.
+4. **Signature Check**: Verify the `Signature` (Type 6) over the `capsule_root`.
+5. **Formal Re-Verification (Optional)**: Execute `magpie -c` on the raw `MagpieAst` (Type 7) to confirm the formal intent matches the authorized `trace_root`.
 
 **Reference parity vector (Consensus v0.1):**
 - **Intent Hash**: `e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb`

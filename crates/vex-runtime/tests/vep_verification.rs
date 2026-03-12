@@ -9,6 +9,7 @@ fn test_vep_binary_serialization() {
         request_sha256: "0".repeat(64),
         confidence: 0.95,
         capabilities: vec!["Subprocess".to_string()],
+        magpie_source: None,
     };
 
     let authority = AuthoritySegment {
@@ -17,6 +18,7 @@ fn test_vep_binary_serialization() {
         reason_code: "OK".to_string(),
         trace_root: "0".repeat(64),
         nonce: 12345,
+        gate_sensors: serde_json::Value::Null,
     };
 
     let identity = IdentitySegment {
@@ -90,6 +92,7 @@ fn test_vep_signature_verification() {
             request_sha256: "0".repeat(64),
             confidence: 1.0,
             capabilities: vec![],
+            magpie_source: None,
         },
         AuthoritySegment {
             capsule_id: "id".into(),
@@ -97,6 +100,7 @@ fn test_vep_signature_verification() {
             reason_code: "OK".into(),
             trace_root: "0".repeat(64),
             nonce: 1,
+            gate_sensors: serde_json::Value::Null,
         },
         IdentitySegment {
             aid: "1".repeat(64),

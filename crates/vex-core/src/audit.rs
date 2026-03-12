@@ -42,24 +42,17 @@ pub struct EvidenceCapsule {
     pub reason_code: String,
     pub witness_receipt: String,
     pub nonce: u64,
-    #[serde(
-        default = "default_sensor_value",
-        skip_serializing_if = "serde_json::Value::is_null"
-    )]
+    /// Bundled Magpie AST for independent verification
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub magpie_source: Option<String>,
     pub sensors: serde_json::Value,
-    #[serde(
-        default = "default_sensor_value",
-        skip_serializing_if = "serde_json::Value::is_null"
-    )]
     pub reproducibility_context: serde_json::Value,
     /// Optional full VEP binary blob
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vep_blob: Option<Vec<u8>>,
 }
 
-fn default_sensor_value() -> serde_json::Value {
-    serde_json::Value::Null
-}
+
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

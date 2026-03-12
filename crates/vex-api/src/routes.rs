@@ -261,6 +261,7 @@ pub async fn execute_agent(
         request_sha256: trace_root_hash.to_hex(),
         confidence: 1.0,
         capabilities: vec!["api-execution".to_string()],
+        magpie_source: None,
     };
     let intent_hash = intent
         .to_jcs_hash()

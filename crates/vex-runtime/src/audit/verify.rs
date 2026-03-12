@@ -1,6 +1,5 @@
-use super::vep::{EvidenceCapsuleV0, VEP_HEADER_SIZE, VEP_MAGIC, VEP_VERSION};
-use base64::Engine as _;
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use super::vep::{AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, WitnessSegment};
+use ed25519_dalek::Verifier;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -24,109 +23,99 @@ pub struct VepVerifier;
 
 impl VepVerifier {
     /// Verify a raw VEP binary blob.
-    ///
-    /// Sequence:
-    /// 1. Parse Header (Magic, Version, AID, Root, Nonce)
-    /// 2. Hash JSON payload and compare with header Root
-    /// 3. Re-compute Merkle segments to verify internal consistency
-    /// 4. (Optional) Verify Ed25519 signature if public key provided
     pub fn verify_binary(
         data: &[u8],
         public_key: Option<&[u8]>,
     ) -> Result<EvidenceCapsuleV0, VerifierError> {
-        if data.len() < VEP_HEADER_SIZE {
-            return Err(VerifierError::HeaderTooSmall);
+        use vex_core::vep::VepPacket;
+
+        // 1. Use Core VEP Packet for TLV extraction
+        let packet = VepPacket::new(data).map_err(|e| VerifierError::Integrity(e.to_string()))?;
+
+        // 2. Perform cryptographic verification if key provided
+        if let Some(pk) = public_key {
+            packet
+                .verify(pk)
+                .map_err(|e| VerifierError::Crypto(e.to_string()))?;
         }
 
-        // 1. Check Magic
-        let mut magic = [0u8; 3];
-        magic.copy_from_slice(&data[0..3]);
-        if magic != VEP_MAGIC {
-            return Err(VerifierError::InvalidMagic(magic));
+        // 3. Reconstruct the High-Level Capsule (Core)
+        let core_capsule = packet
+            .to_capsule()
+            .map_err(|e| VerifierError::Integrity(e.to_string()))?;
+
+        // 4. Map back to Runtime VEP Capsule (V0)
+        let intent = IntentSegment {
+            request_sha256: core_capsule.intent.request_sha256,
+            confidence: core_capsule.intent.confidence,
+            capabilities: core_capsule.intent.capabilities,
+            magpie_source: core_capsule.intent.magpie_source,
+        };
+
+        let authority = AuthoritySegment {
+            capsule_id: core_capsule.authority.capsule_id,
+            outcome: core_capsule.authority.outcome,
+            reason_code: core_capsule.authority.reason_code,
+            trace_root: core_capsule.authority.trace_root,
+            nonce: core_capsule.authority.nonce,
+            gate_sensors: core_capsule.authority.gate_sensors,
+        };
+
+        let identity = IdentitySegment {
+            aid: core_capsule.identity.aid,
+            identity_type: core_capsule.identity.identity_type,
+        };
+
+        let witness = WitnessSegment {
+            chora_node_id: core_capsule.witness.chora_node_id,
+            receipt_hash: core_capsule.witness.receipt_hash,
+            timestamp: core_capsule.witness.timestamp,
+        };
+
+        let mut v0 = EvidenceCapsuleV0::new(intent, authority, identity, witness)
+            .map_err(|e| VerifierError::Integrity(e.to_string()))?;
+
+        v0.crypto.signature_b64 = core_capsule.crypto.signature_b64;
+
+        Ok(v0)
+    }
+
+    /// Re-run the formal verification on the bundled Magpie AST.
+    pub async fn reverify_formal_intent(&self, capsule: &EvidenceCapsuleV0) -> Result<(), String> {
+        let source = capsule
+            .intent
+            .magpie_source
+            .as_ref()
+            .ok_or("VEP_MISSING_SOURCE: No bundled Magpie AST found")?;
+
+        let tmp_path = std::env::temp_dir().join(format!("verify_{}.mp", capsule.capsule_id));
+        tokio::fs::write(&tmp_path, source)
+            .await
+            .map_err(|e| format!("IO_ERROR: {}", e))?;
+
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
         }
+        let _cleanup = Cleanup(tmp_path.clone());
 
-        // 2. Check Version
-        let version = data[3];
-        if version != VEP_VERSION {
-            return Err(VerifierError::UnsupportedVersion(VEP_VERSION, version));
+        use tokio::process::Command;
+        let mut cmd = Command::new("magpie");
+        cmd.arg("-c").arg(&tmp_path);
+
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| format!("MAGPIE_EXEC_ERROR: {}", e))?;
+
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("FORMAL_VERIFICATION_FAILED: {}", stderr))
         }
-
-        // 3. Extract Header Fields for verification
-        let header_aid = hex::encode(&data[4..36]);
-        let header_root = hex::encode(&data[36..68]);
-        let header_nonce = u64::from_be_bytes(data[68..76].try_into().unwrap());
-
-        // 4. Parse JSON Payload
-        let json_payload = &data[VEP_HEADER_SIZE..];
-        let capsule: EvidenceCapsuleV0 = serde_json::from_slice(json_payload)?;
-
-        // 5. Cross-Verification (Header vs JSON)
-        if capsule.identity.aid != header_aid {
-            return Err(VerifierError::Integrity(format!(
-                "AID mismatch: header {} != json {}",
-                header_aid, capsule.identity.aid
-            )));
-        }
-
-        if capsule.capsule_root != header_root {
-            return Err(VerifierError::Integrity(format!(
-                "Root mismatch: header {} != json {}",
-                header_root, capsule.capsule_root
-            )));
-        }
-
-        if capsule.authority.nonce != header_nonce {
-            return Err(VerifierError::Integrity(format!(
-                "Nonce mismatch: header {} != json {}",
-                header_nonce, capsule.authority.nonce
-            )));
-        }
-
-        // 6. Cryptographic Integrity: Re-compute everything
-        let recomputed = EvidenceCapsuleV0::new(
-            capsule.intent.clone(),
-            capsule.authority.clone(),
-            capsule.identity.clone(),
-            capsule.witness.clone(),
-        )
-        .map_err(|e| VerifierError::Integrity(e.to_string()))?;
-
-        if recomputed.capsule_root != capsule.capsule_root {
-            return Err(VerifierError::Integrity(format!(
-                "Merkle Root corruption: claimed {} != computed {}",
-                capsule.capsule_root, recomputed.capsule_root
-            )));
-        }
-
-        // 7. Signature Verification (if key available)
-        if let Some(pk_bytes) = public_key {
-            let verifier = VerifyingKey::from_bytes(
-                pk_bytes
-                    .try_into()
-                    .map_err(|_| VerifierError::Crypto("Invalid public key length".to_string()))?,
-            )
-            .map_err(|e| VerifierError::Crypto(e.to_string()))?;
-
-            let sig_bytes = base64::engine::general_purpose::STANDARD
-                .decode(&capsule.crypto.signature_b64)
-                .map_err(|e| VerifierError::Crypto(format!("Base64 decode failed: {}", e)))?;
-
-            let signature = Signature::from_bytes(
-                sig_bytes
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| VerifierError::Crypto("Invalid signature length".to_string()))?,
-            );
-
-            let root_bytes = hex::decode(&capsule.capsule_root)
-                .map_err(|e| VerifierError::Crypto(format!("Root hex decode failure: {}", e)))?;
-
-            verifier.verify(&root_bytes, &signature).map_err(|e| {
-                VerifierError::Crypto(format!("Signature validation failed: {}", e))
-            })?;
-        }
-
-        Ok(capsule)
     }
 }
 
@@ -147,6 +136,7 @@ mod tests {
             request_sha256: "aabbcc".to_string(),
             confidence: 0.9,
             capabilities: vec!["test".to_string()],
+            magpie_source: None,
         };
         let authority = AuthoritySegment {
             capsule_id: "test-capsule".to_string(),
@@ -154,6 +144,7 @@ mod tests {
             reason_code: "OK".to_string(),
             trace_root: "tr".to_string(),
             nonce: 42,
+            gate_sensors: serde_json::Value::Null,
         };
         let identity = IdentitySegment {
             aid: hex::encode([0u8; 32]), // Mock AID
@@ -205,6 +196,7 @@ mod tests {
             request_sha256: "deadbeef".to_string(),
             confidence: 1.0,
             capabilities: vec!["audit".to_string()],
+            magpie_source: None,
         };
         let authority = AuthoritySegment {
             capsule_id: "capsule-xyz-789".to_string(),
@@ -212,6 +204,7 @@ mod tests {
             reason_code: "VERIFIED".to_string(),
             trace_root: "tr".to_string(),
             nonce: 101,
+            gate_sensors: serde_json::Value::Null,
         };
         let identity = IdentitySegment {
             aid: hex::encode([1u8; 32]),
