@@ -90,10 +90,7 @@ impl TitanGate {
         // 2. Generate secure source module
         let mp_source = builder.build();
 
-        let tmp_filename = format!(
-            "gate_intent_{}.mp",
-            &Uuid::new_v4().to_string()[..8]
-        );
+        let tmp_filename = format!("gate_intent_{}.mp", &Uuid::new_v4().to_string()[..8]);
         let mut tmp_path = std::env::temp_dir();
         tmp_path.push(&tmp_filename);
 
@@ -109,7 +106,8 @@ impl TitanGate {
         let magpie_path = std::env::var("MAGPIE_BIN_PATH").unwrap_or_else(|_| {
             // Local dev fallback (WSL)
             let wsl_local = "/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe";
-            let win_local = "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe";
+            let win_local =
+                "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe";
 
             if cfg!(target_os = "linux") && std::path::Path::new(wsl_local).exists() {
                 wsl_local.to_string()
@@ -135,7 +133,11 @@ impl TitanGate {
         let mut cmd = Command::new(&magpie_path);
         if magpie_path.ends_with(".exe") && !cfg!(target_os = "windows") {
             // If we are calling a .exe from linux (WSL), it works via interop
-            cmd.arg("--output").arg("json").arg("--entry").arg(&arg_path).arg("parse");
+            cmd.arg("--output")
+                .arg("json")
+                .arg("--entry")
+                .arg(&arg_path)
+                .arg("parse");
         } else {
             // Normal native call
             cmd.arg("-c").arg(&arg_path);
