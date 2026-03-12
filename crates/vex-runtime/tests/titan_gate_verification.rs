@@ -6,7 +6,7 @@ use vex_runtime::gate::{Gate, GenericGateMock, TitanGate};
 #[tokio::test]
 async fn test_titan_l1_rule_block() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(
@@ -35,7 +35,7 @@ async fn test_titan_l1_rule_block() {
 #[tokio::test]
 async fn test_titan_l2_formal_pass() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(
@@ -64,7 +64,7 @@ async fn test_titan_l2_formal_pass() {
 #[tokio::test]
 async fn test_titan_l2_formal_block_on_syntax() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(
@@ -93,7 +93,7 @@ async fn test_titan_l2_formal_block_on_syntax() {
 #[tokio::test]
 async fn test_titan_l2_fortress_violation() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     // Use Fortress mode
@@ -123,7 +123,7 @@ async fn test_titan_l2_fortress_violation() {
 #[tokio::test]
 async fn test_titan_l2_self_healing_feedback() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(
@@ -167,7 +167,7 @@ async fn test_titan_l2_self_healing_feedback() {
 #[tokio::test]
 async fn test_titan_l2_injection_brace() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(
@@ -197,7 +197,7 @@ async fn test_titan_l2_injection_brace() {
 #[tokio::test]
 async fn test_titan_l2_injection_keyword() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = TitanGate::new(

@@ -7,7 +7,7 @@ use vex_runtime::gate::{Gate, GenericGateMock, TitanGate};
 #[tokio::test]
 async fn bench_titan_scale_concurrency() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
-    let inner_mock = Arc::new(GenericGateMock::default());
+    let inner_mock = Arc::new(GenericGateMock);
     let chora = vex_chora::client::make_mock_client();
     let identity = vex_hardware::api::AgentIdentity::new();
     let gate = Arc::new(TitanGate::new(
