@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
+    use crate::tool::{Capability, Tool, ToolDefinition};
     use crate::wasm_tool::WasmTool;
-    use crate::tool::{Tool, ToolDefinition, Capability};
     use serde_json::json;
     use wat::parse_str as wat2wasm;
-
 
     #[tokio::test]
     async fn test_wasm_tool_basic() {
         let def = ToolDefinition::new("test", "test description", r#"{"type": "object"}"#);
         // We'll use a simpler WAT that just returns a fixed JSON
-        let wasm = wat2wasm(r#"
+        let wasm = wat2wasm(
+            r#"
             (module
                 (memory (export "memory") 1)
                 (func (export "vex_allocate") (param i32) (result i32) (i32.const 0))
@@ -32,7 +32,10 @@ mod tests {
                     i64.const 11 ;; len=11, ptr=0
                 )
             )
-        "#).unwrap().to_vec();
+        "#,
+        )
+        .unwrap()
+        .to_vec();
 
         let tool = WasmTool::new(def, wasm, vec![Capability::PureComputation]);
         let result = tool.execute(json!({})).await.unwrap();
@@ -42,7 +45,8 @@ mod tests {
     #[tokio::test]
     async fn test_wasm_fuel_limit() {
         let def = ToolDefinition::new("infinite", "infinite loop", r#"{"type": "object"}"#);
-        let wasm = wat2wasm(r#"
+        let wasm = wat2wasm(
+            r#"
             (module
                 (memory (export "memory") 1)
                 (func (export "vex_allocate") (param i32) (result i32) (i32.const 0))
@@ -53,11 +57,14 @@ mod tests {
                     i64.const 0
                 )
             )
-        "#).unwrap().to_vec();
+        "#,
+        )
+        .unwrap()
+        .to_vec();
 
-        let tool = WasmTool::new(def, wasm, vec![Capability::PureComputation])
-            .with_fuel_limit(1000);
-            
+        let tool =
+            WasmTool::new(def, wasm, vec![Capability::PureComputation]).with_fuel_limit(1000);
+
         let result = tool.execute(json!({})).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -67,7 +74,8 @@ mod tests {
     #[tokio::test]
     async fn test_wasm_memory_limit() {
         let def = ToolDefinition::new("oom", "too much memory", r#"{"type": "object"}"#);
-        let wasm = wat2wasm(r#"
+        let wasm = wat2wasm(
+            r#"
             (module
                 (memory (export "memory") 1 100)
                 (func (export "vex_allocate") (param i32) (result i32) (i32.const 0))
@@ -84,12 +92,15 @@ mod tests {
                     i64.const 2
                 )
             )
-        "#).unwrap().to_vec();
+        "#,
+        )
+        .unwrap()
+        .to_vec();
 
         let tool = WasmTool::new(def, wasm, vec![Capability::PureComputation])
             .with_memory_limit(1024 * 1024); // 1MB limit
-            
+
         let result = tool.execute(json!({})).await;
-        assert!(result.is_ok()); 
+        assert!(result.is_ok());
     }
 }

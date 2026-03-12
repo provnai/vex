@@ -2,10 +2,10 @@
 //!
 //! Tokio-based agent orchestration and lifecycle management.
 
+pub mod audit;
 pub mod executor;
 pub mod gate;
 pub mod orchestrator;
-pub mod audit;
 
 pub use executor::{AgentExecutor, ExecutorConfig};
 

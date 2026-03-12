@@ -1,6 +1,6 @@
+use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use ed25519_dalek::{Signer, SigningKey};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -56,13 +56,13 @@ pub struct EvidenceCapsuleV0 {
     pub authority: AuthoritySegment,
     pub identity: IdentitySegment,
     pub witness: WitnessSegment,
-    
+
     pub intent_hash: String,
     pub authority_hash: String,
     pub identity_hash: String,
     pub witness_hash: String,
     pub capsule_root: String,
-    
+
     pub crypto: VepCrypto,
 }
 
@@ -93,7 +93,7 @@ impl EvidenceCapsuleV0 {
             "intent_hash": intent_hash,
             "witness_hash": witness_hash
         });
-        
+
         let capsule_root = hash_segment(&root_map)?;
 
         Ok(Self {
@@ -119,7 +119,7 @@ impl EvidenceCapsuleV0 {
     pub fn sign(&mut self, signing_key: &SigningKey) -> Result<(), VepError> {
         let root_bytes = hex::decode(&self.capsule_root)
             .map_err(|e| VepError::Crypto(format!("Hex decode failed: {}", e)))?;
-            
+
         let signature = signing_key.sign(&root_bytes);
         self.set_signature(signature.to_bytes().as_ref());
         Ok(())
@@ -127,45 +127,50 @@ impl EvidenceCapsuleV0 {
 
     pub fn set_signature(&mut self, signature_bytes: &[u8]) {
         use base64::Engine as _;
-        self.crypto.signature_b64 = base64::engine::general_purpose::STANDARD.encode(signature_bytes);
+        self.crypto.signature_b64 =
+            base64::engine::general_purpose::STANDARD.encode(signature_bytes);
     }
 
     pub fn to_vep_binary(&self) -> Result<Vec<u8>, VepError> {
         let mut buffer = Vec::with_capacity(VEP_HEADER_SIZE);
-        
+
         // Header: magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
         buffer.extend_from_slice(&VEP_MAGIC);
         buffer.push(VEP_VERSION);
-        
+
         let aid_bytes = hex::decode(&self.identity.aid)
             .map_err(|e| VepError::BinaryFormat(format!("Invalid AID hex: {}", e)))?;
         if aid_bytes.len() != 32 {
-            return Err(VepError::BinaryFormat(format!("AID must be 32 bytes, got {}", aid_bytes.len())));
+            return Err(VepError::BinaryFormat(format!(
+                "AID must be 32 bytes, got {}",
+                aid_bytes.len()
+            )));
         }
         buffer.extend_from_slice(&aid_bytes);
-        
+
         let root_bytes = hex::decode(&self.capsule_root)
             .map_err(|e| VepError::BinaryFormat(format!("Invalid root hex: {}", e)))?;
         if root_bytes.len() != 32 {
-            return Err(VepError::BinaryFormat(format!("Root must be 32 bytes, got {}", root_bytes.len())));
+            return Err(VepError::BinaryFormat(format!(
+                "Root must be 32 bytes, got {}",
+                root_bytes.len()
+            )));
         }
         buffer.extend_from_slice(&root_bytes);
-        
+
         buffer.extend_from_slice(&self.authority.nonce.to_be_bytes());
-        
+
         // Append full JCS JSON after header
-        let json_bytes = serde_jcs::to_vec(self)
-            .map_err(|e| VepError::Jcs(e.to_string()))?;
+        let json_bytes = serde_jcs::to_vec(self).map_err(|e| VepError::Jcs(e.to_string()))?;
         buffer.extend_from_slice(&json_bytes);
-        
+
         Ok(buffer)
     }
 }
 
 fn hash_segment<T: Serialize>(segment: &T) -> Result<String, VepError> {
-    let jcs_bytes = serde_jcs::to_vec(segment)
-        .map_err(|e| VepError::Jcs(e.to_string()))?;
-    
+    let jcs_bytes = serde_jcs::to_vec(segment).map_err(|e| VepError::Jcs(e.to_string()))?;
+
     let mut hasher = Sha256::new();
     hasher.update(&jcs_bytes);
     Ok(hex::encode(hasher.finalize()))

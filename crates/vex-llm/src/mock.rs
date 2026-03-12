@@ -121,10 +121,18 @@ impl LlmProvider for MockProvider {
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
         let start = Instant::now();
 
-        let request_timeout = request.timeout.unwrap_or(std::time::Duration::from_secs(30));
+        let request_timeout = request
+            .timeout
+            .unwrap_or(std::time::Duration::from_secs(30));
 
         // Simulate latency with timeout protection
-        if let Err(_) = tokio::time::timeout(request_timeout, tokio::time::sleep(std::time::Duration::from_millis(self.latency_ms))).await {
+        if tokio::time::timeout(
+            request_timeout,
+            tokio::time::sleep(std::time::Duration::from_millis(self.latency_ms)),
+        )
+        .await
+        .is_err()
+        {
             return Err(LlmError::Timeout(request_timeout.as_millis() as u64));
         }
 

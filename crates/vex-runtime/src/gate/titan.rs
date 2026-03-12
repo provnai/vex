@@ -83,10 +83,10 @@ impl TitanGate {
 
         // 0. Use proper AST Builder instead of fragile string formatting
         let mut builder = MagpieAstBuilder::new(self.profile, digest.to_string());
-        
+
         // 1. Sanitize and add instructions programmatically
         builder.add_intent(suggested_output)?;
-        
+
         // 2. Generate secure source module
         let mp_source = builder.build();
 
@@ -107,30 +107,42 @@ impl TitanGate {
             .map_err(|e| format!("IO_ERROR: Failed to write intent file: {}", e))?;
 
         let magpie_path = std::env::var("MAGPIE_BIN_PATH").unwrap_or_else(|_| {
-            if cfg!(target_os = "linux") && std::path::Path::new("/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe").exists() {
-                "/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe".to_string()
+            // Local dev fallback (WSL)
+            let wsl_local = "/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe";
+            let win_local = "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe";
+
+            if cfg!(target_os = "linux") && std::path::Path::new(wsl_local).exists() {
+                wsl_local.to_string()
+            } else if cfg!(target_os = "windows") && std::path::Path::new(win_local).exists() {
+                win_local.to_string()
             } else {
-                "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe".to_string()
+                "magpie".to_string() // Defaut to PATH
             }
         });
 
         // Convert path for Windows executable if running in WSL
         let mut arg_path = tmp_path.to_string_lossy().to_string();
-        if cfg!(target_os = "linux") && arg_path.starts_with('/') {
-            let wsl_distro_name = std::env::var("WSL_DISTRO_NAME").unwrap_or_else(|_| "Ubuntu".to_string());
-            arg_path = format!("\\\\wsl.localhost\\{}{}", wsl_distro_name, arg_path.replace('/', "\\"));
+        if cfg!(target_os = "linux") && arg_path.starts_with('/') && magpie_path.ends_with(".exe") {
+            let wsl_distro_name =
+                std::env::var("WSL_DISTRO_NAME").unwrap_or_else(|_| "Ubuntu".to_string());
+            arg_path = format!(
+                "\\\\wsl.localhost\\{}{}",
+                wsl_distro_name,
+                arg_path.replace('/', "\\")
+            );
         }
 
-        let cmd_future = Command::new(magpie_path)
-            .arg("--output")
-            .arg("json")
-            .arg("--entry")
-            .arg(&arg_path)
-            .arg("parse")
-            .output();
+        let mut cmd = Command::new(&magpie_path);
+        if magpie_path.ends_with(".exe") && !cfg!(target_os = "windows") {
+            // If we are calling a .exe from linux (WSL), it works via interop
+            cmd.arg("--output").arg("json").arg("--entry").arg(&arg_path).arg("parse");
+        } else {
+            // Normal native call
+            cmd.arg("-c").arg(&arg_path);
+        }
 
         // Limit compiler execution to 5000ms to prevent DOS/Hangs (increased for WSL interop overhead)
-        let output = timeout(Duration::from_millis(5000), cmd_future)
+        let output = timeout(Duration::from_millis(5000), cmd.output())
             .await
             .map_err(|_| "MAGPIE_TIMEOUT: Formal verification exceeded 5000ms limit")?
             .map_err(|e| format!("MAGPIE_SPAWN_ERROR: {}", e))?;
@@ -218,7 +230,7 @@ impl MagpieAstBuilder {
                 self.body_instructions.push(line.trim().to_string());
             }
         }
-        
+
         Ok(())
     }
 
@@ -232,13 +244,15 @@ impl MagpieAstBuilder {
         if self.profile == SecurityProfile::Fortress {
             out.push_str(";; THE ONLY PERMITTED SIDE-EFFECT\n");
         }
-        out.push_str("fn @log_safe(%msg: Str) -> i32 meta { } {\n  bb0:\n    ret const.i32 0\n}\n\n");
-        
+        out.push_str(
+            "fn @log_safe(%msg: Str) -> i32 meta { } {\n  bb0:\n    ret const.i32 0\n}\n\n",
+        );
+
         out.push_str("fn @intent() -> i32 meta { } {\n  bb0:\n");
         if self.profile == SecurityProfile::Fortress {
             out.push_str("    ;; Default Deny: If the agent tries to call something unknown, it won't even parse/link.\n");
         }
-        
+
         for inst in &self.body_instructions {
             out.push_str(&format!("    {}\n", inst));
         }
@@ -290,18 +304,21 @@ impl Gate for TitanGate {
                 // --- Layer 3: Cryptographic (VEX/CHORA) ---
                 // Transition to Spec v0.1: Handshake with CHORA Witness Network
                 let intent_payload = suggested_output.as_bytes();
-                
+
                 match self.chora.request_attestation(intent_payload).await {
                     Ok(chora_resp) => {
                         // Assemble the finalized VEP (Verifiable Evidence Packet)
-                        use crate::audit::vep::{IntentSegment, AuthoritySegment, IdentitySegment, WitnessSegment, EvidenceCapsuleV0};
-                        
+                        use crate::audit::vep::{
+                            AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment,
+                            WitnessSegment,
+                        };
+
                         let intent = IntentSegment {
                             request_sha256: digest_hex.clone(),
                             confidence,
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
                         };
-                        
+
                         let authority = AuthoritySegment {
                             capsule_id: chora_resp.authority.capsule_id.clone(),
                             outcome: chora_resp.authority.outcome.clone(),
@@ -309,22 +326,23 @@ impl Gate for TitanGate {
                             trace_root: chora_resp.authority.trace_root.clone(),
                             nonce: chora_resp.authority.nonce,
                         };
-                        
+
                         let identity = IdentitySegment {
                             aid: self.identity.agent_id.clone(),
                             identity_type: "TPM_ECC_PERSISTENT".to_string(), // Spec alignment
                         };
-                        
+
                         let witness = WitnessSegment {
                             chora_node_id: "chora-primary-v1".to_string(),
                             receipt_hash: chora_resp.signature.clone(),
                             timestamp: chrono::Utc::now().to_rfc3339(),
                         };
-                        
-                        let mut v0_capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness)
-                            .map_err(|e| format!("VEP_GENERATION_ERROR: {}", e))
-                            .unwrap(); // Simplified error handling for now
-                            
+
+                        let mut v0_capsule =
+                            EvidenceCapsuleV0::new(intent, authority, identity, witness)
+                                .map_err(|e| format!("VEP_GENERATION_ERROR: {}", e))
+                                .unwrap(); // Simplified error handling for now
+
                         // Hardware Seal: Sign the root commitment with the TPM identity
                         let root_bytes = hex::decode(&v0_capsule.capsule_root)
                             .map_err(|e| format!("ROOT_DECODE_ERROR: {}", e))
@@ -334,13 +352,15 @@ impl Gate for TitanGate {
 
                         // Save the VEP binary to disk for offline verification
                         if let Ok(binary) = v0_capsule.to_vep_binary() {
-                            let vep_path = std::env::temp_dir().join(format!("vep_{}.capsule", v0_capsule.capsule_id));
+                            let vep_path = std::env::temp_dir()
+                                .join(format!("vep_{}.capsule", v0_capsule.capsule_id));
                             let _ = std::fs::write(vep_path, binary);
                         }
 
                         // Final check: Only ALLOW outcomes proceed to execution
                         if v0_capsule.authority.outcome == "ALLOW" {
-                            let mut final_result = self.inner
+                            let mut final_result = self
+                                .inner
                                 .execute_gate(
                                     agent_id,
                                     task_prompt,
@@ -349,7 +369,7 @@ impl Gate for TitanGate {
                                     capabilities,
                                 )
                                 .await;
-                            
+
                             // Inject the binary VEP blob if not already present
                             if final_result.vep_blob.is_none() {
                                 final_result.vep_blob = v0_capsule.to_vep_binary().ok();

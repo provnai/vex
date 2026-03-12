@@ -64,8 +64,10 @@ async fn main() -> Result<()> {
             .await
             .expect("Failed to initialize SQLite backend"),
     );
-    
-    db.migrate().await.expect("Failed to migrate SQLite backend");
+
+    db.migrate()
+        .await
+        .expect("Failed to migrate SQLite backend");
 
     let evolution_store: Arc<dyn vex_persist::EvolutionStore> =
         Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));

@@ -8,9 +8,7 @@
 
 use async_trait::async_trait;
 use serde_json::Value;
-use wasmtime::{
-    Config, Engine, Linker, Module, ResourceLimiter, Result as AnyhowResult, Store,
-};
+use wasmtime::{Config, Engine, Linker, Module, ResourceLimiter, Result as AnyhowResult, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 // In wasmtime 22.0, Preview 1 resides in its own module
 use wasmtime_wasi::preview1::{self, WasiP1Ctx};
@@ -64,7 +62,7 @@ struct WasmStoreData {
 }
 
 // Resource table for WASI
-// In Preview 1 we might still need a table for some extensions, 
+// In Preview 1 we might still need a table for some extensions,
 // but WasiView trait is not required for the core Linker.
 // Let's keep the table in the data struct if needed later.
 
@@ -112,14 +110,20 @@ impl Tool for WasmTool {
         config.wasm_bulk_memory(true);
         config.wasm_multi_value(true);
         config.wasm_reference_types(true);
-        
+
         let engine = Engine::new(&config).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to create WASM engine: {}", e))
+            ToolError::execution_failed(
+                self.definition.name,
+                format!("Failed to create WASM engine: {}", e),
+            )
         })?;
 
         // 2. Load Module
         let module = Module::from_binary(&engine, &self.module_bytes).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to load WASM module: {:?}", e))
+            ToolError::execution_failed(
+                self.definition.name,
+                format!("Failed to load WASM module: {:?}", e),
+            )
         })?;
 
         // 3. Setup WASI & Resource Limits
@@ -155,61 +159,103 @@ impl Tool for WasmTool {
 
         // 4. Set Fuel
         store.set_fuel(self.fuel_limit).map_err(|e| {
-             ToolError::execution_failed(self.definition.name, format!("Failed to set WASM fuel: {}", e))
+            ToolError::execution_failed(
+                self.definition.name,
+                format!("Failed to set WASM fuel: {}", e),
+            )
         })?;
 
         // 5. Link WASI
         let mut linker = Linker::new(&engine);
         // In wasmtime 22.0, Preview 1 resides in its own module if using core Linker
-        preview1::add_to_linker_async(&mut linker, |s: &mut WasmStoreData| &mut s.wasi).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to link WASI: {}", e))
-        })?;
+        preview1::add_to_linker_async(&mut linker, |s: &mut WasmStoreData| &mut s.wasi).map_err(
+            |e| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    format!("Failed to link WASI: {}", e),
+                )
+            },
+        )?;
 
         // 6. Instantiate
-        let instance = linker.instantiate_async(&mut store, &module).await.map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to instantiate WASM: {}", e))
-        })?;
+        let instance = linker
+            .instantiate_async(&mut store, &module)
+            .await
+            .map_err(|e| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    format!("Failed to instantiate WASM: {}", e),
+                )
+            })?;
 
         // 7. JSON Protocol Bridge
         // We expect:
         // - vex_allocate(size: u32) -> u32 (Pointer)
         // - vex_execute(ptr: u32, len: u32) -> u64 (Packed result ptr/len)
-        let allocate = instance.get_typed_func::<u32, u32>(&mut store, "vex_allocate").map_err(|_| {
-            ToolError::execution_failed(self.definition.name, "WASM module must export 'vex_allocate(u32) -> u32'")
-        })?;
+        let allocate = instance
+            .get_typed_func::<u32, u32>(&mut store, "vex_allocate")
+            .map_err(|_| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    "WASM module must export 'vex_allocate(u32) -> u32'",
+                )
+            })?;
 
-        let execute_fn = instance.get_typed_func::<(u32, u32), u64>(&mut store, "vex_execute").map_err(|_| {
-            ToolError::execution_failed(self.definition.name, "WASM module must export 'vex_execute(u32, u32) -> u64'")
-        })?;
+        let execute_fn = instance
+            .get_typed_func::<(u32, u32), u64>(&mut store, "vex_execute")
+            .map_err(|_| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    "WASM module must export 'vex_execute(u32, u32) -> u64'",
+                )
+            })?;
 
         let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| {
             ToolError::execution_failed(self.definition.name, "WASM module must export 'memory'")
         })?;
 
         // 8. Pass Arguments
-        let input_json = serde_json::to_vec(&args).map_err(|e| ToolError::invalid_args(self.definition.name, e.to_string()))?;
+        let input_json = serde_json::to_vec(&args)
+            .map_err(|e| ToolError::invalid_args(self.definition.name, e.to_string()))?;
         let input_len = input_json.len() as u32;
-        let input_ptr = allocate.call_async(&mut store, input_len).await.map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to allocate WASM memory: {}", e))
-        })?;
+        let input_ptr = allocate
+            .call_async(&mut store, input_len)
+            .await
+            .map_err(|e| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    format!("Failed to allocate WASM memory: {}", e),
+                )
+            })?;
 
-        memory.write(&mut store, input_ptr as usize, &input_json).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to write to WASM memory: {}", e))
-        })?;
+        memory
+            .write(&mut store, input_ptr as usize, &input_json)
+            .map_err(|e| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    format!("Failed to write to WASM memory: {}", e),
+                )
+            })?;
 
         // 9. Execute
-        let result_packed = execute_fn.call_async(&mut store, (input_ptr, input_len)).await.map_err(|e| {
-            if format!("{:?}", e).contains("OutOfFuel") {
-                ToolError::timeout(self.definition.name, 0)
-            } else {
-                ToolError::execution_failed(self.definition.name, format!("WASM execution trapped: {}", e))
-            }
-        })?;
+        let result_packed = execute_fn
+            .call_async(&mut store, (input_ptr, input_len))
+            .await
+            .map_err(|e| {
+                if format!("{:?}", e).contains("OutOfFuel") {
+                    ToolError::timeout(self.definition.name, 0)
+                } else {
+                    ToolError::execution_failed(
+                        self.definition.name,
+                        format!("WASM execution trapped: {}", e),
+                    )
+                }
+            })?;
 
         // 10. Extract Result with strict allocation limits to prevent OOM
         let output_ptr = (result_packed >> 32) as u32;
         let output_len = (result_packed & 0xFFFFFFFF) as u32;
-        
+
         // HARDENING (Phase 8): Prevent host memory exhaustion (OOM) from malicious WASM output lengths
         const MAX_WASM_OUTPUT_BYTES: u32 = 10 * 1024 * 1024; // 10MB Limit
         if output_len > MAX_WASM_OUTPUT_BYTES {
@@ -218,14 +264,22 @@ impl Tool for WasmTool {
                 format!("WASM returned an output size exceeding the strict 10MB limit ({} bytes requested)", output_len),
             ));
         }
-        
+
         let mut output_buf = vec![0u8; output_len as usize];
-        memory.read(&mut store, output_ptr as usize, &mut output_buf).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("Failed to read from WASM memory: {}", e))
-        })?;
+        memory
+            .read(&mut store, output_ptr as usize, &mut output_buf)
+            .map_err(|e| {
+                ToolError::execution_failed(
+                    self.definition.name,
+                    format!("Failed to read from WASM memory: {}", e),
+                )
+            })?;
 
         let output_value: Value = serde_json::from_slice(&output_buf).map_err(|e| {
-            ToolError::execution_failed(self.definition.name, format!("WASM returned invalid JSON: {}", e))
+            ToolError::execution_failed(
+                self.definition.name,
+                format!("WASM returned invalid JSON: {}", e),
+            )
         })?;
 
         Ok(output_value)

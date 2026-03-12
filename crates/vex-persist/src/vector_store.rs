@@ -197,7 +197,8 @@ impl VectorStoreBackend for SqliteVectorStore {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
         }
 
-        let mut sql = "SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?".to_string();
+        let mut sql =
+            "SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?".to_string();
         if let Some(ref f) = filters {
             for key in f.keys() {
                 sql.push_str(&format!(" AND json_extract(metadata, '$.{}') = ?", key));
@@ -212,7 +213,8 @@ impl VectorStoreBackend for SqliteVectorStore {
             }
         }
 
-        let rows = q.fetch_all(&self.pool)
+        let rows = q
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
 
@@ -331,7 +333,9 @@ impl VectorStoreBackend for PgVectorStore {
         }
 
         let pg_query = pgvector::Vector::from(query.to_vec());
-        let filters_json = filters.as_ref().map(|f| serde_json::to_string(f).unwrap_or_else(|_| "{}".to_string()));
+        let filters_json = filters
+            .as_ref()
+            .map(|f| serde_json::to_string(f).unwrap_or_else(|_| "{}".to_string()));
 
         let rows = if let Some(fj) = filters_json {
             sqlx::query(
@@ -405,27 +409,42 @@ mod tests {
         let mut m2 = HashMap::new();
         m2.insert("type".to_string(), "b".to_string());
 
-        store.add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1).await.unwrap();
-        store.add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2).await.unwrap();
+        store
+            .add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1)
+            .await
+            .unwrap();
+        store
+            .add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2)
+            .await
+            .unwrap();
 
         // 1. Filter by type=a
         let mut filter = HashMap::new();
         filter.insert("type".to_string(), "a".to_string());
-        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        let results = store
+            .search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].1.id, "1");
 
         // 2. Filter by non-existent type
         let mut filter = HashMap::new();
         filter.insert("type".to_string(), "c".to_string());
-        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        let results = store
+            .search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 0);
 
         // 3. Multi-filter
         let mut filter = HashMap::new();
         filter.insert("type".to_string(), "a".to_string());
         filter.insert("cat".to_string(), "1".to_string());
-        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        let results = store
+            .search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].1.id, "1");
     }
@@ -433,7 +452,7 @@ mod tests {
     #[tokio::test]
     async fn test_sqlite_vector_store_filtering() {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-        
+
         // Setup table
         sqlx::query("CREATE TABLE vector_embeddings (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, vector BLOB NOT NULL, metadata JSON NOT NULL, created_at INTEGER NOT NULL)")
             .execute(&pool).await.unwrap();
@@ -447,20 +466,32 @@ mod tests {
         let mut m2 = HashMap::new();
         m2.insert("type".to_string(), "b".to_string());
 
-        store.add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1).await.unwrap();
-        store.add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2).await.unwrap();
+        store
+            .add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1)
+            .await
+            .unwrap();
+        store
+            .add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2)
+            .await
+            .unwrap();
 
         // 1. Filter by type=a
         let mut filter = HashMap::new();
         filter.insert("type".to_string(), "a".to_string());
-        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        let results = store
+            .search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].1.id, "1");
 
         // 2. Filter by non-existent type
         let mut filter = HashMap::new();
         filter.insert("type".to_string(), "c".to_string());
-        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        let results = store
+            .search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 0);
     }
 }

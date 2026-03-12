@@ -178,14 +178,19 @@ impl LlmProvider for MistralProvider {
             frequency_penalty: request.frequency_penalty,
         };
 
-        let request_timeout = request
-            .timeout
-            .unwrap_or(self.default_timeout);
+        let request_timeout = request.timeout.unwrap_or(self.default_timeout);
 
-        let response = tokio::time::timeout(request_timeout, self.client.post(&url).bearer_auth(&self.api_key).json(&mistral_request).send())
-            .await
-            .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
-            .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
+        let response = tokio::time::timeout(
+            request_timeout,
+            self.client
+                .post(&url)
+                .bearer_auth(&self.api_key)
+                .json(&mistral_request)
+                .send(),
+        )
+        .await
+        .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
+        .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
 
         if !response.status().is_success() {
             let status = response.status();

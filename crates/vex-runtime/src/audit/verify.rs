@@ -1,7 +1,7 @@
-use super::vep::{EvidenceCapsuleV0, VEP_MAGIC, VEP_VERSION, VEP_HEADER_SIZE};
-use thiserror::Error;
-use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+use super::vep::{EvidenceCapsuleV0, VEP_HEADER_SIZE, VEP_MAGIC, VEP_VERSION};
 use base64::Engine as _;
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum VerifierError {
@@ -24,13 +24,16 @@ pub struct VepVerifier;
 
 impl VepVerifier {
     /// Verify a raw VEP binary blob.
-    /// 
+    ///
     /// Sequence:
     /// 1. Parse Header (Magic, Version, AID, Root, Nonce)
     /// 2. Hash JSON payload and compare with header Root
     /// 3. Re-compute Merkle segments to verify internal consistency
     /// 4. (Optional) Verify Ed25519 signature if public key provided
-    pub fn verify_binary(data: &[u8], public_key: Option<&[u8]>) -> Result<EvidenceCapsuleV0, VerifierError> {
+    pub fn verify_binary(
+        data: &[u8],
+        public_key: Option<&[u8]>,
+    ) -> Result<EvidenceCapsuleV0, VerifierError> {
         if data.len() < VEP_HEADER_SIZE {
             return Err(VerifierError::HeaderTooSmall);
         }
@@ -60,21 +63,21 @@ impl VepVerifier {
         // 5. Cross-Verification (Header vs JSON)
         if capsule.identity.aid != header_aid {
             return Err(VerifierError::Integrity(format!(
-                "AID mismatch: header {} != json {}", 
+                "AID mismatch: header {} != json {}",
                 header_aid, capsule.identity.aid
             )));
         }
 
         if capsule.capsule_root != header_root {
             return Err(VerifierError::Integrity(format!(
-                "Root mismatch: header {} != json {}", 
+                "Root mismatch: header {} != json {}",
                 header_root, capsule.capsule_root
             )));
         }
 
         if capsule.authority.nonce != header_nonce {
             return Err(VerifierError::Integrity(format!(
-                "Nonce mismatch: header {} != json {}", 
+                "Nonce mismatch: header {} != json {}",
                 header_nonce, capsule.authority.nonce
             )));
         }
@@ -85,7 +88,8 @@ impl VepVerifier {
             capsule.authority.clone(),
             capsule.identity.clone(),
             capsule.witness.clone(),
-        ).map_err(|e| VerifierError::Integrity(e.to_string()))?;
+        )
+        .map_err(|e| VerifierError::Integrity(e.to_string()))?;
 
         if recomputed.capsule_root != capsule.capsule_root {
             return Err(VerifierError::Integrity(format!(
@@ -96,19 +100,30 @@ impl VepVerifier {
 
         // 7. Signature Verification (if key available)
         if let Some(pk_bytes) = public_key {
-            let verifier = VerifyingKey::from_bytes(pk_bytes.try_into().map_err(|_| VerifierError::Crypto("Invalid public key length".to_string()))?)
-                .map_err(|e| VerifierError::Crypto(e.to_string()))?;
-            
-            let sig_bytes = base64::engine::general_purpose::STANDARD.decode(&capsule.crypto.signature_b64)
+            let verifier = VerifyingKey::from_bytes(
+                pk_bytes
+                    .try_into()
+                    .map_err(|_| VerifierError::Crypto("Invalid public key length".to_string()))?,
+            )
+            .map_err(|e| VerifierError::Crypto(e.to_string()))?;
+
+            let sig_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&capsule.crypto.signature_b64)
                 .map_err(|e| VerifierError::Crypto(format!("Base64 decode failed: {}", e)))?;
-            
-            let signature = Signature::from_bytes(sig_bytes.as_slice().try_into().map_err(|_| VerifierError::Crypto("Invalid signature length".to_string()))?);
-            
+
+            let signature = Signature::from_bytes(
+                sig_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| VerifierError::Crypto("Invalid signature length".to_string()))?,
+            );
+
             let root_bytes = hex::decode(&capsule.capsule_root)
                 .map_err(|e| VerifierError::Crypto(format!("Root hex decode failure: {}", e)))?;
 
-            verifier.verify(&root_bytes, &signature)
-                .map_err(|e| VerifierError::Crypto(format!("Signature validation failed: {}", e)))?;
+            verifier.verify(&root_bytes, &signature).map_err(|e| {
+                VerifierError::Crypto(format!("Signature validation failed: {}", e))
+            })?;
         }
 
         Ok(capsule)
@@ -117,8 +132,8 @@ impl VepVerifier {
 
 #[cfg(test)]
 mod tests {
+    use super::super::vep::{AuthoritySegment, IdentitySegment, IntentSegment, WitnessSegment};
     use super::*;
-    use super::super::vep::{IntentSegment, AuthoritySegment, IdentitySegment, WitnessSegment};
     use ed25519_dalek::SigningKey;
     use rand::rngs::OsRng;
 
@@ -165,18 +180,18 @@ mod tests {
 
         // Tamper test (change a byte in the header root)
         let mut tampered = binary.clone();
-        tampered[40] ^= 0xFF; 
+        tampered[40] ^= 0xFF;
         let err = VepVerifier::verify_binary(&tampered, None).unwrap_err();
         assert!(matches!(err, VerifierError::Integrity(_)));
     }
 
     #[tokio::test]
     async fn test_audit_store_vep_integration() {
+        use crate::audit::vep::{AuthoritySegment, IdentitySegment, IntentSegment, WitnessSegment};
         use std::sync::Arc;
+        use vex_core::audit::AuditEventType;
         use vex_persist::backend::MemoryBackend;
         use vex_persist::AuditStore;
-        use vex_core::audit::AuditEventType;
-        use crate::audit::vep::{IntentSegment, AuthoritySegment, IdentitySegment, WitnessSegment};
 
         let backend = Arc::new(MemoryBackend::new());
         let store = AuditStore::new(backend);
@@ -184,7 +199,7 @@ mod tests {
 
         let mut csprng = OsRng;
         let signing_key = SigningKey::generate(&mut csprng);
-        
+
         // 1. Create a VEP
         let intent = IntentSegment {
             request_sha256: "deadbeef".to_string(),
@@ -213,32 +228,40 @@ mod tests {
         let binary = capsule.to_vep_binary().unwrap();
 
         // 2. Log to AuditStore
-        store.log(
-            tenant,
-            AuditEventType::GateDecision,
-            vex_core::audit::ActorType::System("verifier".to_string()),
-            None,
-            serde_json::json!({
-                "authority": {
-                    "capsule_id": "capsule-xyz-789",
-                    "outcome": "ALLOW",
-                    "reason_code": "VERIFIED",
-                    "nonce": 101
-                }
-            }),
-            None,
-            Some("receiptB".to_string()),
-            Some(binary.clone()),
-        ).await.unwrap();
+        store
+            .log(
+                tenant,
+                AuditEventType::GateDecision,
+                vex_core::audit::ActorType::System("verifier".to_string()),
+                None,
+                serde_json::json!({
+                    "authority": {
+                        "capsule_id": "capsule-xyz-789",
+                        "outcome": "ALLOW",
+                        "reason_code": "VERIFIED",
+                        "nonce": 101
+                    }
+                }),
+                None,
+                Some("receiptB".to_string()),
+                Some(binary.clone()),
+            )
+            .await
+            .unwrap();
 
         // 3. Auditor Handshake: Retrieve by Capsule ID
-        let retrieved_blob = store.get_vep_by_capsule_id(tenant, "capsule-xyz-789").await.unwrap();
+        let retrieved_blob = store
+            .get_vep_by_capsule_id(tenant, "capsule-xyz-789")
+            .await
+            .unwrap();
         assert!(retrieved_blob.is_some());
         let blob = retrieved_blob.unwrap();
         assert_eq!(blob, binary);
 
         // 4. Auditor Handshake: Cryptographic Verification
-        let result = VepVerifier::verify_binary(&blob, Some(signing_key.verifying_key().as_bytes())).unwrap();
+        let result =
+            VepVerifier::verify_binary(&blob, Some(signing_key.verifying_key().as_bytes()))
+                .unwrap();
         assert_eq!(result.capsule_id, "capsule-xyz-789");
         assert_eq!(result.authority.nonce, 101);
     }

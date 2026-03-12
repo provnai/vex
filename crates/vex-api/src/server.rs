@@ -147,7 +147,10 @@ impl VexServer {
                 let pg_backend = vex_persist::PostgresBackend::new(&db_url)
                     .await
                     .expect("Failed to initialize Postgres backend");
-                pg_backend.migrate().await.expect("Failed to migrate Postgres backend");
+                pg_backend
+                    .migrate()
+                    .await
+                    .expect("Failed to migrate Postgres backend");
                 let pg_pool = pg_backend.pool().clone();
                 (
                     Arc::new(pg_backend),
@@ -168,7 +171,10 @@ impl VexServer {
             let sqlite_backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
                 .await
                 .expect("Failed to initialize SQLite backend");
-            sqlite_backend.migrate().await.expect("Failed to migrate SQLite backend");
+            sqlite_backend
+                .migrate()
+                .await
+                .expect("Failed to migrate SQLite backend");
             let sqlite_pool = sqlite_backend.pool().clone();
             (
                 Arc::new(sqlite_backend),

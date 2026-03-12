@@ -231,14 +231,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_resilient_provider_trips_on_timeout() {
-        let mock = MockProvider::constant("slow")
-            .with_latency(1000);
+        let mock = MockProvider::constant("slow").with_latency(1000);
 
-        let resilient = ResilientProvider::new(mock, LlmCircuitConfig {
-            failure_threshold: 1,
-            success_threshold: 1,
-            reset_timeout: Duration::from_secs(10),
-        });
+        let resilient = ResilientProvider::new(
+            mock,
+            LlmCircuitConfig {
+                failure_threshold: 1,
+                success_threshold: 1,
+                reset_timeout: Duration::from_secs(10),
+            },
+        );
 
         // Create request with short timeout
         let mut request = LlmRequest::simple("test");

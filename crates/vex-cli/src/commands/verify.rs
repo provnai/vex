@@ -240,7 +240,10 @@ async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
     let backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to initialize backend for proof export: {}", e))?;
-    backend.migrate().await.map_err(|e| anyhow::anyhow!("Failed to migrate backend: {}", e))?;
+    backend
+        .migrate()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to migrate backend: {}", e))?;
 
     let store = vex_persist::audit_store::AuditStore::new(std::sync::Arc::new(backend));
 

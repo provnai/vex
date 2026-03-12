@@ -5,9 +5,9 @@
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
-    use serde_json::{json, Value};
     use rand::seq::SliceRandom;
     use rand::thread_rng;
+    use serde_json::{json, Value};
 
     // Strategy to generate arbitrary JSON values including edge cases
     fn arb_json() -> impl Strategy<Value = Value> {
@@ -22,7 +22,8 @@ mod tests {
                 Just(1e-30),
                 Just(1.0),
                 any::<f64>(),
-            ].prop_map(|f| {
+            ]
+            .prop_map(|f| {
                 if f.is_finite() {
                     json!(f)
                 } else {
@@ -37,7 +38,8 @@ mod tests {
                 Just("€".to_string()),
                 Just("\u{1234}".to_string()),
                 Just("\u{10FFFF}".to_string()),
-            ].prop_map(Value::String),
+            ]
+            .prop_map(Value::String),
         ];
 
         leaf.prop_recursive(
@@ -47,14 +49,13 @@ mod tests {
             |inner: BoxedStrategy<Value>| {
                 prop_oneof![
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
-                    prop::collection::btree_map(any::<String>(), inner, 0..10)
-                        .prop_map(|m| {
-                            let mut map = serde_json::Map::new();
-                            for (k, v) in m {
-                                map.insert(k, v);
-                            }
-                            Value::Object(map)
-                        }),
+                    prop::collection::btree_map(any::<String>(), inner, 0..10).prop_map(|m| {
+                        let mut map = serde_json::Map::new();
+                        for (k, v) in m {
+                            map.insert(k, v);
+                        }
+                        Value::Object(map)
+                    }),
                 ]
             },
         )
@@ -69,7 +70,7 @@ mod tests {
         fn test_jcs_shuffled_keys(ref val in arb_json()) {
             if let Value::Object(ref map) = val {
                 let jcs_ref = serde_jcs::to_vec(val).unwrap();
-                
+
                 let mut keys: Vec<_> = map.keys().cloned().collect();
                 let mut rng = thread_rng();
 
@@ -82,7 +83,7 @@ mod tests {
                     }
                     let val_shuffled = Value::Object(shuffled_map);
                     let jcs_shuffled = serde_jcs::to_vec(&val_shuffled).unwrap();
-                    
+
                     prop_assert_eq!(&jcs_ref, &jcs_shuffled, "JCS failed order-independence after shuffle");
                 }
             }
@@ -94,13 +95,13 @@ mod tests {
         fn test_jcs_whitespace_invariance(ref val in arb_json()) {
             let compact_json = serde_json::to_string(val).unwrap();
             let pretty_json = serde_json::to_string_pretty(val).unwrap();
-            
+
             let val_compact: Value = serde_json::from_str(&compact_json).unwrap();
             let val_pretty: Value = serde_json::from_str(&pretty_json).unwrap();
-            
+
             let jcs_compact = serde_jcs::to_vec(&val_compact).unwrap();
             let jcs_pretty = serde_jcs::to_vec(&val_pretty).unwrap();
-            
+
             prop_assert_eq!(jcs_compact, jcs_pretty, "JCS must ignore input whitespace variations");
         }
 
