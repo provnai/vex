@@ -56,6 +56,10 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         format!("{}tenant:{}:chain_state", self.prefix, tenant_id)
     }
 
+    fn capsule_key(&self, tenant_id: &str, capsule_id: &str) -> String {
+        format!("{}tenant:{}:capsule:{}", self.prefix, tenant_id, capsule_id)
+    }
+
     /// Get per-tenant chain state from storage
     async fn get_chain_state(&self, tenant_id: &str) -> Result<ChainState, StorageError> {
         self.backend
@@ -88,6 +92,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
         data: serde_json::Value,
         identity: Option<&AgentIdentity>,
         witness_receipt: Option<String>,
+        vep_blob: Option<Vec<u8>>,
     ) -> Result<AuditEvent, StorageError> {
         // Pseudonymize actor to protect PII (Centralized in vex-core)
         let actor = actor.pseudonymize();
@@ -105,6 +110,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
 
         // Set actor after creation to override default system actor
         event.actor = actor;
+        event.vep_blob = vep_blob.clone();
 
         // Phase 2.2: Populating EvidenceCapsule if witness_receipt is present
         if let Some(wr) = witness_receipt {
@@ -135,6 +141,7 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     .unwrap_or(0),
                 sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
+                vep_blob: vep_blob.clone(),
             });
         }
 
@@ -209,6 +216,13 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     serde_json::Value::String(event.id.to_string()),
                 )
                 .await?;
+
+            self.backend
+                .set_value(
+                    &self.capsule_key(tenant_id, &capsule.capsule_id),
+                    serde_json::Value::String(event.id.to_string()),
+                )
+                .await?;
         }
 
         Ok(event)
@@ -229,6 +243,36 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             }
         }
 
+        Ok(None)
+    }
+
+    /// Retrieve an audit event by its Capsule ID (Phase 7)
+    pub async fn get_by_capsule_id(
+        &self,
+        tenant_id: &str,
+        capsule_id: &str,
+    ) -> Result<Option<AuditEvent>, StorageError> {
+        let capsule_key = self.capsule_key(tenant_id, capsule_id);
+        let event_id_val: Option<serde_json::Value> = self.backend.get_value(&capsule_key).await?;
+
+        if let Some(serde_json::Value::String(id_str)) = event_id_val {
+            if let Ok(id) = Uuid::parse_str(&id_str) {
+                return self.backend.get(&self.event_key(tenant_id, id)).await;
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Retrieve raw VEP blob by its Capsule ID (Phase 7)
+    pub async fn get_vep_by_capsule_id(
+        &self,
+        tenant_id: &str,
+        capsule_id: &str,
+    ) -> Result<Option<Vec<u8>>, StorageError> {
+        if let Some(event) = self.get_by_capsule_id(tenant_id, capsule_id).await? {
+            return Ok(event.vep_blob.clone());
+        }
         Ok(None)
     }
 
@@ -541,6 +585,7 @@ mod tests {
                 serde_json::json!({}),
                 None,
                 None,
+                None,
             )
             .await
             .unwrap();
@@ -553,6 +598,7 @@ mod tests {
                 ActorType::System("test".to_string()),
                 None,
                 serde_json::json!({}),
+                None,
                 None,
                 None,
             )
@@ -606,6 +652,7 @@ mod tests {
                 }),
                 None,
                 Some(receipt.to_string()),
+                None,
             )
             .await
             .unwrap();

@@ -49,12 +49,12 @@ VEX provides a verification and memory layer designed for production environment
 
 ---
 
-## What's New in v1.1.5 🚀
+## What's New in v1.2.0 🛡️
 
-- 🛡️ **Magpie L2 Hardening** - Integrated word-boundary aware sanitization for Magpie intents. Formal reasoning is now protected against structural code injection.
-- ⚡ **Non-Blocking Orchestration** - Fully migrated `vex-runtime` to async-first I/O with `TempFileGuard` for atomic cleanup of security artifacts.
-- ⚓ **CHORA & VEP v0.1 Parity** - Specification parity achieved. The 76-byte binary wire format is now mathematically verified against the CHORA authority network.
-- 🧬 **Total Trust Trinity** - Architectural completion of the L1 (Rules) -> L2 (Formal) -> L3 (Hardware) verification pipeline.
+- 🧪 **Standard WASM Sandbox** - Integrated `wasmtime` 22.x for secure, isolated tool execution. Tools are now trapped by memory (default 64MB) and fuel (10M instructions) limits.
+- 👮 **Host OOM Protection** - Added strict 10MB output buffer limits to `WasmTool`, preventing malicious agents from triggering host-level memory exhaustion.
+- 🏗️ **Formal Intent Hardening** - Integrated `MagpieAstBuilder` for secure L2-Intent generation, eliminating string-concatenation injection vulnerabilities entirely.
+- ⚡ **Non-Blocking Orchestration** - Optimized `ToolExecutor` and `WasmTool` with full `tokio` async support for non-blocking high-concurrency tool execution.
 
 ---
 

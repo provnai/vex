@@ -316,6 +316,7 @@ pub async fn execute_agent(
             }),
             None,
             Some(witness_receipt.clone()),
+            None,
         )
         .await;
 

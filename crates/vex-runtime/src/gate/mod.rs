@@ -69,6 +69,7 @@ impl Gate for GenericGateMock {
                 "gate_provider": "ChoraGateMock",
                 "version": "0.1.0",
             }),
+            vep_blob: None,
         }
     }
 }
@@ -161,6 +162,7 @@ impl Gate for ChoraGate {
                     "gate_provider": "ChoraGate",
                     "bridge_version": "v0.2.0",
                 }),
+                vep_blob: None,
             },
             Err(e) => EvidenceCapsule {
                 capsule_id: "error".to_string(),
@@ -170,6 +172,7 @@ impl Gate for ChoraGate {
                 nonce: 0,
                 sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
+                vep_blob: None,
             },
         }
     }

@@ -59,6 +59,9 @@ pub mod rule;
 pub mod segment;
 pub mod vep;
 
+#[cfg(test)]
+mod jcs_fuzz;
+
 pub use agent::{Agent, AgentConfig, AgentHandle, AgentId};
 pub use audit::{ActorType, AuditEvent, AuditEventType, HashParams, Signature};
 pub use context::{CompressionLevel, ContextPacket};

@@ -31,6 +31,8 @@ pub struct LlmConfig {
     pub default_provider: String,
     /// Default model
     pub default_model: String,
+    /// Default request timeout in seconds
+    pub request_timeout_secs: u64,
 }
 
 impl Default for LlmConfig {
@@ -43,6 +45,7 @@ impl Default for LlmConfig {
             ollama_url: "http://localhost:11434".to_string(),
             default_provider: "deepseek".to_string(),
             default_model: "deepseek-chat".to_string(),
+            request_timeout_secs: 30,
         }
     }
 }
@@ -61,6 +64,10 @@ impl LlmConfig {
                 .unwrap_or_else(|_| "deepseek".to_string()),
             default_model: env::var("VEX_DEFAULT_MODEL")
                 .unwrap_or_else(|_| "deepseek-chat".to_string()),
+            request_timeout_secs: env::var("VEX_LLM_TIMEOUT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30),
         }
     }
 

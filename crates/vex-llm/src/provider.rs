@@ -19,6 +19,8 @@ pub enum LlmError {
     NotAvailable,
     #[error("Input too large: {0} bytes exceeds maximum {1} bytes")]
     InputTooLarge(usize, usize),
+    #[error("Request timed out after {0}ms")]
+    Timeout(u64),
 }
 
 /// Maximum allowed prompt size in bytes (100KB default - prevents DoS)
@@ -46,6 +48,9 @@ pub struct LlmRequest {
     pub presence_penalty: Option<f32>,
     /// Frequency penalty
     pub frequency_penalty: Option<f32>,
+    /// Optional timeout override for this specific request
+    #[serde(skip)]
+    pub timeout: Option<std::time::Duration>,
 }
 
 impl LlmRequest {
@@ -60,6 +65,7 @@ impl LlmRequest {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            timeout: None,
         }
     }
 
@@ -74,6 +80,7 @@ impl LlmRequest {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            timeout: None,
         }
     }
 

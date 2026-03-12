@@ -8,9 +8,13 @@ use vex_runtime::gate::{Gate, GenericGateMock, TitanGate};
 async fn bench_titan_scale_concurrency() {
     let mock_llm = Arc::new(vex_llm::MockProvider::constant(""));
     let inner_mock = Arc::new(GenericGateMock::default());
+    let chora = vex_chora::client::make_mock_client();
+    let identity = vex_hardware::api::AgentIdentity::new();
     let gate = Arc::new(TitanGate::new(
         inner_mock,
         mock_llm,
+        chora,
+        identity,
         SecurityProfile::Standard,
     ));
 
@@ -42,6 +46,8 @@ async fn bench_titan_scale_concurrency() {
             Ok(cap) => {
                 if cap.outcome == "ALLOW" {
                     success_count += 1;
+                } else {
+                    println!("Request halted. Reason: {}", cap.reason_code);
                 }
             }
             Err(e) => eprintln!("Task panicked: {:?}", e),

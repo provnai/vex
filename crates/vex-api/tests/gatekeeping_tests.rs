@@ -24,7 +24,9 @@ async fn setup_gatekeeping_state(llm_responses: Vec<String>) -> AppState {
     let metrics = Arc::new(Metrics::new());
     let rate_limiter = Arc::new(TenantRateLimiter::new(RateLimitTier::Standard));
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
-    let db = Arc::new(SqliteBackend::new("sqlite::memory:").await.unwrap());
+    let backend = SqliteBackend::new("sqlite::memory:").await.unwrap();
+    backend.migrate().await.unwrap();
+    let db = Arc::new(backend);
     let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
     let worker_pool = WorkerPool::new_with_arc(
         Arc::new(queue_backend) as Arc<dyn QueueBackend>,

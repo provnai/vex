@@ -52,6 +52,9 @@ pub struct EvidenceCapsule {
         skip_serializing_if = "serde_json::Value::is_null"
     )]
     pub reproducibility_context: serde_json::Value,
+    /// Optional full VEP binary blob
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vep_blob: Option<Vec<u8>>,
 }
 
 fn default_sensor_value() -> serde_json::Value {
@@ -162,6 +165,9 @@ pub struct AuditEvent {
     // CHORA Alignment
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence_capsule: Option<EvidenceCapsule>,
+    /// Optional full VEP binary blob for independent verification
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vep_blob: Option<Vec<u8>>,
     pub schema_version: String,
 }
 
@@ -257,6 +263,7 @@ impl AuditEvent {
             human_review_required,
             approval_signatures,
             evidence_capsule,
+            vep_blob: None,
             schema_version,
         }
     }

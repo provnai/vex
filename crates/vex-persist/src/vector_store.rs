@@ -40,6 +40,7 @@ pub trait VectorStoreBackend: Send + Sync + std::fmt::Debug {
         tenant_id: &str,
         query: &[f32],
         k: usize,
+        filters: Option<HashMap<String, String>>,
     ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError>;
 }
 
@@ -97,6 +98,7 @@ impl VectorStoreBackend for MemoryVectorStore {
         tenant_id: &str,
         query: &[f32],
         k: usize,
+        filters: Option<HashMap<String, String>>,
     ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
         if query.len() != self.dimension {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
@@ -105,7 +107,22 @@ impl VectorStoreBackend for MemoryVectorStore {
         let data = self.embeddings.read().unwrap();
         let mut scores: Vec<(f32, VectorEmbedding)> = data
             .iter()
-            .filter(|(_, tid, _)| tid == tenant_id)
+            .filter(|(_, tid, emb)| {
+                if tid != tenant_id {
+                    return false;
+                }
+
+                // Apply metadata filters
+                if let Some(ref f) = filters {
+                    for (key, val) in f {
+                        if emb.metadata.get(key) != Some(val) {
+                            return false;
+                        }
+                    }
+                }
+
+                true
+            })
             .map(|(_, _, emb)| {
                 let score = cosine_similarity(query, &emb.vector);
                 (score, emb.clone())
@@ -174,19 +191,30 @@ impl VectorStoreBackend for SqliteVectorStore {
         tenant_id: &str,
         query: &[f32],
         k: usize,
+        filters: Option<HashMap<String, String>>,
     ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
         if query.len() != self.dimension {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
         }
 
-        // In a real high-perf vector DB we'd use HNSW/IVF.
-        // For VEX P2, we perform a brute-force scan of the tenant's embeddings.
-        let rows =
-            sqlx::query("SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?")
-                .bind(tenant_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
+        let mut sql = "SELECT id, vector, metadata FROM vector_embeddings WHERE tenant_id = ?".to_string();
+        if let Some(ref f) = filters {
+            for key in f.keys() {
+                sql.push_str(&format!(" AND json_extract(metadata, '$.{}') = ?", key));
+            }
+        }
+
+        let mut q = sqlx::query(&sql).bind(tenant_id);
+
+        if let Some(ref f) = filters {
+            for val in f.values() {
+                q = q.bind(val);
+            }
+        }
+
+        let rows = q.fetch_all(&self.pool)
+            .await
+            .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
 
         let mut scores = Vec::new();
 
@@ -296,27 +324,43 @@ impl VectorStoreBackend for PgVectorStore {
         tenant_id: &str,
         query: &[f32],
         k: usize,
+        filters: Option<HashMap<String, String>>,
     ) -> Result<Vec<(f32, VectorEmbedding)>, VectorError> {
         if query.len() != self.dimension {
             return Err(VectorError::DimensionMismatch(self.dimension, query.len()));
         }
 
         let pg_query = pgvector::Vector::from(query.to_vec());
+        let filters_json = filters.as_ref().map(|f| serde_json::to_string(f).unwrap_or_else(|_| "{}".to_string()));
 
-        // Uses the pgvector <=> operator (cosine distance) with DB-side HNSW index
-        // Dramatically faster than Rust-side brute-force scan for large tenant datasets
-        let rows = sqlx::query(
-            "SELECT id, vector, metadata, 1 - (vector <=> $1::vector) AS score
-             FROM vector_embeddings
-             WHERE tenant_id = $2
-             ORDER BY vector <=> $1::vector
-             LIMIT $3",
-        )
-        .bind(pg_query)
-        .bind(tenant_id)
-        .bind(k as i64)
-        .fetch_all(&self.pool)
-        .await
+        let rows = if let Some(fj) = filters_json {
+            sqlx::query(
+                "SELECT id, vector, metadata, 1 - (vector <=> $1::vector) AS score
+                 FROM vector_embeddings
+                 WHERE tenant_id = $2 AND metadata @> $3::jsonb
+                 ORDER BY vector <=> $1::vector
+                 LIMIT $4",
+            )
+            .bind(pg_query)
+            .bind(tenant_id)
+            .bind(fj)
+            .bind(k as i64)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query(
+                "SELECT id, vector, metadata, 1 - (vector <=> $1::vector) AS score
+                 FROM vector_embeddings
+                 WHERE tenant_id = $2
+                 ORDER BY vector <=> $1::vector
+                 LIMIT $3",
+            )
+            .bind(pg_query)
+            .bind(tenant_id)
+            .bind(k as i64)
+            .fetch_all(&self.pool)
+            .await
+        }
         .map_err(|e| VectorError::DatabaseError(e.to_string()))?;
 
         let mut results = Vec::new();
@@ -342,5 +386,81 @@ impl VectorStoreBackend for PgVectorStore {
         }
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_memory_vector_store_filtering() {
+        let store = MemoryVectorStore::new(3);
+        let tenant = "t1";
+
+        let mut m1 = HashMap::new();
+        m1.insert("type".to_string(), "a".to_string());
+        m1.insert("cat".to_string(), "1".to_string());
+
+        let mut m2 = HashMap::new();
+        m2.insert("type".to_string(), "b".to_string());
+
+        store.add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1).await.unwrap();
+        store.add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2).await.unwrap();
+
+        // 1. Filter by type=a
+        let mut filter = HashMap::new();
+        filter.insert("type".to_string(), "a".to_string());
+        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1.id, "1");
+
+        // 2. Filter by non-existent type
+        let mut filter = HashMap::new();
+        filter.insert("type".to_string(), "c".to_string());
+        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 0);
+
+        // 3. Multi-filter
+        let mut filter = HashMap::new();
+        filter.insert("type".to_string(), "a".to_string());
+        filter.insert("cat".to_string(), "1".to_string());
+        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1.id, "1");
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_vector_store_filtering() {
+        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+        
+        // Setup table
+        sqlx::query("CREATE TABLE vector_embeddings (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, vector BLOB NOT NULL, metadata JSON NOT NULL, created_at INTEGER NOT NULL)")
+            .execute(&pool).await.unwrap();
+
+        let store = SqliteVectorStore::new(3, pool);
+        let tenant = "t1";
+
+        let mut m1 = HashMap::new();
+        m1.insert("type".to_string(), "a".to_string());
+
+        let mut m2 = HashMap::new();
+        m2.insert("type".to_string(), "b".to_string());
+
+        store.add("1".into(), tenant.into(), vec![1.0, 0.0, 0.0], m1).await.unwrap();
+        store.add("2".into(), tenant.into(), vec![0.0, 1.0, 0.0], m2).await.unwrap();
+
+        // 1. Filter by type=a
+        let mut filter = HashMap::new();
+        filter.insert("type".to_string(), "a".to_string());
+        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1.id, "1");
+
+        // 2. Filter by non-existent type
+        let mut filter = HashMap::new();
+        filter.insert("type".to_string(), "c".to_string());
+        let results = store.search(tenant, &[1.0, 0.0, 0.0], 10, Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 0);
     }
 }

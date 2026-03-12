@@ -23,7 +23,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.5"
+version = "1.2.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["VEX protocol Provnai <contact@provnai.com>"]

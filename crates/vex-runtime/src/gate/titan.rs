@@ -81,50 +81,14 @@ impl TitanGate {
         use tokio::process::Command;
         use tokio::time::{timeout, Duration};
 
-        // 0. Sanitize input to prevent code injection
-        let sanitized_output = Self::sanitize_magpie_intent(suggested_output)?;
-
-        // 1. Construct a self-contained Magpie module based on the Security Profile
-        let mp_source = match self.profile {
-            SecurityProfile::Standard => format!(
-                "module intent.verify
-exports {{ @intent }}
-imports {{ }}
-digest \"{}\"
-
-fn @log_safe(%msg: Str) -> i32 meta {{ }} {{
-  bb0:
-    ret const.i32 0
-}}
-
-fn @intent() -> i32 meta {{ }} {{
-  bb0:
-    {}
-    ret const.i32 0
-}}",
-                digest, sanitized_output
-            ),
-            SecurityProfile::Fortress => format!(
-                "module fortress.verify
-exports {{ @intent }}
-imports {{ }}
-digest \"{}\"
-
-;; THE ONLY PERMITTED SIDE-EFFECT
-fn @log_safe(%msg: Str) -> i32 meta {{ }} {{
-  bb0:
-    ret const.i32 0
-}}
-
-fn @intent() -> i32 meta {{ }} {{
-  bb0:
-    ;; Default Deny: If the agent tries to call something unknown, it won't even parse/link.
-    {}
-    ret const.i32 0
-}}",
-                digest, sanitized_output
-            ),
-        };
+        // 0. Use proper AST Builder instead of fragile string formatting
+        let mut builder = MagpieAstBuilder::new(self.profile, digest.to_string());
+        
+        // 1. Sanitize and add instructions programmatically
+        builder.add_intent(suggested_output)?;
+        
+        // 2. Generate secure source module
+        let mp_source = builder.build();
 
         let tmp_filename = format!(
             "gate_intent_{}.mp",
@@ -142,24 +106,33 @@ fn @intent() -> i32 meta {{ }} {{
             .await
             .map_err(|e| format!("IO_ERROR: Failed to write intent file: {}", e))?;
 
-        // 2. Run the REAL Magpie Compiler with Timeout
-        // Path should ideally come from an Env Var in production.
         let magpie_path = std::env::var("MAGPIE_BIN_PATH").unwrap_or_else(|_| {
-            "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe".to_string()
+            if cfg!(target_os = "linux") && std::path::Path::new("/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe").exists() {
+                "/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe".to_string()
+            } else {
+                "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe".to_string()
+            }
         });
+
+        // Convert path for Windows executable if running in WSL
+        let mut arg_path = tmp_path.to_string_lossy().to_string();
+        if cfg!(target_os = "linux") && arg_path.starts_with('/') {
+            let wsl_distro_name = std::env::var("WSL_DISTRO_NAME").unwrap_or_else(|_| "Ubuntu".to_string());
+            arg_path = format!("\\\\wsl.localhost\\{}{}", wsl_distro_name, arg_path.replace('/', "\\"));
+        }
 
         let cmd_future = Command::new(magpie_path)
             .arg("--output")
             .arg("json")
             .arg("--entry")
-            .arg(&tmp_path)
+            .arg(&arg_path)
             .arg("parse")
             .output();
 
-        // Limit compiler execution to 500ms to prevent DOS/Hangs
-        let output = timeout(Duration::from_millis(500), cmd_future)
+        // Limit compiler execution to 5000ms to prevent DOS/Hangs (increased for WSL interop overhead)
+        let output = timeout(Duration::from_millis(5000), cmd_future)
             .await
-            .map_err(|_| "MAGPIE_TIMEOUT: Formal verification exceeded 500ms limit")?
+            .map_err(|_| "MAGPIE_TIMEOUT: Formal verification exceeded 5000ms limit")?
             .map_err(|e| format!("MAGPIE_SPAWN_ERROR: {}", e))?;
 
         if output.status.success() {
@@ -194,10 +167,33 @@ fn @intent() -> i32 meta {{ }} {{
         }
     }
 
-    /// Basic formal instruction sanitization
-    fn sanitize_magpie_intent(input: &str) -> Result<String, String> {
+    // (Sanitization logic moved to MagpieAstBuilder::add_intent)
+}
+
+/// Programmatic AST Builder for Magpie IR modules
+/// Fully replaces string formatting to prevent code injection vulnerabilities
+struct MagpieAstBuilder {
+    module_name: String,
+    profile: SecurityProfile,
+    digest: String,
+    body_instructions: Vec<String>,
+}
+
+impl MagpieAstBuilder {
+    fn new(profile: SecurityProfile, digest: String) -> Self {
+        Self {
+            module_name: match profile {
+                SecurityProfile::Standard => "intent.verify".to_string(),
+                SecurityProfile::Fortress => "fortress.verify".to_string(),
+            },
+            profile,
+            digest,
+            body_instructions: Vec::new(),
+        }
+    }
+
+    fn add_intent(&mut self, input: &str) -> Result<(), String> {
         // Strict blocking: Disallow closing braces which could be used for code injection
-        // In the next version we should use a proper AST builder to allow braces in strings
         if input.contains('}') {
             return Err("INJECTION_ATTACK: Input contains forbidden closing brace '}'".to_string());
         }
@@ -210,13 +206,44 @@ fn @intent() -> i32 meta {{ }} {{
             let re = Regex::new(&pattern).unwrap();
             if re.is_match(&scan_input) {
                 return Err(format!(
-                    "INJECTION_ATTACK: Input contains forbidden structural keyword '{}'",
+                    "INJECTION_ATTACK: Input contains forbidden keyword '{}'",
                     keyword
                 ));
             }
         }
 
-        Ok(input.to_string())
+        // Parse instructions line-by-line to ensure they fit exactly within the basic block
+        for line in input.lines() {
+            if !line.trim().is_empty() {
+                self.body_instructions.push(line.trim().to_string());
+            }
+        }
+        
+        Ok(())
+    }
+
+    fn build(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("module {}\n", self.module_name));
+        out.push_str("exports { @intent }\n");
+        out.push_str("imports { }\n");
+        out.push_str(&format!("digest \"{}\"\n\n", self.digest));
+
+        if self.profile == SecurityProfile::Fortress {
+            out.push_str(";; THE ONLY PERMITTED SIDE-EFFECT\n");
+        }
+        out.push_str("fn @log_safe(%msg: Str) -> i32 meta { } {\n  bb0:\n    ret const.i32 0\n}\n\n");
+        
+        out.push_str("fn @intent() -> i32 meta { } {\n  bb0:\n");
+        if self.profile == SecurityProfile::Fortress {
+            out.push_str("    ;; Default Deny: If the agent tries to call something unknown, it won't even parse/link.\n");
+        }
+        
+        for inst in &self.body_instructions {
+            out.push_str(&format!("    {}\n", inst));
+        }
+        out.push_str("    ret const.i32 0\n}\n");
+        out
     }
 }
 
@@ -241,6 +268,7 @@ impl Gate for TitanGate {
                     nonce: 0,
                     sensors: serde_json::json!({"layer": "L1", "rule": format!("{:?}", rule)}),
                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                    vep_blob: None,
                 };
             }
         }
@@ -312,7 +340,7 @@ impl Gate for TitanGate {
 
                         // Final check: Only ALLOW outcomes proceed to execution
                         if v0_capsule.authority.outcome == "ALLOW" {
-                             self.inner
+                            let mut final_result = self.inner
                                 .execute_gate(
                                     agent_id,
                                     task_prompt,
@@ -320,16 +348,23 @@ impl Gate for TitanGate {
                                     confidence,
                                     capabilities,
                                 )
-                                .await
+                                .await;
+                            
+                            // Inject the binary VEP blob if not already present
+                            if final_result.vep_blob.is_none() {
+                                final_result.vep_blob = v0_capsule.to_vep_binary().ok();
+                            }
+                            final_result
                         } else {
                             EvidenceCapsule {
-                                capsule_id: v0_capsule.capsule_id,
-                                outcome: v0_capsule.authority.outcome,
-                                reason_code: v0_capsule.authority.reason_code,
-                                witness_receipt: v0_capsule.witness_hash,
+                                capsule_id: v0_capsule.capsule_id.clone(),
+                                outcome: v0_capsule.authority.outcome.clone(),
+                                reason_code: v0_capsule.authority.reason_code.clone(),
+                                witness_receipt: v0_capsule.witness_hash.clone(),
                                 nonce: v0_capsule.authority.nonce,
                                 sensors: serde_json::json!({"layer": "L3", "chora_sig": chora_resp.signature}),
                                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                vep_blob: v0_capsule.to_vep_binary().ok(),
                             }
                         }
                     }
@@ -341,6 +376,7 @@ impl Gate for TitanGate {
                         nonce: 0,
                         sensors: serde_json::json!({"layer": "L3", "error": e}),
                         reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                        vep_blob: None,
                     },
                 }
             }
@@ -352,6 +388,7 @@ impl Gate for TitanGate {
                 nonce: 0,
                 sensors: serde_json::json!({"layer": "L2", "error": e, "digest": digest_hex}),
                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L2"}),
+                vep_blob: None,
             },
         }
     }

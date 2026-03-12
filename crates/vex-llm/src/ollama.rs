@@ -40,20 +40,36 @@ pub struct OllamaProvider {
     model: String,
     /// HTTP client
     client: reqwest::Client,
+    /// Default timeout
+    default_timeout: std::time::Duration,
 }
 
 impl OllamaProvider {
     /// Create a new Ollama provider with default settings
     pub fn new(model: &str) -> Self {
+        let timeout = std::env::var("VEX_LLM_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30);
+
         Self {
             base_url: "http://localhost:11434".to_string(),
             model: model.to_string(),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
+            default_timeout: std::time::Duration::from_secs(timeout),
         }
     }
 
     /// Create with custom base URL
     pub fn with_url(base_url: &str, model: &str) -> Self {
+        let timeout = std::env::var("VEX_LLM_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30);
+
         // Basic SSRF protection (2025 best practice)
         let url = base_url.to_lowercase();
         if url.contains("localhost") || url.contains("127.0.0.1") || url.contains("::1") {
@@ -63,7 +79,11 @@ impl OllamaProvider {
         Self {
             base_url: base_url.to_string(),
             model: model.to_string(),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
+            default_timeout: std::time::Duration::from_secs(timeout),
         }
     }
 }
@@ -94,12 +114,13 @@ impl LlmProvider for OllamaProvider {
             },
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .json(&ollama_request)
-            .send()
+        let request_timeout = request
+            .timeout
+            .unwrap_or(self.default_timeout);
+
+        let response = tokio::time::timeout(request_timeout, self.client.post(&url).json(&ollama_request).send())
             .await
+            .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
             .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
 
         if !response.status().is_success() {

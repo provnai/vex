@@ -5,14 +5,16 @@ Tokio-based agent orchestration for the VEX Protocol.
 ## Features
 
 - **Agent Orchestration** - Run multiple agents concurrently
+- **Formal Intent Verification** - L2 Semantic verification via Magpie AST
+- **WSL Interop** - Full cross-platform support for Windows/Linux/WSL
 - **Task Scheduling** - Prioritized agent task execution
-- **Resource Management** - Efficient resource allocation
 
 ## Installation
 
 ```toml
 [dependencies]
-vex-runtime = "0.1"
+[dependencies]
+vex-runtime = "1.2.0"
 ```
 
 ## Quick Start

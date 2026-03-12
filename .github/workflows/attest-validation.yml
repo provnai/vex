@@ -2,9 +2,9 @@ name: Attest Validation
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, experiment/magpie-titan-gate ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, experiment/magpie-titan-gate ]
 
 jobs:
   validate:

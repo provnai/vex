@@ -238,8 +238,13 @@ Five behavioral traits that map to LLM parameters:
 4.  **Audit Trail**:
     *   Cryptographic hash chaining (SHA-256)
     *   Sensitive field redaction (logs sanitized of secrets)
+    *   **Hardware-rooted signatures**: Every capsule is silicon-sealed via TPM/CNG.
 
-5.  **Network**:
+5.  **Sandboxing & Isolation**:
+    *   **Host OOM Protection**: Strict `MAX_WASM_OUTPUT_BYTES` (10MB) limit on sandbox buffers.
+    *   **Formal Intent Verification**: Magpie AST Builder replaces string IR construction to prevent instruction injection.
+
+6.  **Network**:
     *   **HSTS** allowed (Strict-Transport-Security)
     *   Strict **CORS** configuration via environment
 
@@ -256,16 +261,10 @@ Cryptographically-verified tool execution with Merkle audit integration.
 │  ToolExecutor                                                │
 │  ├── Validate(args)      // Schema + length checks           │
 │  ├── Execute(timeout)    // With DoS protection              │
+│  ├── WASM Sandbox        // Isolated memory/fuel (Wasmtime)  │
+│  ├── OOM Guard           // Strict 10MB output allocation    │
 │  ├── Hash(result)        // SHA-256 for Merkle chain         │
 │  └── Audit(log)          // To AuditStore                    │
-├─────────────────────────────────────────────────────────────┤
-│  ToolRegistry                                                │
-│  • O(1) lookup by name                                       │
-│  • Collision detection (no duplicates)                       │
-│  • OpenAI/Anthropic format export                            │
-├─────────────────────────────────────────────────────────────┤
-│  Built-in Tools                                              │
-│  calculator | datetime | uuid | hash | regex | json_path     │
 └─────────────────────────────────────────────────────────────┘
 ```
 

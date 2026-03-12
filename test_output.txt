@@ -1,0 +1,27 @@
+   Compiling vex-core v1.2.0 (/mnt/c/Users/quint/Desktop/provnai/vex/crates/vex-core)
+warning: unused import: `std::collections::BTreeMap`
+ --> crates/vex-core/src/jcs_fuzz.rs:9:9
+  |
+9 |     use std::collections::BTreeMap;
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0382]: borrow of moved value: `key`
+  --> crates/vex-core/src/jcs_fuzz.rs:62:54
+   |
+61 |                 for key in keys.into_iter().rev() {
+   |                     --- move occurs because `key` has type `std::string::String`, which does not implement the `Copy` trait
+62 |                     reversed_map.insert(key, map.get(&key).unwrap().clone());
+   |                                         ---          ^^^^ value borrowed here after move
+   |                                         |
+   |                                         value moved here
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+62 |                     reversed_map.insert(key.clone(), map.get(&key).unwrap().clone());
+   |                                            ++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+warning: `vex-core` (lib test) generated 1 warning
+error: could not compile `vex-core` (lib test) due to 1 previous error; 1 warning emitted

@@ -61,16 +61,27 @@ pub struct MistralProvider {
     client: reqwest::Client,
     /// Base URL
     base_url: String,
+    /// Default timeout
+    default_timeout: std::time::Duration,
 }
 
 impl MistralProvider {
     /// Create a new Mistral provider
     pub fn new(api_key: &str, model: &str) -> Self {
+        let timeout = std::env::var("VEX_LLM_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30);
+
         Self {
             api_key: api_key.to_string(),
             model: model.to_string(),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
             base_url: "https://api.mistral.ai".to_string(),
+            default_timeout: std::time::Duration::from_secs(timeout),
         }
     }
 
@@ -167,13 +178,13 @@ impl LlmProvider for MistralProvider {
             frequency_penalty: request.frequency_penalty,
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .bearer_auth(&self.api_key)
-            .json(&mistral_request)
-            .send()
+        let request_timeout = request
+            .timeout
+            .unwrap_or(self.default_timeout);
+
+        let response = tokio::time::timeout(request_timeout, self.client.post(&url).bearer_auth(&self.api_key).json(&mistral_request).send())
             .await
+            .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
             .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
 
         if !response.status().is_success() {

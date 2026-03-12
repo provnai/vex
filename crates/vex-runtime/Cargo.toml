@@ -35,4 +35,5 @@ reqwest = { workspace = true }
 regex = { workspace = true }
 tempfile = "3.10"
 [dev-dependencies]
+rand = { workspace = true }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }

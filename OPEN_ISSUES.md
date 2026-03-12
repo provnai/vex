@@ -3,7 +3,7 @@
 Tracked issues that need resolution before v1.0.
 
 ## 🛡️ Security / Stability
-- [ ] **Missing WASM Sandbox**: `ToolExecutor` calculates capabilities but executes all tools in-process. This is a high-priority gap for production environments requiring strict isolation.
+- [x] **Missing WASM Sandbox**: [RESOLVED] Implemented `WasmTool` with memory/fuel isolation in v1.2.0.
 - [x] **TPM Initialization (0x80280095)**: [RESOLVED] Hardened fallback logic and state recovery implemented in v1.1.4.
 - [ ] **LLM Timeout Hardening**: Improve HTTP-level cancellation for unresponsive providers.
 

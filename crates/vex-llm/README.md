@@ -9,12 +9,15 @@ LLM provider integrations for the VEX Protocol.
 - **DeepSeek** - DeepSeek models
 - **Mistral** - Mistral AI models
 - **Mock** - Testing provider
+- **Secure WASM Sandbox** - Isolate tool execution with `wasmtime`
+- **OOM Protection** - Strict 10MB output memory limits
 
 ## Installation
 
 ```toml
 [dependencies]
-vex-llm = "0.1"
+[dependencies]
+vex-llm = "1.2.0"
 
 # With OpenAI support
 vex-llm = { version = "0.1", features = ["openai"] }

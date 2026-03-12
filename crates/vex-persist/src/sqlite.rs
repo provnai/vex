@@ -162,13 +162,15 @@ impl SqliteBackend {
             }
         }
 
-        // Run migrations
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .map_err(|e| StorageError::Internal(format!("Migration failed: {}", e)))?;
-
         Ok(Self { pool, encrypted })
+    }
+
+    /// Explicitly run database migrations. Must be called after creation.
+    pub async fn migrate(&self) -> Result<(), StorageError> {
+        sqlx::migrate!("./migrations")
+            .run(&self.pool)
+            .await
+            .map_err(|e| StorageError::Internal(format!("Migration failed: {}", e)))
     }
 
     /// Get the connection pool
@@ -288,6 +290,7 @@ mod tests {
     #[tokio::test]
     async fn test_sqlite_backend() {
         let backend = SqliteBackend::new("sqlite::memory:").await.unwrap();
+        backend.migrate().await.unwrap();
 
         let data = TestData {
             name: "test_sql".to_string(),
