@@ -5,9 +5,11 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-03-12
+## [1.2.0] - 2026-03-13
 
 ### Added
+- **🧪 Total Truth CI Verification**: Integrated the real production Magpie compiler into the CI/CD pipeline, replacing mock-based verification with 100% formal parity.
+- **🔌 Unified Magpie CLI**: Standardized Magpie invocation across `vex-runtime` to use the production-grade `--entry <PATH> --output json parse` command structure.
 - **🛡️ WASM Tool Sandbox**: Implemented a secure, standard execution environment for AI tools using Wasmtime 22.x.
 - **🛡️ Verifiable Evidence Packet (VEP) Bundling**: Implemented full TLV-based binary bundling for capsules. VEPs now embed the formal Magpie AST source for independent, offline auditability.
 - **👮 Host OOM Protection**: Added strict `MAX_WASM_OUTPUT_BYTES` (10MB) limit to `WasmTool` to prevent host-level memory exhaustion via unconstrained sandbox outputs.

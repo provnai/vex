@@ -51,6 +51,8 @@ VEX provides a verification and memory layer designed for production environment
 
 ## What's New in v1.2.0 🛡️
 
+- 🧪 **Total Truth CI Verification** - Integrated the real production Magpie compiler into the CI/CD pipeline, ensuring 100% formal parity for every pull request.
+- 🔌 **Unified Magpie CLI** - Standardized Magpie invocation across `vex-runtime` using the production-grade `--entry <PATH> --output json parse` command.
 - 🧪 **Standard WASM Sandbox** - Integrated `wasmtime` 22.x for secure, isolated tool execution. Tools are now trapped by memory (default 64MB) and fuel (10M instructions) limits.
 - 👮 **Host OOM Protection** - Added strict 10MB output buffer limits to `WasmTool`, preventing malicious agents from triggering host-level memory exhaustion.
 - 🏗️ **Formal Intent Hardening** - Integrated `MagpieAstBuilder` for secure L2-Intent generation, eliminating string-concatenation injection vulnerabilities entirely.

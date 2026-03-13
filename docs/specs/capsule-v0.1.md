@@ -139,7 +139,7 @@ Following the header, the body consists of Type-Length-Value (TLV) segments. Thi
     - Recompute pillar hashes from the extracted Segments.
     - Recompute `capsule_root` using JCS lexicographical ordering.
 4. **Signature Check**: Verify the `Signature` (Type 6) over the `capsule_root`.
-5. **Formal Re-Verification (Optional)**: Execute `magpie -c` on the raw `MagpieAst` (Type 7) to confirm the formal intent matches the authorized `trace_root`.
+5. **Formal Re-Verification (Optional)**: Execute `magpie --entry <PATH> parse` on the raw `MagpieAst` (Type 7) to confirm the formal intent matches the authorized `trace_root`.
 
 **Reference parity vector (Consensus v0.1):**
 - **Intent Hash**: `e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb`

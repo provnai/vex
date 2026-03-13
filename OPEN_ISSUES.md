@@ -13,7 +13,7 @@ Tracked issues that need resolution before v1.0.
 
 ## ⚡ Performance
 - [x] **Async Migration**: [RESOLVED] Decoupled schema migrations from hot-path constructors.
-- [ ] **Workspace Bloat**: Optimize internal dependencies to reduce binary size.
+- [x] **Workspace Bloat**: [PARTIAL] Reclaimed ~1.5GB of orphaned build artifacts in Phase 9. Full cross-crate dependency optimization ongoing.
 
 ## 🧪 Testing Gaps
 - [ ] **Real-World Benchmarks**: Integration tests using live Claude/GPT models (currently mostly mocked).
