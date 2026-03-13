@@ -239,7 +239,11 @@ async fn verify_database(path: &Path, detailed: bool) -> Result<()> {
     let db_url = format!("sqlite://{}", path.display());
     let backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
         .await
-        .with_context(|| format!("Failed to connect to database: {}", path.display()))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize backend for proof export: {}", e))?;
+    backend
+        .migrate()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to migrate backend: {}", e))?;
 
     let store = vex_persist::audit_store::AuditStore::new(std::sync::Arc::new(backend));
 

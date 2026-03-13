@@ -208,6 +208,7 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
                     }),
                     self.identity.as_ref().map(|id| id.as_ref()),
                     Some(capsule.witness_receipt.clone()),
+                    capsule.vep_blob.clone(),
                 )
                 .await;
         }

@@ -110,6 +110,31 @@ impl ToolExecutor {
         self
     }
 
+    /// Register a WASM tool from bytes
+    pub fn register_wasm_tool(
+        &mut self,
+        definition: crate::tool::ToolDefinition,
+        module_bytes: Vec<u8>,
+        capabilities: Vec<Capability>,
+    ) {
+        use crate::wasm_tool::WasmTool;
+        use std::sync::Arc;
+        let tool = WasmTool::new(definition, module_bytes, capabilities);
+        self.registry.register(Arc::new(tool));
+    }
+
+    /// Register a WASM tool from a file path
+    pub fn register_wasm_tool_from_file(
+        &mut self,
+        definition: crate::tool::ToolDefinition,
+        path: impl AsRef<std::path::Path>,
+        capabilities: Vec<Capability>,
+    ) -> Result<(), std::io::Error> {
+        let bytes = std::fs::read(path)?;
+        self.register_wasm_tool(definition, bytes, capabilities);
+        Ok(())
+    }
+
     /// Execute a tool by name with given arguments.
     ///
     /// # Arguments

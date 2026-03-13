@@ -9,6 +9,7 @@ fn test_capsule_jcs_parity() {
             .to_string(),
         confidence: 0.95,
         capabilities: vec!["TPM_VERIFY".into()],
+        magpie_source: None,
     };
 
     let authority = AuthorityData {
@@ -17,6 +18,7 @@ fn test_capsule_jcs_parity() {
         reason_code: "WITHIN_POLICY".into(),
         trace_root: "5555555555555555555555555555555555555555555555555555555555555555".into(),
         nonce: 12345,
+        gate_sensors: serde_json::Value::Null,
     };
 
     let identity = IdentityData {

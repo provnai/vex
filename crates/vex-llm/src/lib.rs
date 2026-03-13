@@ -79,6 +79,9 @@ pub mod tool_error;
 pub mod tool_executor;
 pub mod tool_result;
 pub mod tools;
+pub mod wasm_tool;
+#[cfg(test)]
+mod wasm_tool_tests;
 
 pub use cached_provider::{CachedProvider, LlmCacheConfig};
 pub use config::{ConfigError, LlmConfig, VexConfig};
@@ -97,3 +100,4 @@ pub use tool_error::ToolError;
 pub use tool_executor::ToolExecutor;
 pub use tool_result::ToolResult;
 pub use tools::{CalculatorTool, DateTimeTool, HashTool, JsonPathTool, RegexTool, UuidTool};
+pub use wasm_tool::WasmTool;

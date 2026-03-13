@@ -146,7 +146,11 @@ impl VexServer {
                 tracing::info!("DATABASE_URL: PostgreSQL backend selected (Railway Managed DB)");
                 let pg_backend = vex_persist::PostgresBackend::new(&db_url)
                     .await
-                    .map_err(|e| ApiError::Internal(format!("Postgres init failed: {}", e)))?;
+                    .expect("Failed to initialize Postgres backend");
+                pg_backend
+                    .migrate()
+                    .await
+                    .expect("Failed to migrate Postgres backend");
                 let pg_pool = pg_backend.pool().clone();
                 (
                     Arc::new(pg_backend),
@@ -166,7 +170,11 @@ impl VexServer {
             tracing::info!("DATABASE_URL: SQLite backend selected");
             let sqlite_backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
                 .await
-                .map_err(|e| ApiError::Internal(format!("SQLite init failed: {}", e)))?;
+                .expect("Failed to initialize SQLite backend");
+            sqlite_backend
+                .migrate()
+                .await
+                .expect("Failed to migrate SQLite backend");
             let sqlite_pool = sqlite_backend.pool().clone();
             (
                 Arc::new(sqlite_backend),

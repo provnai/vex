@@ -446,6 +446,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
                             }),
                             self.identity.as_ref().map(|id| id.as_ref()),
                             None,
+                            None,
                         )
                         .await;
                 }
@@ -597,6 +598,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
                                         "method": format!("Self-Correction ({})", source),
                                     }),
                                     self.identity.as_ref().map(|id| id.as_ref()),
+                                    None,
                                     None,
                                 )
                                 .await;

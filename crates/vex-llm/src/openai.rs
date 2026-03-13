@@ -55,16 +55,27 @@ pub struct OpenAIProvider {
     client: reqwest::Client,
     /// Base URL
     base_url: String,
+    /// Default timeout
+    default_timeout: std::time::Duration,
 }
 
 impl OpenAIProvider {
     /// Create a new OpenAI provider
     pub fn new(api_key: &str, model: &str) -> Self {
+        let timeout = std::env::var("VEX_LLM_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30);
+
         Self {
             api_key: api_key.to_string(),
             model: model.to_string(),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
             base_url: "https://api.openai.com".to_string(),
+            default_timeout: std::time::Duration::from_secs(timeout),
         }
     }
 
@@ -121,14 +132,19 @@ impl LlmProvider for OpenAIProvider {
             max_tokens: request.max_tokens,
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .bearer_auth(&self.api_key)
-            .json(&openai_request)
-            .send()
-            .await
-            .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
+        let request_timeout = request.timeout.unwrap_or(self.default_timeout);
+
+        let response = tokio::time::timeout(
+            request_timeout,
+            self.client
+                .post(&url)
+                .bearer_auth(&self.api_key)
+                .json(&openai_request)
+                .send(),
+        )
+        .await
+        .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
+        .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
 
         if !response.status().is_success() {
             let status = response.status();

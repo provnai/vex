@@ -61,7 +61,8 @@ impl Gate for GenericGateMock {
             reason_code: reason.to_string(),
             witness_receipt: "mock-receipt-0xdeadbeef".to_string(),
             nonce: 0,
-            sensors: serde_json::json!({
+            magpie_source: None,
+            gate_sensors: serde_json::json!({
                 "confidence_sensor": if confidence > 0.5 { "GREEN" } else { "YELLOW" },
                 "content_length": suggested_output.len(),
             }),
@@ -69,6 +70,7 @@ impl Gate for GenericGateMock {
                 "gate_provider": "ChoraGateMock",
                 "version": "0.1.0",
             }),
+            vep_blob: None,
         }
     }
 }
@@ -143,6 +145,7 @@ impl Gate for ChoraGate {
             request_sha256: hex::encode(sha2::Sha256::digest(suggested_output.as_bytes())),
             confidence,
             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
+            magpie_source: None,
         };
 
         // 2. Perform Handshake via Unified Bridge
@@ -153,7 +156,8 @@ impl Gate for ChoraGate {
                 reason_code: capsule.authority.reason_code,
                 witness_receipt: capsule.witness.receipt_hash,
                 nonce: capsule.authority.nonce,
-                sensors: serde_json::json!({
+                magpie_source: None,
+                gate_sensors: serde_json::json!({
                     "trace_root": capsule.authority.trace_root,
                     "identity_type": capsule.identity.identity_type,
                 }),
@@ -161,6 +165,7 @@ impl Gate for ChoraGate {
                     "gate_provider": "ChoraGate",
                     "bridge_version": "v0.2.0",
                 }),
+                vep_blob: None,
             },
             Err(e) => EvidenceCapsule {
                 capsule_id: "error".to_string(),
@@ -168,9 +173,14 @@ impl Gate for ChoraGate {
                 reason_code: format!("CHORA_BRIDGE_ERROR: {}", e),
                 witness_receipt: "error-none".to_string(),
                 nonce: 0,
-                sensors: serde_json::Value::Null,
+                magpie_source: None,
+                gate_sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
+                vep_blob: None,
             },
         }
     }
 }
+
+pub mod titan;
+pub use titan::TitanGate;

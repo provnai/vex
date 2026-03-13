@@ -29,7 +29,9 @@ async fn setup_state() -> AppState {
     let a2a_state = Arc::new(vex_api::a2a::handler::A2aState::default());
 
     // 3. In-memory DB
-    let db = Arc::new(SqliteBackend::new("sqlite::memory:").await.unwrap());
+    let backend = SqliteBackend::new("sqlite::memory:").await.unwrap();
+    backend.migrate().await.unwrap();
+    let db = Arc::new(backend);
 
     // 4. Queue (using same DB pool)
     let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());

@@ -202,7 +202,8 @@ impl<P: LlmProvider + 'static> LlmProvider for ResilientProvider<P> {
                 match &e {
                     LlmError::ConnectionFailed(_)
                     | LlmError::NotAvailable
-                    | LlmError::RateLimited => {
+                    | LlmError::RateLimited
+                    | LlmError::Timeout(_) => {
                         self.record_failure().await;
                     }
                     _ => {}
@@ -226,5 +227,27 @@ mod tests {
         let result = resilient.ask("test").await;
         assert!(result.is_ok());
         assert_eq!(resilient.circuit_state().await, CircuitState::Closed);
+    }
+
+    #[tokio::test]
+    async fn test_resilient_provider_trips_on_timeout() {
+        let mock = MockProvider::constant("slow").with_latency(1000);
+
+        let resilient = ResilientProvider::new(
+            mock,
+            LlmCircuitConfig {
+                failure_threshold: 1,
+                success_threshold: 1,
+                reset_timeout: Duration::from_secs(10),
+            },
+        );
+
+        // Create request with short timeout
+        let mut request = LlmRequest::simple("test");
+        request.timeout = Some(Duration::from_millis(100));
+
+        let result = resilient.complete(request).await;
+        assert!(matches!(result, Err(LlmError::Timeout(_))));
+        assert_eq!(resilient.circuit_state().await, CircuitState::Open);
     }
 }

@@ -1,8 +1,9 @@
 # VEX Protocol - Gitignore
 
 # Build artifacts
-/target/
+target/
 **/*.rs.bk
+*.ast.txt
 
 # Build outputs and logs
 clippy_*.txt

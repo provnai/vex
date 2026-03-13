@@ -42,20 +42,14 @@ pub struct EvidenceCapsule {
     pub reason_code: String,
     pub witness_receipt: String,
     pub nonce: u64,
-    #[serde(
-        default = "default_sensor_value",
-        skip_serializing_if = "serde_json::Value::is_null"
-    )]
-    pub sensors: serde_json::Value,
-    #[serde(
-        default = "default_sensor_value",
-        skip_serializing_if = "serde_json::Value::is_null"
-    )]
+    /// Bundled Magpie AST for independent verification
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub magpie_source: Option<String>,
+    pub gate_sensors: serde_json::Value,
     pub reproducibility_context: serde_json::Value,
-}
-
-fn default_sensor_value() -> serde_json::Value {
-    serde_json::Value::Null
+    /// Optional full VEP binary blob
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vep_blob: Option<Vec<u8>>,
 }
 
 /// Actor type for audit attribution (ISO 42001 A.6.2.8)
@@ -162,6 +156,9 @@ pub struct AuditEvent {
     // CHORA Alignment
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence_capsule: Option<EvidenceCapsule>,
+    /// Optional full VEP binary blob for independent verification
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vep_blob: Option<Vec<u8>>,
     pub schema_version: String,
 }
 
@@ -257,6 +254,7 @@ impl AuditEvent {
             human_review_required,
             approval_signatures,
             evidence_capsule,
+            vep_blob: None,
             schema_version,
         }
     }

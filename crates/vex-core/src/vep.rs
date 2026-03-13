@@ -38,6 +38,7 @@ pub enum VepSegmentType {
     Payload = 4,
     Witness = 5,
     Signature = 6, // Specific for capsule signatures
+    MagpieAst = 7, // Bundled formal intent source
 }
 
 /// A high-level view of a VEP packet using zero-copy references.
@@ -143,7 +144,7 @@ impl<'a> VepPacket<'a> {
             .get_segment_data(VepSegmentType::Signature)
             .ok_or("Missing Signature segment")?;
 
-        let intent: IntentData = serde_json::from_slice(intent_bytes)
+        let mut intent: IntentData = serde_json::from_slice(intent_bytes)
             .map_err(|e| format!("Failed to parse Intent segment: {}", e))?;
         let authority: AuthorityData = serde_json::from_slice(auth_bytes)
             .map_err(|e| format!("Failed to parse Authority segment: {}", e))?;
@@ -151,6 +152,14 @@ impl<'a> VepPacket<'a> {
             .map_err(|e| format!("Failed to parse Identity segment: {}", e))?;
         let witness: WitnessData = serde_json::from_slice(witness_bytes)
             .map_err(|e| format!("Failed to parse Witness segment: {}", e))?;
+
+        let magpie_source = self
+            .get_segment_data(VepSegmentType::MagpieAst)
+            .map(|b| String::from_utf8_lossy(b).to_string());
+
+        if intent.magpie_source.is_none() {
+            intent.magpie_source = magpie_source;
+        }
 
         let intent_hash = intent.to_jcs_hash()?.to_hex();
 
@@ -189,7 +198,14 @@ impl<'a> VepPacket<'a> {
         };
 
         let root = capsule.to_composite_hash()?;
-        capsule.capsule_root = root.to_hex();
+        let root_hex = root.to_hex();
+
+        // 5. Integrity Check: Verify that the recomputed root matches the packet header
+        if root_hex != hex::encode(self.header().capsule_root) {
+            return Err("VEP Integrity Failure: Capsule root mismatch".to_string());
+        }
+
+        capsule.capsule_root = root_hex;
 
         Ok(capsule)
     }

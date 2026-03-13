@@ -8,14 +8,14 @@ This document outlines the strategic evolution of the VEX protocol following the
 ## [Phase 3] Polish & Hardening (Current Focus)
 
 ### Security & Isolation (The Armor)
-- **WASM Sandboxing**: Integrate `wasmtime` into `ToolExecutor`. Tools with `Capability::PureComputation` will run in strictly isolated environments to prevent host resource exploitation.
+- **WASM Sandboxing**: [INTEGRATED] Secure tool execution using `wasmtime` 22.x. Implemented `WasmTool` with memory (64MB) and fuel (10M) limits, integrated into `ToolExecutor`.
 - **Multi-LLM Debate**: [INTEGRATED] Enabled via `vex-router`. heterogeneous model configurations (e.g., Claude vs GPT) for Red/Blue agents to eliminate model-specific bias.
 - **Provider Diversity**: [INTEGRATED] Unified `LlmProvider` trait with multi-backend routing logic.
 - **Vex-Halt Evaluation**: Integrate with **[Vex-Halt](https://github.com/provnai/vex-halt)** (443+ test items) for automated calibration benchmarking.
 
 ### Real-time Interaction & Swarm Connectivity
 - **SSE Streaming**: [INTEGRATED] Implement Server-Sent Events (SSE) for the execute endpoint to provide real-time status updates and final results.
-- **Prospective Interception Layer**: Research deep integration with **McpVanguard** (Development) for L2-Semantic intent analysis and behavioral monitoring.
+- **Prospective Interception Layer**: [INTEGRATED] Deployed `MagpieAstBuilder` and `WSL` interop in `TitanGate` for L2-Semantic intent analysis and behavioral monitoring.
 
 ### Performance & Settlement
 - **Persistent Cache**: [INTEGRATED] Semantic Caching layer added to `vex-router` (Redis/Disk-ready).

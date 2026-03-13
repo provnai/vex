@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop, feat/harden-vex-inspection]
+    branches: [main, master, develop, feat/harden-vex-inspection, experiment/magpie-titan-gate]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.gemini/**'
   pull_request:
-    branches: [main, master, develop, feat/harden-vex-inspection]
+    branches: [main, master, develop, feat/harden-vex-inspection, experiment/magpie-titan-gate]
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -53,7 +53,26 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install TPM dependencies
         run: sudo apt-get update && sudo apt-get install -y libtss2-dev pkg-config
+
+      - name: Cache Magpie Binary
+        id: cache-magpie
+        uses: actions/cache@v4
+        with:
+          path: magpie-bin
+          key: ${{ runner.os }}-magpie-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Magpie Compiler
+        if: steps.cache-magpie.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/magpie-lang/magpie ../magpie
+          cd ../magpie
+          cargo build --release
+          mkdir -p ${{ github.workspace }}/magpie-bin
+          cp target/release/magpie ${{ github.workspace }}/magpie-bin/magpie
+
       - name: Run Tests
+        env:
+          MAGPIE_BIN_PATH: ${{ github.workspace }}/magpie-bin/magpie
         run: cargo test --all-features --workspace
 
   attest-lint:

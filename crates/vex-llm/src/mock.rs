@@ -100,6 +100,12 @@ impl MockProvider {
             &request.prompt[..request.prompt.len().min(50)]
         )
     }
+
+    /// Set simulated latency
+    pub fn with_latency(mut self, latency_ms: u64) -> Self {
+        self.latency_ms = latency_ms;
+        self
+    }
 }
 
 #[async_trait]
@@ -115,8 +121,20 @@ impl LlmProvider for MockProvider {
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
         let start = Instant::now();
 
-        // Simulate latency
-        tokio::time::sleep(std::time::Duration::from_millis(self.latency_ms)).await;
+        let request_timeout = request
+            .timeout
+            .unwrap_or(std::time::Duration::from_secs(30));
+
+        // Simulate latency with timeout protection
+        if tokio::time::timeout(
+            request_timeout,
+            tokio::time::sleep(std::time::Duration::from_millis(self.latency_ms)),
+        )
+        .await
+        .is_err()
+        {
+            return Err(LlmError::Timeout(request_timeout.as_millis() as u64));
+        }
 
         let content = if self.responses.is_empty() {
             self.generate_smart_response(&request)

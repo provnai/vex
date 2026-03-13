@@ -31,12 +31,15 @@ tokio-stream = "0.1"
 pin-project-lite = "0.2"
 jsonschema = { workspace = true }
 tokio-tungstenite = "0.24"
+wasmtime = { version = "22.0.0", features = ["async", "wat"] }
+wasmtime-wasi = { version = "22.0.0", features = ["preview1"] }
 
 # High-performance caching
 moka = { version = "0.12", features = ["future"] }
 
 [dev-dependencies]
 vex-macros = { workspace = true }
+wat = "1.245.1"
 
 [features]
 default = []

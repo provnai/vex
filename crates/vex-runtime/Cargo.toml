@@ -21,6 +21,10 @@ tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
+serde_jcs = { workspace = true }
+ed25519-dalek = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 hex = { workspace = true }
@@ -28,5 +32,8 @@ sha2 = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 reqwest = { workspace = true }
+regex = { workspace = true }
+tempfile = "3.10"
 [dev-dependencies]
+rand = { workspace = true }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }

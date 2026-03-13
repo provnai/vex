@@ -82,13 +82,15 @@ impl PostgresBackend {
             "Connected to PostgreSQL"
         );
 
-        // Run migrations
-        sqlx::migrate!("./postgres_migrations")
-            .run(&pool)
-            .await
-            .map_err(|e| StorageError::Internal(format!("Migration failed: {}", e)))?;
-
         Ok(Self { pool })
+    }
+
+    /// Explicitly run database migrations. Must be called after creation.
+    pub async fn migrate(&self) -> Result<(), StorageError> {
+        sqlx::migrate!("./postgres_migrations")
+            .run(&self.pool)
+            .await
+            .map_err(|e| StorageError::Internal(format!("Migration failed: {}", e)))
     }
 
     /// Get the connection pool

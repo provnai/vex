@@ -5,6 +5,32 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-12
+
+### Added
+- **🛡️ WASM Tool Sandbox**: Implemented a secure, standard execution environment for AI tools using Wasmtime 22.x.
+- **🛡️ Verifiable Evidence Packet (VEP) Bundling**: Implemented full TLV-based binary bundling for capsules. VEPs now embed the formal Magpie AST source for independent, offline auditability.
+- **👮 Host OOM Protection**: Added strict `MAX_WASM_OUTPUT_BYTES` (10MB) limit to `WasmTool` to prevent host-level memory exhaustion via unconstrained sandbox outputs.
+- **📜 Capsule Specification v0.1**: Aligned `vex-core` and `vex-runtime` with the finalized VEX/CHORA binary spec, supporting `MagpieAst` and `Signature` segments.
+- **👮 VEP Integrity Validation**: Hardened `VepPacket` reconstruction with mandatory root-hash matching, ensuring tampered binary payloads are rejected before processing.
+- **🛡️ Formal Intent Hardening**: Implemented `MagpieAstBuilder` in `vex-runtime` to replace fragile string-based IR generation, neutralizing instruction injection breakout attacks.
+- **⚡ JSON-Aware Metadata Search**: Implemented indigenous SQL metadata filtering in `SqliteVectorStore` and `PgVectorStore`, allowing combined semantic and structural queries.
+- **🧪 Extreme JCS Hardening**: Added property-based stress tests (5000+ iterations) for RFC 8785 compliance, ensuring 100% collision-free commitment across the protocol.
+- **⚖️ LLM Resilience Hardening**: Integrated timeout guards and circuit breakers in `ResilientProvider` to handle unresponsive upstream model providers.
+- **🆔 AID Binary Compliance**: Switched `EvidenceCapsuleV0` identity headers to raw 32-byte hex for strict binary wire format compliance.
+- **🏗️ WASI Capability Mapping**: Established a cryptographic bridge between VEX capability requests and WASI host call privilege isolation.
+- **🚀 Async DB Migrations**: Refactored `SqliteBackend` and `PostgresBackend` to expose explicit `migrate()` methods, removing blocking hot-path migrations from constructors.
+
+## [1.1.5] - 2026-03-11
+
+### Added
+- **🛡️ Titan Gate L2 Hardening**: Implemented word-boundary aware regex sanitization for Magpie intents. Prevents structural keyword injection while allowing legitimate instruction sets.
+- **🚀 Async Magpie Support**: Replaced synchronous compiler calls with `tokio` process management and `TempFileGuard` RAII for atomic resource cleanup.
+- **📜 VEP v0.1 Wire Parity**: Verified 76-byte binary header structure and JCS commitment surface against reference vectors. Added `vep_verification.rs` suite.
+- **🗃️ VEP Persistence**: Enhanced `AuditStore` with O(1) `capsule_id` indexing and raw binary blob storage for independent audit trails.
+- **🔍 Standalone VepVerifier**: Implemented a stateless cryptographic verifier in `vex-runtime` for non-interactive auditor handshakes.
+- **🧪 Total Trust Trinity**: Formalized the L1 (Deterministic) -> L2 (Formal Intent) -> L3 (Hardware Attestation) execution path in `TitanGate`.
+
 ## [1.1.4] - 2026-03-10
 
 ### Added

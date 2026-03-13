@@ -71,6 +71,7 @@ impl HardwareKeystore {
 
         Ok(AgentIdentity {
             agent_id: agent.to_vex_uuid().to_string(),
+            hardware_id: agent.id.clone(),
             inner: agent,
         })
     }
@@ -79,6 +80,7 @@ impl HardwareKeystore {
 #[derive(Debug, Clone)]
 pub struct AgentIdentity {
     pub agent_id: String,
+    pub hardware_id: String,
     inner: AttestAgent,
 }
 
@@ -87,6 +89,7 @@ impl Default for AgentIdentity {
         let agent = crate::id::AttestAgent::new();
         Self {
             agent_id: agent.to_vex_uuid().to_string(),
+            hardware_id: agent.id.clone(),
             inner: agent,
         }
     }
@@ -96,6 +99,11 @@ impl AgentIdentity {
     /// Create a fresh hardware identity (for simulation or new agents)
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Returns the raw hex of the public key (32 bytes)
+    pub fn public_key_hex(&self) -> String {
+        hex::encode(self.inner.signing_key.verifying_key().to_bytes())
     }
 
     /// Generate an Ed25519 signature over the provided deterministic bytes

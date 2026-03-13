@@ -21,6 +21,7 @@ mod tests {
                 .to_string(),
             confidence: 0.95,
             capabilities: vec![],
+            magpie_source: None,
         };
 
         let capsule = bridge.perform_handshake(intent).await.unwrap();
