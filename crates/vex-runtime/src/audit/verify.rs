@@ -104,7 +104,11 @@ impl VepVerifier {
 
         use tokio::process::Command;
         let mut cmd = Command::new("magpie");
-        cmd.arg("-c").arg(&tmp_path);
+        cmd.arg("--output")
+            .arg("json")
+            .arg("--entry")
+            .arg(&tmp_path)
+            .arg("parse");
 
         let output = cmd
             .output()

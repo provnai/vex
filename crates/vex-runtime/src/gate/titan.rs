@@ -131,17 +131,12 @@ impl TitanGate {
         }
 
         let mut cmd = Command::new(&magpie_path);
-        if magpie_path.ends_with(".exe") && !cfg!(target_os = "windows") {
-            // If we are calling a .exe from linux (WSL), it works via interop
-            cmd.arg("--output")
-                .arg("json")
-                .arg("--entry")
-                .arg(&arg_path)
-                .arg("parse");
-        } else {
-            // Normal native call
-            cmd.arg("-c").arg(&arg_path);
-        }
+        // Unified CLI call: Global flags must appear BEFORE the subcommand
+        cmd.arg("--output")
+            .arg("json")
+            .arg("--entry")
+            .arg(&arg_path)
+            .arg("parse");
 
         // Limit compiler execution to 5000ms to prevent DOS/Hangs (increased for WSL interop overhead)
         let output = timeout(Duration::from_millis(5000), cmd.output())
