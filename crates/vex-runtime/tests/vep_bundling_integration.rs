@@ -43,7 +43,7 @@ async fn test_vep_end_to_end_bundling_and_reverification() {
         .magpie_source
         .as_ref()
         .expect("Missing bundled Magpie AST");
-    assert!(bundled_source.contains("module intent.verify"));
+    assert!(bundled_source.contains("module standard"));
     assert!(bundled_source.contains("Valid Magpie comment"));
 
     println!("Full VEP Bundle Verified successfully!");

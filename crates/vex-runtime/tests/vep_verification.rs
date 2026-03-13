@@ -24,6 +24,7 @@ fn test_vep_binary_serialization() {
     let identity = IdentitySegment {
         aid: "1".repeat(64),
         identity_type: "TPM_ECC".to_string(),
+        pcrs: None,
     };
 
     let witness = WitnessSegment {
@@ -32,7 +33,7 @@ fn test_vep_binary_serialization() {
         timestamp: "2026-03-11T22:00:00Z".to_string(),
     };
 
-    let capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness).unwrap();
+    let capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness, None).unwrap();
     let binary = capsule.to_vep_binary().unwrap();
 
     // Header: magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8) = 76 bytes
@@ -105,12 +106,14 @@ fn test_vep_signature_verification() {
         IdentitySegment {
             aid: "1".repeat(64),
             identity_type: "TPM".into(),
+            pcrs: None,
         },
         WitnessSegment {
             chora_node_id: "n".into(),
             receipt_hash: "2".repeat(64),
             timestamp: "2026".into(),
         },
+        None,
     )
     .unwrap();
 

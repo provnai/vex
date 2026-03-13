@@ -23,7 +23,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.2.0"
+version = "1.3.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["VEX protocol Provnai <contact@provnai.com>"]
@@ -87,23 +87,23 @@ ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 zerocopy = { version = "0.8", features = ["derive"] }
 
 # Internal VEX crates
-vex-core = { path = "crates/vex-core", version = "1.2.0" }
-vex-adversarial = { path = "crates/vex-adversarial", version = "1.2.0" }
-vex-llm = { path = "crates/vex-llm", version = "1.2.0" }
-vex-persist = { path = "crates/vex-persist", version = "1.2.0" }
-vex-router = { path = "crates/vex-router", version = "1.2.0" }
-vex-algoswitch = { path = "crates/vex-algoswitch", version = "1.2.0" }
-vex-queue = { path = "crates/vex-queue", version = "1.2.0" }
-vex-runtime = { path = "crates/vex-runtime", version = "1.2.0" }
-vex-macros = { path = "crates/vex-macros", version = "1.2.0" }
-vex-api = { path = "crates/vex-api", version = "1.2.0" }
-vex-anchor = { path = "crates/vex-anchor", version = "1.2.0" }
-vex-temporal = { path = "crates/vex-temporal", version = "1.2.0" }
-vex-server = { path = "crates/vex-server", version = "1.2.0" }
-vex-hardware = { path = "crates/vex-hardware", version = "1.2.0" }
-vex-chora = { path = "crates/vex-chora", version = "1.2.0" }
-vex-protocol-cli = { path = "crates/vex-cli", version = "1.2.0" }
-vex-sidecar = { path = "crates/vex-sidecar", version = "1.2.0" }
+vex-core = { path = "crates/vex-core", version = "1.3.0" }
+vex-adversarial = { path = "crates/vex-adversarial", version = "1.3.0" }
+vex-llm = { path = "crates/vex-llm", version = "1.3.0" }
+vex-persist = { path = "crates/vex-persist", version = "1.3.0" }
+vex-router = { path = "crates/vex-router", version = "1.3.0" }
+vex-algoswitch = { path = "crates/vex-algoswitch", version = "1.3.0" }
+vex-queue = { path = "crates/vex-queue", version = "1.3.0" }
+vex-runtime = { path = "crates/vex-runtime", version = "1.3.0" }
+vex-macros = { path = "crates/vex-macros", version = "1.3.0" }
+vex-api = { path = "crates/vex-api", version = "1.3.0" }
+vex-anchor = { path = "crates/vex-anchor", version = "1.3.0" }
+vex-temporal = { path = "crates/vex-temporal", version = "1.3.0" }
+vex-server = { path = "crates/vex-server", version = "1.3.0" }
+vex-hardware = { path = "crates/vex-hardware", version = "1.3.0" }
+vex-chora = { path = "crates/vex-chora", version = "1.3.0" }
+vex-protocol-cli = { path = "crates/vex-cli", version = "1.3.0" }
+vex-sidecar = { path = "crates/vex-sidecar", version = "1.3.0" }
 
 # Release profile with security-hardened settings
 [profile.release]

@@ -110,4 +110,13 @@ impl AgentIdentity {
     pub fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.inner.sign(message).to_bytes().to_vec()
     }
+
+    /// Retrieve hardware PCR measurements (async)
+    pub async fn get_pcrs(
+        &self,
+        indices: &[u32],
+    ) -> Result<std::collections::HashMap<u32, String>> {
+        let provider = crate::tpm::create_identity_provider(true);
+        provider.get_pcrs(indices).await
+    }
 }

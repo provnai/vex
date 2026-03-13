@@ -30,17 +30,25 @@ VEX uses SQLite by default but requires **PostgreSQL** for cloud-native scaling 
 ### 2. Required Variables
 You must set the following variables for VEX to start successfully:
 
-- `VEX_JWT_SECRET`: A secure 32+ character string used for signing authentication tokens.
-- `VEX_HARDWARE_SEED`: (Optional but Recommended) A 64-character hex string (32-bytes) used to provide a stable, persistent identity on Railway where physical TPMs are absent. If omitted, VEX falls back to a zero-seed with a warning.
-- `VEX_DEV_MODE`: Set to `"1"` (Default) to bypass strict hardware requirements and enable dev-mode fallbacks for template testing.
-- `<PROVIDER>_API_KEY`: At least one API key for your chosen LLM (e.g., `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`).
+| Variable | Description | Required |
+|---|---|---|
+| `VEX_JWT_SECRET` | A secure 32-character string for JWT auth. | **Yes** |
+| `MAGPIE_BIN_PATH`| Path to the Magpie executable for formal intent. | **Yes** |
+| `VEX_HARDWARE_SEED` | A 64-character hex string (32-bytes) to provide a stable, persistent identity on Railway where physical TPMs are absent. | Optional* |
+| `OPENAI_API_KEY` | Your OpenAI API key. | Optional* |
+| `VEX_PORT` | Port the server binds to (default: `8080`). | No |
+| `VEX_ENV` | Set to `production` for optimized defaults. | No |
+| `VEX_DEV_MODE` | Set to `0` to enforce hardware proofs (Default: `1`). | No |
+| `<PROVIDER>_API_KEY` | At least one API key for your chosen LLM (e.g., `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`). | **Yes** (at least one) |
+
+*Note: `VEX_HARDWARE_SEED` is optional but recommended for production deployments to ensure consistent hardware-rooted proofs.*
 
 ### 3. Rate Limiting (Optional)
-VEX v0.3.0 introduced configurable Rate Limiting explicitly for cloud deployments.
+VEX v1.3.0 uses configurable Rate Limiting explicitly for cloud deployments.
 
-- `VEX_LIMIT_FREE`: Requests per minute for basic tenants (default: 60)
-- `VEX_LIMIT_STANDARD`: Requests per minute for standard tenants (default: 120)
-- `VEX_LIMIT_PRO`: Requests per minute for pro tenants (default: 600)
+- `VEX_LIMIT_FREE`: Requests per minute for basic tenants (default: 10)
+- `VEX_LIMIT_STANDARD`: Requests per minute for standard tenants (default: 100)
+- `VEX_LIMIT_PRO`: Requests per minute for pro tenants (default: 1000)
 - `VEX_DISABLE_RATE_LIMIT`: Set to `"true"` to completely bypass rate limiting (ideal if VEX is hosted behind an internal private network and another proxy).
 
 ### 4. OpenTelemetry Observability (Optional)
@@ -73,7 +81,13 @@ Because you own the source code, you have the ultimate flexibility to bend VEX t
 - **Tune the Adversarial Engine:** Modify the system prompts used by the Red/Blue team validators to check for specific compliance or regulatory rules unique to your industry.
 
 Railway is already connected to your new repository. Any time you `git push` a custom change to your `main` branch, Railway automatically rebuilds the `Dockerfile` and deploys your customized version—zero CI/CD setup required.
-
+```json
+{
+  "status": "healthy",
+  "version": "1.3.0",
+  "timestamp": "2026-03-02T..."
+}
+```
 ## Health Checks and Volumes
 
 Our Railway template is pre-configured with the following infrastructure defaults:

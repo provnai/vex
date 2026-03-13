@@ -16,10 +16,12 @@ This document outlines the strategic evolution of the VEX protocol following the
 - **Total Truth CI**: [COMPLETE] Real Magpie compiler integration in CI/CD pipeline.
 - **Unified CLI**: [COMPLETE] Standardized Magpie invocation across all VEX pillars.
 - **VEP Binary Bundling**: [COMPLETE] Transitioned to TLV-based binary Evidence Capsules with embedded formal ASTs.
+- **Hardware PCR Binding (v0.2)**: [COMPLETE] Integrated direct TBS interaction for kernel-level integrity measurements (PCRs 0, 7, 11) on Windows.
 
 ### Real-time Interaction & Swarm Connectivity
 - **SSE Streaming**: [INTEGRATED] Implement Server-Sent Events (SSE) for the execute endpoint to provide real-time status updates and final results.
 - **Prospective Interception Layer**: [INTEGRATED] Deployed `MagpieAstBuilder` and `WSL` interop in `TitanGate` for L2-Semantic intent analysis and behavioral monitoring.
+- **George Interop Verification**: [COMPLETE] Verified JCS parity and composite root commitment for v0.2 spec. Drafted "Minimal Commitment" Witness pattern for production.
 
 ### Performance & Settlement
 - **Persistent Cache**: [COMPLETE] Semantic Caching layer added to `vex-router` (Redis/Disk-ready).

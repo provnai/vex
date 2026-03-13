@@ -51,8 +51,14 @@ mod ethereum;
 #[cfg(feature = "celestia")]
 mod celestia;
 
+#[cfg(feature = "cloud")]
+mod cloud;
+
 pub use backend::{AnchorBackend, AnchorMetadata, AnchorReceipt};
 pub use error::AnchorError;
+
+#[cfg(feature = "cloud")]
+pub use cloud::CloudAnchor;
 
 #[cfg(feature = "file")]
 pub use file::FileAnchor;

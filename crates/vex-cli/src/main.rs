@@ -22,7 +22,7 @@ use colored::Colorize;
 
 mod commands;
 
-use commands::{info, tools, verify};
+use commands::{info, inspect, tools, verify};
 
 /// VEX - Verified Evolutionary Xenogenesis
 ///
@@ -59,6 +59,10 @@ enum Commands {
     /// Show system information
     #[command(name = "info")]
     Info(info::InfoArgs),
+
+    /// Inspect a binary VEP capsule
+    #[command(name = "inspect")]
+    Inspect(inspect::InspectArgs),
 }
 
 #[tokio::main]
@@ -73,6 +77,7 @@ async fn main() -> Result<()> {
         Commands::Verify(args) => verify::run(args).await,
         Commands::Tools(args) => tools::run(args).await,
         Commands::Info(args) => info::run(args),
+        Commands::Inspect(args) => inspect::run(args).await,
     }
 }
 

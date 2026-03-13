@@ -30,7 +30,7 @@ provn-sdk = "0.3.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Security_Cryptography", "Win32_System_Threading", "Win32_Foundation"] }
-windows = { version = "0.62.2", features = ["Win32_Security_Tpm", "Win32_Foundation", "Win32_System_SystemServices", "Win32_Security_Cryptography"] }
+windows = { version = "0.62.2", features = ["Win32_Security_Tpm", "Win32_Foundation", "Win32_System_SystemServices", "Win32_Security_Cryptography", "Win32_System_TpmBaseServices"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tss-esapi = "7.5.0"

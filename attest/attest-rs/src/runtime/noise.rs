@@ -132,7 +132,7 @@ impl crate::runtime::keystore_provider::KeyProvider for MockKeyProvider {
             Ok(vex_hardware::traits::TpmQuote {
                 message: Vec::new(),
                 signature: Vec::new(),
-                pcrs: Vec::new(),
+                pcrs: Default::default(),
             })
         })
     }

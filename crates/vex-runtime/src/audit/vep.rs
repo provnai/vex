@@ -18,7 +18,7 @@ pub enum VepError {
 /// magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 pub const VEP_HEADER_SIZE: usize = 3 + 1 + 32 + 32 + 8;
 pub const VEP_MAGIC: [u8; 3] = *b"VEP";
-pub const VEP_VERSION: u8 = 0x02;
+pub const VEP_VERSION: u8 = 0x03;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntentSegment {
@@ -43,6 +43,9 @@ pub struct AuthoritySegment {
 pub struct IdentitySegment {
     pub aid: String,
     pub identity_type: String,
+    /// Platform Configuration Registers (PCRs) for hardware-rooted integrity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pcrs: Option<std::collections::HashMap<u32, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +53,13 @@ pub struct WitnessSegment {
     pub chora_node_id: String,
     pub receipt_hash: String,
     pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestCommitment {
+    pub canonicalization: String,
+    pub payload_sha256: String,
+    pub payload_encoding: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +77,9 @@ pub struct EvidenceCapsuleV0 {
     pub capsule_root: String,
 
     pub crypto: VepCrypto,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_commitment: Option<RequestCommitment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +96,7 @@ impl EvidenceCapsuleV0 {
         authority: AuthoritySegment,
         identity: IdentitySegment,
         witness: WitnessSegment,
+        request_commitment: Option<RequestCommitment>,
     ) -> Result<Self, VepError> {
         let intent_hash = hash_segment(&intent)?;
         let authority_hash = hash_segment(&authority)?;
@@ -116,6 +130,7 @@ impl EvidenceCapsuleV0 {
                 signature_scope: "capsule_root".to_string(),
                 signature_b64: String::new(),
             },
+            request_commitment,
         })
     }
 

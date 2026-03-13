@@ -14,7 +14,7 @@ Tokio-based agent orchestration for the VEX Protocol.
 ```toml
 [dependencies]
 [dependencies]
-vex-runtime = "1.2.0"
+vex-runtime = "1.3.0"
 ```
 
 ## Quick Start

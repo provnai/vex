@@ -37,6 +37,7 @@ colored = "2"
 comfy-table = "7"
 
 # Utilities
+hex = "0.4"
 uuid = { workspace = true }
 chrono = { workspace = true }
 

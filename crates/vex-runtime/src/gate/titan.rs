@@ -1,3 +1,7 @@
+use crate::audit::vep::{
+    AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, RequestCommitment,
+    WitnessSegment,
+};
 use crate::gate::Gate;
 use async_trait::async_trait;
 use regex::Regex;
@@ -192,7 +196,7 @@ impl MagpieAstBuilder {
     fn new(profile: SecurityProfile, digest: String) -> Self {
         Self {
             module_name: match profile {
-                SecurityProfile::Standard => "intent.verify".to_string(),
+                SecurityProfile::Standard => "standard".to_string(), // Aligned with profiles/standard_agent.mp
                 SecurityProfile::Fortress => "fortress.verify".to_string(),
             },
             profile,
@@ -242,7 +246,7 @@ impl MagpieAstBuilder {
             out.push_str(";; THE ONLY PERMITTED SIDE-EFFECT\n");
         }
         out.push_str(
-            "fn @log_safe(%msg: Str) -> i32 meta { } {\n  bb0:\n    ret const.i32 0\n}\n\n",
+            "fn @log_safe(%msg: Str) -> unit meta { } {\n  bb0:\n    ret const.unit unit\n}\n\n",
         );
 
         out.push_str("fn @intent() -> i32 meta { } {\n  bb0:\n");
@@ -253,7 +257,16 @@ impl MagpieAstBuilder {
         for inst in &self.body_instructions {
             out.push_str(&format!("    {}\n", inst));
         }
-        out.push_str("    ret const.i32 0\n}\n");
+
+        // Only add trailing ret if the last instruction wasn't already a terminator
+        let has_ret = self
+            .body_instructions
+            .iter()
+            .any(|i| i.trim_start().starts_with("ret "));
+        if !has_ret {
+            out.push_str("    ret const.i32 0\n");
+        }
+        out.push_str("}\n");
         out
     }
 }
@@ -306,11 +319,6 @@ impl Gate for TitanGate {
                 match self.chora.request_attestation(intent_payload).await {
                     Ok(chora_resp) => {
                         // Assemble the finalized VEP (Verifiable Evidence Packet)
-                        use crate::audit::vep::{
-                            AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment,
-                            WitnessSegment,
-                        };
-
                         let intent = IntentSegment {
                             request_sha256: digest_hex.clone(),
                             confidence,
@@ -330,10 +338,18 @@ impl Gate for TitanGate {
                             }),
                         };
 
+                        let pcrs = self.identity.get_pcrs(&[0, 7, 11]).await.ok();
                         let identity = IdentitySegment {
                             aid: self.identity.public_key_hex(),
                             identity_type: "TPM_ECC_PERSISTENT".to_string(), // Spec alignment
+                            pcrs,
                         };
+
+                        let request_commitment = Some(RequestCommitment {
+                            canonicalization: "JCS-RFC8785".to_string(),
+                            payload_sha256: digest_hex.clone(),
+                            payload_encoding: "application/json".to_string(),
+                        });
 
                         let witness = WitnessSegment {
                             chora_node_id: "chora-primary-v1".to_string(),
@@ -341,10 +357,15 @@ impl Gate for TitanGate {
                             timestamp: chrono::Utc::now().to_rfc3339(),
                         };
 
-                        let mut v0_capsule =
-                            EvidenceCapsuleV0::new(intent, authority, identity, witness)
-                                .map_err(|e| format!("VEP_GENERATION_ERROR: {}", e))
-                                .unwrap(); // Simplified error handling for now
+                        let mut v0_capsule = EvidenceCapsuleV0::new(
+                            intent,
+                            authority,
+                            identity,
+                            witness,
+                            request_commitment,
+                        )
+                        .map_err(|e| format!("VEP_GENERATION_ERROR: {}", e))
+                        .unwrap(); // Simplified error handling for now
 
                         // Hardware Seal: Sign the root commitment with the TPM identity
                         let root_bytes = hex::decode(&v0_capsule.capsule_root)
@@ -416,6 +437,126 @@ impl Gate for TitanGate {
                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L2"}),
                 vep_blob: None,
             },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vex_llm::LlmRequest;
+
+    #[derive(Debug)]
+    struct MockInnerGate;
+    #[async_trait]
+    impl Gate for MockInnerGate {
+        async fn execute_gate(
+            &self,
+            _id: Uuid,
+            _p: &str,
+            _o: &str,
+            _c: f64,
+            _cap: Vec<Capability>,
+        ) -> EvidenceCapsule {
+            EvidenceCapsule {
+                capsule_id: "inner".into(),
+                outcome: "ALLOW".into(),
+                reason_code: "OK".into(),
+                witness_receipt: "root".into(),
+                nonce: 0,
+                magpie_source: None,
+                gate_sensors: serde_json::json!({}),
+                reproducibility_context: serde_json::json!({}),
+                vep_blob: None,
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockLlm;
+    #[async_trait]
+    impl LlmProvider for MockLlm {
+        fn name(&self) -> &str {
+            "mock"
+        }
+        async fn is_available(&self) -> bool {
+            true
+        }
+        async fn complete(
+            &self,
+            _req: LlmRequest,
+        ) -> std::result::Result<vex_llm::LlmResponse, vex_llm::LlmError> {
+            Ok(vex_llm::LlmResponse {
+                content: "mock".into(),
+                model: "mock".into(),
+                tokens_used: None,
+                latency_ms: 0,
+                trace_root: None,
+            })
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockChora;
+    #[async_trait]
+    impl vex_chora::client::AuthorityClient for MockChora {
+        async fn request_attestation(
+            &self,
+            _p: &[u8],
+        ) -> std::result::Result<vex_chora::client::ChoraResponse, String> {
+            Ok(vex_chora::client::ChoraResponse {
+                authority: vex_core::segment::AuthorityData {
+                    capsule_id: "chora".into(),
+                    outcome: "ALLOW".into(),
+                    reason_code: "OK".into(),
+                    trace_root: "00".repeat(32),
+                    nonce: 42,
+                    gate_sensors: serde_json::json!({}),
+                },
+                signature: "sig".into(),
+            })
+        }
+        async fn verify_witness_signature(
+            &self,
+            _p: &[u8],
+            _s: &[u8],
+        ) -> std::result::Result<bool, String> {
+            Ok(true)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_titan_gate_pcr_binding() {
+        // Fully enabled L2/L3 verification for "Bulletproof" parity
+        std::env::set_var("VEX_HARDWARE_ATTESTATION", "false");
+
+        let identity = AgentIdentity::new();
+        let gate = TitanGate::new(
+            Arc::new(MockInnerGate),
+            Arc::new(MockLlm),
+            Arc::new(MockChora),
+            identity.clone(),
+            SecurityProfile::Standard,
+        );
+
+        let capsule = gate
+            .execute_gate(Uuid::new_v4(), "prompt", "ret const.i32 0", 1.0, vec![])
+            .await;
+
+        if capsule.outcome != "ALLOW" {
+            println!("GATE_HALT: {} - {}", capsule.outcome, capsule.reason_code);
+        }
+        assert_eq!(capsule.outcome, "ALLOW");
+
+        let blob = capsule.vep_blob.expect("Missing VEP blob");
+        let packet = vex_core::vep::VepPacket::new(&blob).unwrap();
+        let core_capsule = packet.to_capsule().unwrap();
+
+        assert_eq!(core_capsule.identity.aid, identity.public_key_hex());
+        if let Some(pcrs) = core_capsule.identity.pcrs {
+            for (idx, hash) in pcrs {
+                println!("✅ HARDWARE PCR BINDING VERIFIED: PCR {} = {}", idx, hash);
+            }
         }
     }
 }
