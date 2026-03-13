@@ -5,21 +5,26 @@
 
 This document outlines the strategic evolution of the VEX protocol following the v0.1.5 milestone.
 
-## [Phase 3] Polish & Hardening (Current Focus)
+## [Phase 11] Production Hardening & VEP Bundling (Current Focus)
 
 ### Security & Isolation (The Armor)
-- **WASM Sandboxing**: [INTEGRATED] Secure tool execution using `wasmtime` 22.x. Implemented `WasmTool` with memory (64MB) and fuel (10M) limits, integrated into `ToolExecutor`.
-- **Multi-LLM Debate**: [INTEGRATED] Enabled via `vex-router`. heterogeneous model configurations (e.g., Claude vs GPT) for Red/Blue agents to eliminate model-specific bias.
-- **Provider Diversity**: [INTEGRATED] Unified `LlmProvider` trait with multi-backend routing logic.
-- **Vex-Halt Evaluation**: Integrate with **[Vex-Halt](https://github.com/provnai/vex-halt)** (443+ test items) for automated calibration benchmarking.
+- **WASM Sandboxing**: [COMPLETE] Secure tool execution using `wasmtime` 22.x. Implemented `WasmTool` with memory (64MB) and fuel (10M) limits.
+- **Formal Intent Hardening**: [COMPLETE] `MagpieAstBuilder` neutralized IR injection vulnerabilities via programmatic AST generation.
+- **OOM Protection**: [COMPLETE] Host-level memory guarding for sandbox outputs.
+
+### Total Truth & Integrity
+- **Total Truth CI**: [COMPLETE] Real Magpie compiler integration in CI/CD pipeline.
+- **Unified CLI**: [COMPLETE] Standardized Magpie invocation across all VEX pillars.
+- **VEP Binary Bundling**: [COMPLETE] Transitioned to TLV-based binary Evidence Capsules with embedded formal ASTs.
 
 ### Real-time Interaction & Swarm Connectivity
 - **SSE Streaming**: [INTEGRATED] Implement Server-Sent Events (SSE) for the execute endpoint to provide real-time status updates and final results.
 - **Prospective Interception Layer**: [INTEGRATED] Deployed `MagpieAstBuilder` and `WSL` interop in `TitanGate` for L2-Semantic intent analysis and behavioral monitoring.
 
 ### Performance & Settlement
-- **Persistent Cache**: [INTEGRATED] Semantic Caching layer added to `vex-router` (Redis/Disk-ready).
-- **Settlement Backends**: Optimize anchoring for **ProvnCloud** (Development) and **Notary-AO** (Development).
+- **Persistent Cache**: [COMPLETE] Semantic Caching layer added to `vex-router` (Redis/Disk-ready).
+- **CHORA Handshake**: [COMPLETE] Live witness authority decision loop (ALLOW/HALT/ESCALATE).
+- **Settlement Backends**: Optimize anchoring for **ProvnCloud** (SaaS) and **Solana** (High-Performance).
 
 ---
 
