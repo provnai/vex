@@ -26,12 +26,23 @@ pub struct WasmTool {
 }
 
 impl WasmTool {
-    /// Create a new WASM-sandboxed tool
+    /// Create a new WASM-sandboxed tool.
+    ///
+    /// **Capability enforcement:** Only `Environment` is enforced by WASI Preview 1.
+    /// `Network` and `FileSystem` capabilities are recorded but NOT enforced by the
+    /// current WASI Preview 1 runtime — they serve as documentation of intent.
+    /// If `capabilities` is empty, the tool runs with no extra permissions (safest default).
     pub fn new(
         definition: ToolDefinition,
         module_bytes: Vec<u8>,
         capabilities: Vec<Capability>,
     ) -> Self {
+        if capabilities.contains(&Capability::Network) || capabilities.contains(&Capability::FileSystem) {
+            tracing::warn!(
+                tool = %definition.name,
+                "Tool requests Network/FileSystem capabilities which are not enforced by WASI Preview 1"
+            );
+        }
         Self {
             definition,
             module_bytes,
