@@ -259,7 +259,35 @@ impl AuditEvent {
         }
     }
 
-    /// Sanitize sensitive fields from audit data (HIGH-2 fix)
+    /// Patterns that indicate a secret value (checked against string values)
+    const SECRET_VALUE_PREFIXES: &'static [&'static str] = &[
+        "sk-",      // OpenAI/Stripe keys
+        "ghp_",     // GitHub personal tokens
+        "gho_",     // GitHub OAuth tokens
+        "Bearer ",  // Auth bearer tokens
+        "Basic ",   // Basic auth
+        "whsec_",   // Webhook secrets
+        "xoxb-",    // Slack bot tokens
+        "xoxp-",    // Slack user tokens
+    ];
+
+    /// Check if a string value looks like a secret
+    fn is_secret_value(s: &str) -> bool {
+        // Check known prefixes
+        if Self::SECRET_VALUE_PREFIXES.iter().any(|p| s.starts_with(p)) {
+            return true;
+        }
+        // Check for base64-encoded blobs >= 32 chars (likely secrets)
+        if s.len() >= 32
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')
+        {
+            return true;
+        }
+        false
+    }
+
+    /// Sanitize sensitive fields and values from audit data (HIGH-2 fix)
     pub fn sanitize_data(value: serde_json::Value) -> serde_json::Value {
         match value {
             serde_json::Value::Object(mut map) => {
@@ -275,6 +303,9 @@ impl AuditEvent {
             }
             serde_json::Value::Array(arr) => {
                 serde_json::Value::Array(arr.into_iter().map(Self::sanitize_data).collect())
+            }
+            serde_json::Value::String(s) if Self::is_secret_value(&s) => {
+                serde_json::Value::String("[REDACTED]".to_string())
             }
             other => other,
         }
@@ -300,9 +331,9 @@ impl AuditEvent {
         match serde_jcs::to_vec(&params) {
             Ok(jcs_bytes) => Hash::digest(&jcs_bytes),
             Err(_) => {
-                // Fallback (should not happen if HashParams is simple)
+                // Fallback with domain separation prefix
                 let content = format!(
-                    "{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}:{}",
+                    "vex-audit-v1:{:?}:{}:{}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}:{}",
                     params.event_type,
                     params.timestamp,
                     params.sequence_number,
@@ -321,7 +352,7 @@ impl AuditEvent {
     }
 
     pub fn compute_chained_hash(base_hash: &Hash, prev_hash: &Hash, sequence: u64) -> Hash {
-        let content = format!("{}:{}:{}", base_hash, prev_hash, sequence);
+        let content = format!("vex-chain-v1:{}:{}:{}", base_hash, prev_hash, sequence);
         Hash::digest(content.as_bytes())
     }
 
@@ -390,6 +421,61 @@ impl AuditEvent {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_sanitize_sensitive_keys() {
+        let data = json!({
+            "name": "test",
+            "api_key": "sk-abc123",
+            "nested": {
+                "password": "secret123",
+                "safe": "value"
+            }
+        });
+        let sanitized = AuditEvent::sanitize_data(data);
+        assert_eq!(sanitized["api_key"], "[REDACTED]");
+        assert_eq!(sanitized["nested"]["password"], "[REDACTED]");
+        assert_eq!(sanitized["nested"]["safe"], "value");
+        assert_eq!(sanitized["name"], "test");
+    }
+
+    #[test]
+    fn test_sanitize_secret_values() {
+        let data = json!({
+            "some_field": "sk-1234567890abcdef",
+            "token_field": "ghp_abcdefghijklmnop",
+            "bearer_field": "Bearer eyJhbGciOiJIUz",
+            "safe_field": "hello world"
+        });
+        let sanitized = AuditEvent::sanitize_data(data);
+        assert_eq!(sanitized["some_field"], "[REDACTED]");
+        assert_eq!(sanitized["token_field"], "[REDACTED]");
+        assert_eq!(sanitized["bearer_field"], "[REDACTED]");
+        assert_eq!(sanitized["safe_field"], "hello world");
+    }
+
+    #[test]
+    fn test_sanitize_nested_arrays() {
+        let data = json!({
+            "items": [
+                {"password": "secret"},
+                {"name": "safe"}
+            ]
+        });
+        let sanitized = AuditEvent::sanitize_data(data);
+        assert_eq!(sanitized["items"][0]["password"], "[REDACTED]");
+        assert_eq!(sanitized["items"][1]["name"], "safe");
+    }
+
+    #[test]
+    fn test_chained_hash_domain_separation() {
+        let hash1 = Hash::digest(b"event1");
+        let hash2 = Hash::digest(b"event2");
+        let chained = AuditEvent::compute_chained_hash(&hash1, &hash2, 1);
+        // Should be different from non-domain-separated version
+        let raw = Hash::digest(format!("{}:{}:{}", hash1, hash2, 1).as_bytes());
+        assert_ne!(chained, raw, "Domain-separated hash should differ from raw");
+    }
 
     #[tokio::test]
     async fn test_hardware_signature() {

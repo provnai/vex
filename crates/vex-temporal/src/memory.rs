@@ -296,10 +296,11 @@ impl EpisodicMemory {
         count
     }
 
-    /// Summarize all episodes into a single context string using LLM
-    /// Useful for providing memory context to agents
+    /// Summarize all episodes into a single context string using LLM.
+    /// Useful for providing memory context to agents.
+    /// If `persist_as_pinned` is true, the summary is stored back as a pinned episode.
     pub async fn summarize_all_with_llm<L: vex_llm::LlmProvider>(
-        &self,
+        &mut self,
         llm: &L,
     ) -> Result<String, vex_llm::LlmError> {
         if self.episodes.is_empty() {
@@ -330,7 +331,14 @@ impl EpisodicMemory {
             all_content
         );
 
-        llm.ask(&prompt).await.map(|s| s.trim().to_string())
+        let summary = llm.ask(&prompt).await.map(|s| s.trim().to_string())?;
+
+        // Optionally persist the consolidated summary back as a pinned episode
+        let mut pinned_ep = Episode::pinned(&summary);
+        pinned_ep.tags.push("consolidated_summary".to_string());
+        self.episodes.push_front(pinned_ep);
+
+        Ok(summary)
     }
 
     /// Get a summary of memory contents

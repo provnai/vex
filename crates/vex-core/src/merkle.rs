@@ -177,7 +177,12 @@ impl MerkleTree {
         }
     }
 
-    /// Build a Merkle tree from a list of (id, hash) pairs (zero-copy construction)
+    /// Build a Merkle tree from a list of (id, hash) pairs (zero-copy construction).
+    ///
+    /// Odd-leaf handling: When a level has an odd number of nodes, the last node is
+    /// promoted ("carried up") to the next level without duplication. This follows
+    /// Bitcoin's Merkle tree construction but avoids the vulnerability of duplicating
+    /// the last hash (which can create ambiguous proofs).
     pub fn from_leaves(leaves: Vec<(String, Hash)>) -> Self {
         if leaves.is_empty() {
             return Self::new();
@@ -464,6 +469,80 @@ mod tests {
             let proof = tree.get_proof_by_hash(hash).expect("Should find leaf");
             assert!(proof.verify(root), "Proof should verify for odd tree");
         }
+    }
+
+    #[test]
+    fn test_single_leaf_tree() {
+        let leaves = vec![("only".to_string(), Hash::digest(b"only_data"))];
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        assert_eq!(tree.len(), 1);
+        let root = tree.root_hash().unwrap();
+        let proof = tree.get_proof_by_hash(&leaves[0].1).expect("Should find single leaf");
+        assert!(proof.verify(root));
+        assert!(proof.path.is_empty(), "Single leaf proof should have empty path");
+    }
+
+    #[test]
+    fn test_five_leaf_tree() {
+        let leaves: Vec<_> = (0..5)
+            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .collect();
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        assert_eq!(tree.len(), 5);
+        let root = tree.root_hash().unwrap();
+        for (_, hash) in &leaves {
+            let proof = tree.get_proof_by_hash(hash).expect("Should find leaf");
+            assert!(proof.verify(root), "Proof should verify for 5-leaf tree");
+        }
+    }
+
+    #[test]
+    fn test_seven_leaf_tree() {
+        let leaves: Vec<_> = (0..7)
+            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .collect();
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        assert_eq!(tree.len(), 7);
+        let root = tree.root_hash().unwrap();
+        for (_, hash) in &leaves {
+            let proof = tree.get_proof_by_hash(hash).expect("Should find leaf");
+            assert!(proof.verify(root), "Proof should verify for 7-leaf tree");
+        }
+    }
+
+    #[test]
+    fn test_large_tree_1000_leaves() {
+        let leaves: Vec<_> = (0..1000)
+            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .collect();
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        assert_eq!(tree.len(), 1000);
+        let root = tree.root_hash().unwrap();
+
+        // Verify a sample of leaves
+        for i in [0, 1, 499, 500, 998, 999] {
+            let proof = tree.get_proof_by_hash(&leaves[i].1).expect("Should find leaf");
+            assert!(proof.verify(root), "Proof should verify for leaf {}", i);
+        }
+    }
+
+    #[test]
+    fn test_tampered_proof_step() {
+        let leaves = vec![
+            ("a".to_string(), Hash::digest(b"data_a")),
+            ("b".to_string(), Hash::digest(b"data_b")),
+            ("c".to_string(), Hash::digest(b"data_c")),
+            ("d".to_string(), Hash::digest(b"data_d")),
+        ];
+        let tree = MerkleTree::from_leaves(leaves.clone());
+        let root = tree.root_hash().unwrap();
+        let mut proof = tree.get_proof_by_hash(&leaves[0].1).unwrap();
+
+        // Tamper with a proof step's sibling hash
+        if let Some(step) = proof.path.first_mut() {
+            step.sibling_hash = Hash::digest(b"tampered_sibling");
+        }
+        assert!(!proof.verify(root), "Tampered proof step should fail verification");
     }
 
     #[test]
