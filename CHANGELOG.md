@@ -5,23 +5,36 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-14
+
+### Added
+- **🧬 Hardware PCR Binding (v0.2)**: Integrated a direct bridge to the Windows TPM Base Services (TBS) for verified platform measurement injection (PCRs 0, 7, 11).
+- **🛡️ Silicon-Bound Audit Identity**: Enhanced the `IdentitySegment` to include hardware-rooted measurements, ensuring agent actions are cryptographically bound to specific machine states.
+- **📜 Capsule Specification v0.2**: Finalized the definitive binary spec with `pcrs` and `request_commitment` fields, ensuring cross-repo parity with CHORA.
+- **🔍 PCR-Aware CLI Inspection**: Updated `vex inspect` to visualize hardware PCR hashes, providing end-to-end transparency into the silicon root of trust.
+- **🧪 Total Truth CI Verification**: Achieved 100% green CI/CD in WSL, integrating the real production Magpie compiler and resolving all v0.2 specimen regressions.
+- **🏗️ Silicon-Proxy Architecture**: Refreshed `ARCHITECTURE.md` to reflect the multi-layered data flow involving `vex-hardware`, `vex-chora`, and `vex-sidecar`.
+- **🔌 Unified Magpie CLI**: Standardized Magpie invocation across `vex-runtime` to use the production-grade `--entry <PATH> --output json parse` command structure.
+- **⚖️ LLM Resilience Hardening**: Integrated timeout guards and circuit breakers in `ResilientProvider` to handle unresponsive upstream model providers.
+
+### Fixed
+- **🐛 v0.2 Regression Patch**: Resolved critical initialization errors in `vex-runtime` tests and `vex-sidecar` where `pcrs` and `request_commitment` were missing.
+- **🐛 Attest-RS Type Mismatch**: Corrected `MockKeyProvider` to use `HashMap` for PCRs, aligning with the hardware attestation interface.
+- **🐛 VEP Integrity Mismatch**: Fixed a hash discrepancy in `vep_bundling_integration.rs` caused by module naming inconsistencies.
+
 ## [1.2.0] - 2026-03-13
 
 ### Added
-- **🧪 Total Truth CI Verification**: Integrated the real production Magpie compiler into the CI/CD pipeline, replacing mock-based verification with 100% formal parity.
-- **🔌 Unified Magpie CLI**: Standardized Magpie invocation across `vex-runtime` to use the production-grade `--entry <PATH> --output json parse` command structure.
-- **🛡️ WASM Tool Sandbox**: Implemented a secure, standard execution environment for AI tools using Wasmtime 22.x.
 - **🛡️ Verifiable Evidence Packet (VEP) Bundling**: Implemented full TLV-based binary bundling for capsules. VEPs now embed the formal Magpie AST source for independent, offline auditability.
-- **👮 Host OOM Protection**: Added strict `MAX_WASM_OUTPUT_BYTES` (10MB) limit to `WasmTool` to prevent host-level memory exhaustion via unconstrained sandbox outputs.
-- **📜 Capsule Specification v0.1**: Aligned `vex-core` and `vex-runtime` with the finalized VEX/CHORA binary spec, supporting `MagpieAst` and `Signature` segments.
-- **👮 VEP Integrity Validation**: Hardened `VepPacket` reconstruction with mandatory root-hash matching, ensuring tampered binary payloads are rejected before processing.
-- **🛡️ Formal Intent Hardening**: Implemented `MagpieAstBuilder` in `vex-runtime` to replace fragile string-based IR generation, neutralizing instruction injection breakout attacks.
-- **⚡ JSON-Aware Metadata Search**: Implemented indigenous SQL metadata filtering in `SqliteVectorStore` and `PgVectorStore`, allowing combined semantic and structural queries.
-- **🧪 Extreme JCS Hardening**: Added property-based stress tests (5000+ iterations) for RFC 8785 compliance, ensuring 100% collision-free commitment across the protocol.
-- **⚖️ LLM Resilience Hardening**: Integrated timeout guards and circuit breakers in `ResilientProvider` to handle unresponsive upstream model providers.
+- **🛡️ WASM Tool Sandbox**: Implemented a secure, standard execution environment for AI tools using Wasmtime 22.x.
+- **👮 Host OOM Protection**: Added strict `MAX_WASM_OUTPUT_BYTES` (10MB) limit to `WasmTool` to prevent host-level memory exhaustion.
+- **👮 VEP Integrity Validation**: Hardened `VepPacket` reconstruction with mandatory root-hash matching, ensuring tampered binary payloads are rejected.
+- **🛡️ Formal Intent Hardening**: Implemented `MagpieAstBuilder` in `vex-runtime` to replace fragile string-based IR generation.
+- **⚡ JSON-Aware Metadata Search**: Implemented indigenous SQL metadata filtering in `SqliteVectorStore` and `PgVectorStore`.
+- **🧪 Extreme JCS Hardening**: Added property-based stress tests (5000+ iterations) for RFC 8785 compliance.
 - **🆔 AID Binary Compliance**: Switched `EvidenceCapsuleV0` identity headers to raw 32-byte hex for strict binary wire format compliance.
 - **🏗️ WASI Capability Mapping**: Established a cryptographic bridge between VEX capability requests and WASI host call privilege isolation.
-- **🚀 Async DB Migrations**: Refactored `SqliteBackend` and `PostgresBackend` to expose explicit `migrate()` methods, removing blocking hot-path migrations from constructors.
+- **🚀 Async DB Migrations**: Refactored `SqliteBackend` and `PostgresBackend` to expose explicit `migrate()` methods.
 
 ## [1.1.5] - 2026-03-11
 

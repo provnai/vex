@@ -58,11 +58,15 @@ pub struct WitnessData {
 }
 
 /// Identity Data (Attest Pillar)
-/// Proves the silicon source.
+/// Proves the silicon source and its integrity state.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IdentityData {
     pub aid: String,
     pub identity_type: String,
+    /// Platform Configuration Registers (PCRs) for hardware-rooted integrity.
+    /// Map of PCR index (e.g., 0, 7, 11) to SHA-256 hash (hex string).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pcrs: Option<std::collections::HashMap<u32, String>>,
 }
 
 /// Crypto verification details.
@@ -72,6 +76,14 @@ pub struct CryptoData {
     pub public_key_endpoint: String,
     pub signature_scope: String,
     pub signature_b64: String,
+}
+
+/// Auditability metadata to link the raw payload to the intent.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RequestCommitment {
+    pub canonicalization: String,
+    pub payload_sha256: String,
+    pub payload_encoding: String,
 }
 
 /// A Composite Evidence Capsule (The v0.1.0 "Zero-Trust Singularity" Root)
@@ -97,6 +109,10 @@ pub struct Capsule {
 
     /// Ed25519 signature details
     pub crypto: CryptoData,
+
+    /// Optional auditable link to raw payload (v0.2+)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_commitment: Option<RequestCommitment>,
 }
 
 impl Capsule {

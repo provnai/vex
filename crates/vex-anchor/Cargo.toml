@@ -18,6 +18,7 @@ chrono = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
+tracing = { workspace = true }
 # Constant-time comparison for timing attack prevention (LOW-1 fix)
 subtle = "2.5"
 # HTTP client for remote backends (OTS, Ethereum, Celestia)
@@ -28,11 +29,16 @@ base64 = { version = "0.22", optional = true }
 [dev-dependencies]
 tempfile = "3"
 tokio-test = "0.4"
+vex-hardware = { workspace = true }
+zerocopy = { workspace = true, features = ["derive"] }
+hex = { workspace = true }
+anyhow = { workspace = true }
 
 [features]
-default = ["file", "git", "opentimestamps", "ethereum", "celestia"]
+default = ["file", "git", "opentimestamps", "ethereum", "celestia", "cloud"]
 file = []
 git = []
 opentimestamps = ["reqwest", "base64"]
 ethereum = ["reqwest"]
 celestia = ["reqwest", "base64"]
+cloud = ["reqwest"]

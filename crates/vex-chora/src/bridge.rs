@@ -42,6 +42,7 @@ impl AuthorityBridge {
             IdentityData {
                 aid: hw.agent_id.clone(),
                 identity_type: "hardware-rooted".to_string(),
+                pcrs: None, // Bridge currently uses base identity, TitanGate handles detailed PCR binding
             }
         } else {
             tracing::warn!(
@@ -51,6 +52,7 @@ impl AuthorityBridge {
             IdentityData {
                 aid: "mock-aid-01".to_string(),
                 identity_type: "unbound".to_string(),
+                pcrs: None,
             }
         };
 
@@ -99,6 +101,7 @@ impl AuthorityBridge {
                     hex::decode(&response.signature).unwrap_or_default(),
                 ),
             },
+            request_commitment: None,
         };
 
         // 7. Compute Final Capsule Root

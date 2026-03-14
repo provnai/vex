@@ -403,8 +403,78 @@ mod windows_impl {
                 Ok(crate::traits::TpmQuote {
                     message: blob,
                     signature: Vec::new(),
-                    pcrs: Vec::new(),
+                    pcrs: std::collections::HashMap::new(),
                 })
+            }
+        }
+
+        async fn get_pcrs(
+            &self,
+            indices: &[u32],
+        ) -> Result<std::collections::HashMap<u32, String>> {
+            use windows::Win32::System::TpmBaseServices::*;
+
+            unsafe {
+                // 1. Create TBS Context
+                let mut hcontext: *mut std::ffi::c_void = std::ptr::null_mut();
+                let mut params = TBS_CONTEXT_PARAMS2::default();
+                params.version = TBS_CONTEXT_VERSION_TWO;
+                params.Anonymous.asUINT32 = 0x2; // includeTpm20 = 1
+
+                let status = Tbsi_Context_Create(&params as *const _ as *const _, &mut hcontext);
+                if status != 0 {
+                    return Err(anyhow!("Tbsi_Context_Create failed: 0x{:X}", status));
+                }
+
+                let mut results = std::collections::HashMap::new();
+
+                // 2. Read PCRs one by one for simplicity (TPM2_PCR_Read)
+                for &index in indices {
+                    // TPM2_PCR_Read Command (Index 0-23)
+                    // Tag: 0x8001 | Size: 20 | CC: 0x0000017E | Count: 1 | Alg: SHA256 (0x000B) | Size: 3 | Select
+                    let mut select = [0u8; 3];
+                    if index < 24 {
+                        select[(index / 8) as usize] |= 1 << (index % 8);
+                    } else {
+                        continue; // Only supporting 0-23 for now
+                    }
+
+                    let command: [u8; 20] = [
+                        0x80, 0x01, // Tag: TPM_ST_SESSIONS
+                        0x00, 0x00, 0x00, 0x14, // Size: 20
+                        0x00, 0x00, 0x01, 0x7E, // CC: TPM_CC_PCR_Read
+                        0x00, 0x00, 0x00, 0x01, // Count: 1
+                        0x00, 0x0B, // Alg: SHA256 (0x000B)
+                        0x03, // SizeOfSelect: 3
+                        select[0], select[1], select[2],
+                    ];
+
+                    let mut response = [0u8; 1024];
+                    let mut response_size: u32 = response.len() as u32;
+
+                    let status = Tbsip_Submit_Command(
+                        hcontext,
+                        TBS_COMMAND_LOCALITY_ZERO,
+                        TBS_COMMAND_PRIORITY_NORMAL,
+                        &command,
+                        response.as_mut_ptr(),
+                        &mut response_size,
+                    );
+
+                    if status == 0 && response_size >= 20 {
+                        // Response Header (10) | updateCounter (4) | pcrSelection (count, alg, sizeofselect, select) | pcrValues (count, digestSize, digest)
+                        // Simplified parsing: the digest usually starts at end of response for single PCR read
+                        let digest_size = response[response_size as usize - 33]; // SHA256 = 32
+                        if digest_size == 32 {
+                            let digest =
+                                &response[response_size as usize - 32..response_size as usize];
+                            results.insert(index, hex::encode(digest));
+                        }
+                    }
+                }
+
+                let _ = Tbsip_Context_Close(hcontext);
+                Ok(results)
             }
         }
 
@@ -568,8 +638,14 @@ mod linux_impl {
             Ok(crate::traits::TpmQuote {
                 message: Vec::new(),
                 signature: Vec::new(),
-                pcrs: Vec::new(),
+                pcrs: std::collections::HashMap::new(),
             })
+        }
+        async fn get_pcrs(
+            &self,
+            _indices: &[u32],
+        ) -> Result<std::collections::HashMap<u32, String>> {
+            Ok(std::collections::HashMap::new())
         }
         async fn public_key(&self) -> Result<Vec<u8>> {
             if let Some(ref pk) = self.identity_public_key {
@@ -620,8 +696,15 @@ mod stub_impl {
             Ok(crate::traits::TpmQuote {
                 message: Vec::new(),
                 signature: Vec::new(),
-                pcrs: Vec::new(),
+                pcrs: std::collections::HashMap::new(),
             })
+        }
+
+        async fn get_pcrs(
+            &self,
+            _indices: &[u32],
+        ) -> Result<std::collections::HashMap<u32, String>> {
+            Ok(std::collections::HashMap::new())
         }
 
         async fn public_key(&self) -> Result<Vec<u8>> {

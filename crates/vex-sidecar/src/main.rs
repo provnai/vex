@@ -88,6 +88,7 @@ async fn proxy_handler(
     let identity = IdentityData {
         aid: state.identity.agent_id.clone(),
         identity_type: "hardware-rooted".to_string(),
+        pcrs: None,
     };
 
     // 3. Construct AuthorityData (Mocking a local "pass")
@@ -137,6 +138,7 @@ async fn proxy_handler(
             signature_scope: "capsule_root".to_string(),
             signature_b64: String::new(), // Signed below
         },
+        request_commitment: None,
     };
 
     // 7. Compute Root and Sign

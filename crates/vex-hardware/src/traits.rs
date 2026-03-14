@@ -22,6 +22,10 @@ pub trait HardwareIdentity: Send + Sync {
     /// The `nonce` is typically the `capsule_root` or a fresh challenge.
     async fn generate_quote(&self, nonce: &[u8]) -> Result<TpmQuote>;
 
+    /// Retrieve the current PCR (Platform Configuration Register) values.
+    /// Returns a map of PCR index to SHA-256 hash (hex string).
+    async fn get_pcrs(&self, indices: &[u32]) -> Result<std::collections::HashMap<u32, String>>;
+
     /// Retrieve the public key (AID) associated with this hardware identity.
     async fn public_key(&self) -> Result<Vec<u8>>;
 
@@ -41,8 +45,8 @@ pub struct TpmQuote {
     pub message: Vec<u8>,
     /// The signature over the message.
     pub signature: Vec<u8>,
-    /// Selected PCR values at the time of the quote.
-    pub pcrs: Vec<(u32, Vec<u8>)>,
+    /// Selected PCR values at the time of the quote (hex encoded).
+    pub pcrs: std::collections::HashMap<u32, String>,
 }
 
 /// Abstraction for Network Monitoring (Process/Socket correlation)

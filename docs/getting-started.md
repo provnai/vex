@@ -5,7 +5,9 @@ This guide will help you get up and running with VEX in under 5 minutes.
 ## Prerequisites
 
 - **Rust 1.75+** (stable toolchain)
+- **Go 1.22+** (for hardware-rooted identity via `attest`)
 - **Git**
+- **TPM 2.0 / Microsoft CNG** (Required for secure identity)
 
 ## Installation
 
@@ -60,14 +62,11 @@ export DEEPSEEK_API_KEY="sk-..."
 # or
 export MISTRAL_API_KEY="your-mistral-key"
 
-# Run the research agent demo
-cargo run -p vex-demo
+# Run the CLI tool to list available tools
+cargo run -p vex-protocol-cli -- tools list
 
-# Run fraud detection demo
-cargo run -p vex-demo --bin fraud-detector
-
-# Interactive chat
-cargo run -p vex-demo --bin interactive
+# Run a tool via CLI
+cargo run -p vex-protocol-cli -- tools run calculator '{"expression": "2+2"}'
 ```
 
 ## Running the API Server
@@ -75,7 +74,7 @@ cargo run -p vex-demo --bin interactive
 ```bash
 export VEX_JWT_SECRET="your-32-char-secret-here"
 cargo run -p vex-api
-# Server starts on 0.0.0.0:3000
+# Server starts on 0.0.0.0:8080
 ```
 
 ### Real-time Status (v0.2.0)
@@ -89,6 +88,6 @@ curl -N -H "Authorization: Bearer <token>" \
 
 ## Next Steps
 
-- [Architecture Overview](architecture.md)
-- [API Reference](https://provnai.dev/vex_core/)
-- [Contributing](https://github.com/provnai/vex/blob/main/CONTRIBUTING.md)
+- [Architecture Overview](../ARCHITECTURE.md)
+- [API Reference](https://www.provnai.dev/docs)
+- [Contributing](../CONTRIBUTING.md)

@@ -1,5 +1,6 @@
 use super::vep::{
-    AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, WitnessSegment,
+    AuthoritySegment, EvidenceCapsuleV0, IdentitySegment, IntentSegment, RequestCommitment,
+    WitnessSegment,
 };
 use thiserror::Error;
 
@@ -65,6 +66,7 @@ impl VepVerifier {
         let identity = IdentitySegment {
             aid: core_capsule.identity.aid,
             identity_type: core_capsule.identity.identity_type,
+            pcrs: core_capsule.identity.pcrs,
         };
 
         let witness = WitnessSegment {
@@ -73,8 +75,15 @@ impl VepVerifier {
             timestamp: core_capsule.witness.timestamp,
         };
 
-        let mut v0 = EvidenceCapsuleV0::new(intent, authority, identity, witness)
-            .map_err(|e| VerifierError::Integrity(e.to_string()))?;
+        let request_commitment = core_capsule.request_commitment.map(|rc| RequestCommitment {
+            canonicalization: rc.canonicalization,
+            payload_sha256: rc.payload_sha256,
+            payload_encoding: rc.payload_encoding,
+        });
+
+        let mut v0 =
+            EvidenceCapsuleV0::new(intent, authority, identity, witness, request_commitment)
+                .map_err(|e| VerifierError::Integrity(e.to_string()))?;
 
         v0.crypto.signature_b64 = core_capsule.crypto.signature_b64;
 
@@ -154,6 +163,7 @@ mod tests {
         let identity = IdentitySegment {
             aid: hex::encode([0u8; 32]), // Mock AID
             identity_type: "mock".to_string(),
+            pcrs: None,
         };
         let witness = WitnessSegment {
             chora_node_id: "node1".to_string(),
@@ -161,7 +171,8 @@ mod tests {
             timestamp: "now".to_string(),
         };
 
-        let mut capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness).unwrap();
+        let mut capsule =
+            EvidenceCapsuleV0::new(intent, authority, identity, witness, None).unwrap();
         capsule.sign(&signing_key).unwrap();
 
         let binary = capsule.to_vep_binary().unwrap();
@@ -214,6 +225,7 @@ mod tests {
         let identity = IdentitySegment {
             aid: hex::encode([1u8; 32]),
             identity_type: "hardware".to_string(),
+            pcrs: None,
         };
         let witness = WitnessSegment {
             chora_node_id: "nodeB".to_string(),
@@ -221,7 +233,8 @@ mod tests {
             timestamp: "2024-03-12T00:00:00Z".to_string(),
         };
 
-        let mut capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness).unwrap();
+        let mut capsule =
+            EvidenceCapsuleV0::new(intent, authority, identity, witness, None).unwrap();
         capsule.sign(&signing_key).unwrap();
         let binary = capsule.to_vep_binary().unwrap();
 

@@ -24,6 +24,7 @@ fn test_capsule_jcs_parity() {
     let identity = IdentityData {
         aid: "test-agent-aid".into(),
         identity_type: "VEX_TPM_v1".into(),
+        pcrs: None,
     };
 
     let witness = WitnessData {
@@ -49,6 +50,7 @@ fn test_capsule_jcs_parity() {
             signature_scope: "capsule_root".into(),
             signature_b64: "dGVzdC1zaWduYXR1cmU=".into(),
         },
+        request_commitment: None,
     };
 
     // 2. Compute individual pillar hashes to show the intermediate state

@@ -17,7 +17,7 @@ LLM provider integrations for the VEX Protocol.
 ```toml
 [dependencies]
 [dependencies]
-vex-llm = "1.2.0"
+vex-llm = "1.3.0"
 
 # With OpenAI support
 vex-llm = { version = "0.1", features = ["openai"] }

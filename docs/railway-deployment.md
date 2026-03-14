@@ -25,11 +25,11 @@ The VEX server requires the following environment variables:
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `VEX_JWT_SECRET` | A secure 32-character string for JWT auth. | **Yes** |
+| `MAGPIE_BIN_PATH`| Path to the Magpie executable for formal intent. | **Yes** |
 | `OPENAI_API_KEY` | Your OpenAI API key. | Optional* |
-| `ANTHROPIC_API_KEY` | Your Anthropic API key. | Optional* |
 | `VEX_PORT` | Port the server binds to (default: `8080`). | No |
-| `VEX_ENV` | Set to `railway` for optimized defaults. | No |
-| `VEX_DEV_MODE` | Set to `1` to bypass hardware requirements (Default: `1`). | No |
+| `VEX_ENV` | Set to `production` for optimized defaults. | No |
+| `VEX_DEV_MODE` | Set to `0` to enforce hardware proofs (Default: `1`). | No |
 | `VEX_HARDWARE_SEED` | 64-character hex seed for identity (Optional). | No |
 
 *\*At least one LLM provider key is required for non-mock execution.*
@@ -56,7 +56,7 @@ You should receive a `200 OK` response:
 ```json
 {
   "status": "healthy",
-  "version": "0.2.0",
+  "version": "1.3.0",
   "timestamp": "2026-03-02T..."
 }
 ```
