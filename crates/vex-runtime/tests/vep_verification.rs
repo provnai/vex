@@ -30,7 +30,8 @@ fn test_vep_binary_serialization() {
     let witness = WitnessSegment {
         chora_node_id: "node-1".to_string(),
         receipt_hash: "2".repeat(64),
-        timestamp: "2026-03-11T22:00:00Z".to_string(),
+        timestamp: 1710403200,
+        metadata: serde_json::json!({}),
     };
 
     let capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness, None).unwrap();
@@ -111,7 +112,8 @@ fn test_vep_signature_verification() {
         WitnessSegment {
             chora_node_id: "n".into(),
             receipt_hash: "2".repeat(64),
-            timestamp: "2026".into(),
+            timestamp: 1710403200,
+            metadata: serde_json::json!({}),
         },
         None,
     )
