@@ -32,14 +32,14 @@ description = "The trust layer for AI agents - verification, memory, and cryptog
 
 [workspace.dependencies]
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "net", "time", "fs", "sync", "signal"] }
 async-trait = "0.1"
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json"] }
 axum = "0.7"
-hyper = { version = "1", features = ["full"] }
-tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.5", features = ["full"] }
+hyper = { version = "1", features = ["http1", "http2", "client", "server"] }
+tower = { version = "0.4", features = ["util", "timeout", "retry", "limit", "buffer"] }
+tower-http = { version = "0.5", features = ["trace", "cors", "compression-gzip", "set-header", "auth"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -80,7 +80,6 @@ base64 = "0.22"
 
 # Security - Secure secret memory handling
 zeroize = { version = "1.8", features = ["derive"] }
-curve25519-dalek = "4.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 
 # Performance - Zero-copy binary parsing

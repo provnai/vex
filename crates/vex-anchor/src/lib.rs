@@ -70,7 +70,7 @@ pub use git::GitAnchor;
 pub use opentimestamps::OpenTimestampsAnchor;
 
 #[cfg(feature = "ethereum")]
-pub use ethereum::EthereumAnchor;
+pub use ethereum::{EthereumAnchor, EthereumSimulationAnchor};
 
 #[cfg(feature = "celestia")]
 pub use celestia::CelestiaAnchor;

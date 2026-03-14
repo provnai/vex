@@ -16,7 +16,11 @@ pub struct DebateRound {
     pub blue_rebuttal: Option<String>,
 }
 
-/// A complete debate between Blue and Red agents
+/// A complete debate between Blue and Red agents.
+///
+/// This is a **data-only** struct that records debate rounds, verdicts, and confidence.
+/// The actual debate evaluation logic (LLM calls, voting, consensus) lives in
+/// `AgentExecutor::run_adversarial_verification` in `vex-runtime`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Debate {
     /// Unique ID

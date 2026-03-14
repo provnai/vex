@@ -9,6 +9,7 @@ use crate::classifier::{QueryClassifier, QueryComplexity};
 use crate::compress::CompressionLevel;
 use crate::models::{Model, ModelPool};
 use crate::observability::Observability;
+use std::collections::HashMap;
 
 /// Routing strategy (re-exported from config)
 pub use crate::config::RoutingStrategy;
@@ -69,12 +70,26 @@ pub enum RouterError {
 }
 
 /// The main Router - implements LlmProvider trait for VEX
-#[derive(Debug)]
 pub struct Router {
     pool: ModelPool,
     classifier: QueryClassifier,
     config: RouterConfig,
     observability: Observability,
+    /// Registered LLM providers keyed by model_id
+    providers: HashMap<String, Arc<dyn LlmProvider>>,
+    /// Fallback provider used when no specific provider is registered for a model
+    fallback_provider: Option<Arc<dyn LlmProvider>>,
+}
+
+impl std::fmt::Debug for Router {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router")
+            .field("pool", &self.pool)
+            .field("config", &self.config)
+            .field("provider_count", &self.providers.len())
+            .field("has_fallback", &self.fallback_provider.is_some())
+            .finish()
+    }
 }
 
 impl Router {
@@ -85,6 +100,8 @@ impl Router {
             classifier: QueryClassifier::new(),
             config: RouterConfig::default(),
             observability: Observability::default(),
+            providers: HashMap::new(),
+            fallback_provider: None,
         }
     }
 
@@ -95,6 +112,8 @@ impl Router {
             classifier: QueryClassifier::new(),
             config,
             observability: Observability::default(),
+            providers: HashMap::new(),
+            fallback_provider: None,
         }
     }
 
@@ -142,7 +161,9 @@ impl Router {
         }
     }
 
-    /// Execute a query through the router
+    /// Execute a query through the router.
+    /// If a provider is registered for the routed model, calls it directly.
+    /// Otherwise falls back to mock response for backward compatibility.
     pub async fn execute(&self, prompt: &str, system: &str) -> Result<String, RouterError> {
         if self.config.strict_mode {
             return Err(RouterError::VepVerificationFailed(
@@ -152,8 +173,22 @@ impl Router {
         }
         let decision = self.route(prompt, system)?;
 
-        // For now, return a mock response
-        // In VEX integration, this would call the actual LLM
+        // Try to call a registered provider
+        let provider = self
+            .providers
+            .get(&decision.model_id)
+            .or(self.fallback_provider.as_ref());
+
+        if let Some(provider) = provider {
+            let request = LlmRequest::with_role(system, prompt);
+            let response = provider
+                .complete(request)
+                .await
+                .map_err(|e| RouterError::RequestFailed(e.to_string()))?;
+            return Ok(response.content);
+        }
+
+        // Mock fallback when no provider is registered
         Ok(format!(
             "[vex-router: {}] Query routed based on complexity: {:.2}, Role: {}, Estimated savings: {:.0}%",
             decision.model_id,
@@ -323,10 +358,21 @@ impl Default for Router {
 }
 
 /// Builder for Router
-#[derive(Debug)]
 pub struct RouterBuilder {
     config: RouterConfig,
     custom_models: Vec<crate::config::ModelConfig>,
+    providers: HashMap<String, Arc<dyn LlmProvider>>,
+    fallback_provider: Option<Arc<dyn LlmProvider>>,
+}
+
+impl std::fmt::Debug for RouterBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RouterBuilder")
+            .field("config", &self.config)
+            .field("custom_models", &self.custom_models)
+            .field("provider_count", &self.providers.len())
+            .finish()
+    }
 }
 
 impl RouterBuilder {
@@ -334,6 +380,8 @@ impl RouterBuilder {
         Self {
             config: RouterConfig::default(),
             custom_models: Vec::new(),
+            providers: HashMap::new(),
+            fallback_provider: None,
         }
     }
 
@@ -382,6 +430,18 @@ impl RouterBuilder {
         self
     }
 
+    /// Register an LLM provider for a specific model_id
+    pub fn add_provider(mut self, model_id: impl Into<String>, provider: Arc<dyn LlmProvider>) -> Self {
+        self.providers.insert(model_id.into(), provider);
+        self
+    }
+
+    /// Set a fallback provider used when no model-specific provider is found
+    pub fn with_fallback_provider(mut self, provider: Arc<dyn LlmProvider>) -> Self {
+        self.fallback_provider = Some(provider);
+        self
+    }
+
     pub fn build(self) -> Router {
         let pool = if self.custom_models.is_empty() {
             ModelPool::default()
@@ -394,6 +454,8 @@ impl RouterBuilder {
             classifier: QueryClassifier::new(),
             config: self.config,
             observability: Observability::new(1000),
+            providers: self.providers,
+            fallback_provider: self.fallback_provider,
         }
     }
 }

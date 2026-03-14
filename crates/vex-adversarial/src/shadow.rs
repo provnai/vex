@@ -73,7 +73,7 @@ impl ShadowAgent {
         }
 
         // Detect potential issues using pattern-based heuristics
-        let detected_issues = self.detect_issues(claim);
+        let detected_issues = self.detect_areas_of_interest(claim);
 
         // Build targeted challenge based on detected issues
         let issue_guidance = if detected_issues.is_empty() {
@@ -104,9 +104,10 @@ impl ShadowAgent {
         )
     }
 
-    /// Detect potential areas of interest in a claim using pattern-based guidance
-    /// Returns a list of focus areas for the shadow agent to scrutinize.
-    pub fn detect_issues(&self, claim: &str) -> Vec<String> {
+    /// Heuristic pre-filter using keyword matching, not comprehensive analysis.
+    /// Detects potential areas of interest for the shadow agent to scrutinize.
+    /// Returns a list of focus area descriptions — not confirmed issues.
+    pub fn detect_areas_of_interest(&self, claim: &str) -> Vec<String> {
         let mut areas_of_interest = Vec::new();
         let claim_lower = claim.to_lowercase();
 
@@ -154,6 +155,12 @@ impl ShadowAgent {
         }
 
         areas_of_interest
+    }
+
+    /// Backward-compatible alias for `detect_areas_of_interest`.
+    #[doc(hidden)]
+    pub fn detect_issues(&self, claim: &str) -> Vec<String> {
+        self.detect_areas_of_interest(claim)
     }
 }
 

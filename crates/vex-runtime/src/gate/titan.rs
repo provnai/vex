@@ -4,6 +4,7 @@ use crate::audit::vep::{
 };
 use crate::gate::Gate;
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -12,6 +13,19 @@ use vex_llm::{Capability, LlmProvider};
 
 use vex_chora::client::AuthorityClient;
 use vex_hardware::api::AgentIdentity;
+
+/// Pre-compiled L1 deterministic rules (McpVanguard signatures).
+/// Using static Lazy avoids re-compiling regexes on every TitanGate construction.
+static L1_RULES: Lazy<Vec<Regex>> = Lazy::new(|| {
+    vec![
+        Regex::new(r"(?i)rm\s+-rf\s+/").expect("L1 regex: rm -rf"),
+        Regex::new(r"(?i)drop\s+table").expect("L1 regex: drop table"),
+        Regex::new(r"(?i)chmod\s+777").expect("L1 regex: chmod 777"),
+        Regex::new(r"(?i)169\.254\.169\.254").expect("L1 regex: metadata service"),
+        Regex::new(r"(?i)\.\./\.\./").expect("L1 regex: path traversal"),
+        Regex::new(r"(?i)shutdown\s+-h\s+now").expect("L1 regex: shutdown"),
+    ]
+});
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecurityProfile {
@@ -29,7 +43,6 @@ pub struct TitanGate {
     pub llm: Arc<dyn LlmProvider>,
     pub chora: Arc<dyn AuthorityClient>,
     pub identity: AgentIdentity,
-    pub l1_rules: Vec<Regex>,
     pub profile: SecurityProfile,
 }
 
@@ -53,22 +66,11 @@ impl TitanGate {
         identity: AgentIdentity,
         profile: SecurityProfile,
     ) -> Self {
-        // L1: Deterministic Rules from McpVanguard signatures
-        let l1_rules = vec![
-            Regex::new(r"(?i)rm\s+-rf\s+/").unwrap(),
-            Regex::new(r"(?i)drop\s+table").unwrap(),
-            Regex::new(r"(?i)chmod\s+777").unwrap(),
-            Regex::new(r"(?i)169\.254\.169\.254").unwrap(), // Cloud Metadata
-            Regex::new(r"(?i)\.\./\.\./").unwrap(),         // Path Traversal
-            Regex::new(r"(?i)shutdown\s+-h\s+now").unwrap(),
-        ];
-
         Self {
             inner,
             llm,
             chora,
             identity,
-            l1_rules,
             profile,
         }
     }
@@ -107,20 +109,7 @@ impl TitanGate {
             .await
             .map_err(|e| format!("IO_ERROR: Failed to write intent file: {}", e))?;
 
-        let magpie_path = std::env::var("MAGPIE_BIN_PATH").unwrap_or_else(|_| {
-            // Local dev fallback (WSL)
-            let wsl_local = "/mnt/c/Users/quint/Desktop/provnai/magpie/target/release/magpie.exe";
-            let win_local =
-                "C:\\Users\\quint\\Desktop\\provnai\\magpie\\target\\release\\magpie.exe";
-
-            if cfg!(target_os = "linux") && std::path::Path::new(wsl_local).exists() {
-                wsl_local.to_string()
-            } else if cfg!(target_os = "windows") && std::path::Path::new(win_local).exists() {
-                win_local.to_string()
-            } else {
-                "magpie".to_string() // Defaut to PATH
-            }
-        });
+        let magpie_path = crate::utils::find_magpie_binary();
 
         // Convert path for Windows executable if running in WSL
         let mut arg_path = tmp_path.to_string_lossy().to_string();
@@ -215,8 +204,11 @@ impl MagpieAstBuilder {
         let forbidden_keywords = ["module", "fn", "exports", "imports", "digest"];
         let scan_input = input.to_lowercase();
         for &keyword in &forbidden_keywords {
-            let pattern = format!(r"(?i)\b{}\b", keyword);
-            let re = Regex::new(&pattern).unwrap();
+            let escaped = regex::escape(keyword);
+            let pattern = format!(r"(?i)\b{}\b", escaped);
+            let re = Regex::new(&pattern).map_err(|e| {
+                format!("INTERNAL_ERROR: Failed to compile keyword regex '{}': {}", keyword, e)
+            })?;
             if re.is_match(&scan_input) {
                 return Err(format!(
                     "INJECTION_ATTACK: Input contains forbidden keyword '{}'",
@@ -282,7 +274,7 @@ impl Gate for TitanGate {
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
         // --- Layer 1: Deterministic (McpVanguard) ---
-        for rule in &self.l1_rules {
+        for rule in L1_RULES.iter() {
             if rule.is_match(suggested_output) {
                 return EvidenceCapsule {
                     capsule_id: format!("l1-block-{}", &Uuid::new_v4().to_string()[..8]),
@@ -357,20 +349,46 @@ impl Gate for TitanGate {
                             timestamp: chrono::Utc::now().to_rfc3339(),
                         };
 
-                        let mut v0_capsule = EvidenceCapsuleV0::new(
+                        let mut v0_capsule = match EvidenceCapsuleV0::new(
                             intent,
                             authority,
                             identity,
                             witness,
                             request_commitment,
-                        )
-                        .map_err(|e| format!("VEP_GENERATION_ERROR: {}", e))
-                        .unwrap(); // Simplified error handling for now
+                        ) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                return EvidenceCapsule {
+                                    capsule_id: format!("vep-err-{}", &capsule_id),
+                                    outcome: "HALT".into(),
+                                    reason_code: format!("VEP_GENERATION_ERROR: {}", e),
+                                    witness_receipt: "none".into(),
+                                    nonce: 0,
+                                    magpie_source: None,
+                                    gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
+                                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    vep_blob: None,
+                                };
+                            }
+                        };
 
                         // Hardware Seal: Sign the root commitment with the TPM identity
-                        let root_bytes = hex::decode(&v0_capsule.capsule_root)
-                            .map_err(|e| format!("ROOT_DECODE_ERROR: {}", e))
-                            .unwrap();
+                        let root_bytes = match hex::decode(&v0_capsule.capsule_root) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                return EvidenceCapsule {
+                                    capsule_id: format!("root-err-{}", &capsule_id),
+                                    outcome: "HALT".into(),
+                                    reason_code: format!("ROOT_DECODE_ERROR: {}", e),
+                                    witness_receipt: "none".into(),
+                                    nonce: 0,
+                                    magpie_source: None,
+                                    gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
+                                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    vep_blob: None,
+                                };
+                            }
+                        };
                         let hardware_sig = self.identity.sign(&root_bytes);
                         v0_capsule.set_signature(&hardware_sig);
 

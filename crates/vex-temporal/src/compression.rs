@@ -20,9 +20,10 @@ pub enum DecayStrategy {
 }
 
 impl DecayStrategy {
-    /// Calculate decay factor for given age
-    /// Returns 1.0 for fresh, 0.0 for fully decayed
-    pub fn calculate(&self, age: Duration, max_age: Duration) -> f64 {
+    /// Calculate decay factor for given age.
+    /// Returns 1.0 for fresh, approaching 0.0 for fully decayed.
+    /// `exp_rate` is the exponential decay rate constant (only used for `Exponential` strategy).
+    pub fn calculate(&self, age: Duration, max_age: Duration, exp_rate: f64) -> f64 {
         if max_age.num_seconds() == 0 {
             return 1.0;
         }
@@ -32,7 +33,7 @@ impl DecayStrategy {
 
         match self {
             Self::Linear => 1.0 - ratio,
-            Self::Exponential => (-3.0 * ratio).exp(),
+            Self::Exponential => (-exp_rate * ratio).exp(),
             Self::Step => {
                 if ratio < 0.5 {
                     1.0
@@ -54,6 +55,9 @@ pub struct TemporalCompressor {
     pub max_age: Duration,
     /// Minimum importance threshold
     pub min_importance: f64,
+    /// Exponential decay rate constant.
+    /// At ratio=1.0, importance = e^(-rate) (e.g., rate=3.0 gives ~5% importance at max age).
+    pub exponential_decay_rate: f64,
 }
 
 impl Default for TemporalCompressor {
@@ -62,6 +66,7 @@ impl Default for TemporalCompressor {
             strategy: DecayStrategy::Exponential,
             max_age: Duration::hours(24),
             min_importance: 0.1,
+            exponential_decay_rate: 3.0,
         }
     }
 }
@@ -73,13 +78,14 @@ impl TemporalCompressor {
             strategy,
             max_age,
             min_importance: 0.1,
+            exponential_decay_rate: 3.0,
         }
     }
 
     /// Calculate current importance of content with given timestamp
     pub fn importance(&self, created_at: DateTime<Utc>, base_importance: f64) -> f64 {
         let age = Utc::now() - created_at;
-        let decay = self.strategy.calculate(age, self.max_age);
+        let decay = self.strategy.calculate(age, self.max_age, self.exponential_decay_rate);
         (base_importance * decay).max(self.min_importance)
     }
 

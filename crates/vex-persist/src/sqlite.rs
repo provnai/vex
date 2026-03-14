@@ -190,6 +190,10 @@ impl StorageBackend for SqliteBackend {
         "sqlite"
     }
 
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     async fn is_healthy(&self) -> bool {
         !self.pool.is_closed()
     }

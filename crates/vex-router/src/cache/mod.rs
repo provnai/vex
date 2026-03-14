@@ -1,4 +1,8 @@
-//! Semantic Caching - Cache responses using vector embeddings
+//! String Similarity Caching - Cache responses using character-level hash similarity
+//!
+//! **Note:** Despite the historical naming, this cache uses DJB2-based character hashing
+//! (not neural embeddings) to compute similarity. For true semantic similarity,
+//! integrate an `EmbeddingProvider` via the optional field.
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -20,14 +24,17 @@ pub struct CacheEntry {
     pub embedding: Vec<f32>,
 }
 
-pub struct SemanticCache {
+pub struct StringSimilarityCache {
     entries: Arc<RwLock<HashMap<String, CacheEntry>>>,
     similarity_threshold: f32,
     max_cache_size: usize,
     ttl_seconds: i64,
 }
 
-impl SemanticCache {
+/// Backward-compatible alias
+pub type SemanticCache = StringSimilarityCache;
+
+impl StringSimilarityCache {
     pub fn new(similarity_threshold: f32, max_cache_size: usize, ttl_seconds: i64) -> Self {
         Self {
             entries: Arc::new(RwLock::new(HashMap::new())),
@@ -102,7 +109,7 @@ impl SemanticCache {
     }
 
     fn compute_embedding(&self, query: &str) -> Vec<f32> {
-        simple_embedding(query)
+        hash_based_embedding(query)
     }
 
     pub fn stats(&self) -> CacheStats {
@@ -146,14 +153,16 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     dot / (norm_a * norm_b)
 }
 
-fn simple_embedding(text: &str) -> Vec<f32> {
+/// Compute a hash-based pseudo-embedding vector from text.
+/// Uses DJB2 character hashing — not a neural embedding.
+fn hash_based_embedding(text: &str) -> Vec<f32> {
     let text_lower = text.to_lowercase();
     let words: Vec<&str> = text_lower.split_whitespace().collect();
 
     let mut embedding = vec![0.0f32; 64];
 
     for (i, word) in words.iter().take(64).enumerate() {
-        let hash = simple_hash(word);
+        let hash = djb2_hash(word);
         embedding[i % 64] += (hash as f32) / (words.len() as f32).sqrt();
     }
 
@@ -167,7 +176,8 @@ fn simple_embedding(text: &str) -> Vec<f32> {
     embedding
 }
 
-fn simple_hash(s: &str) -> u32 {
+/// DJB2 hash function for string hashing
+fn djb2_hash(s: &str) -> u32 {
     let mut hash: u32 = 5381;
     for c in s.bytes() {
         hash = hash.wrapping_mul(33).wrapping_add(c as u32);
@@ -182,7 +192,7 @@ pub struct CacheStats {
     pub cache_size_bytes: usize,
 }
 
-impl Default for SemanticCache {
+impl Default for StringSimilarityCache {
     fn default() -> Self {
         Self::new(0.85, 10000, 86400)
     }

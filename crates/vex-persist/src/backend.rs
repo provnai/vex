@@ -32,6 +32,9 @@ pub trait StorageBackend: Send + Sync + Debug {
     /// Get the backend name
     fn name(&self) -> &str;
 
+    /// Get as any for downcasting
+    fn as_any(&self) -> &dyn std::any::Any;
+
     /// Check if backend is healthy
     async fn is_healthy(&self) -> bool;
 
@@ -102,6 +105,10 @@ impl MemoryBackend {
 impl StorageBackend for MemoryBackend {
     fn name(&self) -> &str {
         "memory"
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 
     async fn is_healthy(&self) -> bool {

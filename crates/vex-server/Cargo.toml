@@ -9,7 +9,7 @@ description = "Standalone server binary for VEX Protocol"
 [dependencies]
 vex-api = { workspace = true }
 vex-llm = { workspace = true }
-vex-persist = { workspace = true }
+vex-persist = { workspace = true, features = ["postgres"] }
 vex-anchor = { workspace = true }
 vex-hardware = { workspace = true }
 vex-core = { workspace = true }
