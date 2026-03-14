@@ -37,7 +37,9 @@ impl WasmTool {
         module_bytes: Vec<u8>,
         capabilities: Vec<Capability>,
     ) -> Self {
-        if capabilities.contains(&Capability::Network) || capabilities.contains(&Capability::FileSystem) {
+        if capabilities.contains(&Capability::Network)
+            || capabilities.contains(&Capability::FileSystem)
+        {
             tracing::warn!(
                 tool = %definition.name,
                 "Tool requests Network/FileSystem capabilities which are not enforced by WASI Preview 1"

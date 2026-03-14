@@ -1,4 +1,3 @@
-
 /// Tiered discovery for the Magpie compiler binary.
 /// 1. Check MAGPIE_BIN_PATH environment variable.
 /// 2. Check relative path ../magpie/target/release/magpie(.exe) for sibling repository layout.

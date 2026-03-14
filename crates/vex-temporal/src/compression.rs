@@ -85,7 +85,9 @@ impl TemporalCompressor {
     /// Calculate current importance of content with given timestamp
     pub fn importance(&self, created_at: DateTime<Utc>, base_importance: f64) -> f64 {
         let age = Utc::now() - created_at;
-        let decay = self.strategy.calculate(age, self.max_age, self.exponential_decay_rate);
+        let decay = self
+            .strategy
+            .calculate(age, self.max_age, self.exponential_decay_rate);
         (base_importance * decay).max(self.min_importance)
     }
 

@@ -261,14 +261,14 @@ impl AuditEvent {
 
     /// Patterns that indicate a secret value (checked against string values)
     const SECRET_VALUE_PREFIXES: &'static [&'static str] = &[
-        "sk-",      // OpenAI/Stripe keys
-        "ghp_",     // GitHub personal tokens
-        "gho_",     // GitHub OAuth tokens
-        "Bearer ",  // Auth bearer tokens
-        "Basic ",   // Basic auth
-        "whsec_",   // Webhook secrets
-        "xoxb-",    // Slack bot tokens
-        "xoxp-",    // Slack user tokens
+        "sk-",     // OpenAI/Stripe keys
+        "ghp_",    // GitHub personal tokens
+        "gho_",    // GitHub OAuth tokens
+        "Bearer ", // Auth bearer tokens
+        "Basic ",  // Basic auth
+        "whsec_",  // Webhook secrets
+        "xoxb-",   // Slack bot tokens
+        "xoxp-",   // Slack user tokens
     ];
 
     /// Check if a string value looks like a secret

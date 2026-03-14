@@ -327,10 +327,7 @@ mod tests {
 
     #[test]
     fn test_crossover_identical_parents() {
-        let parent = Genome::with_traits("P", vec![
-            ("a".to_string(), 0.5),
-            ("b".to_string(), 0.7),
-        ]);
+        let parent = Genome::with_traits("P", vec![("a".to_string(), 0.5), ("b".to_string(), 0.7)]);
         let operator = StandardOperator;
         let child = operator.crossover(&parent, &parent);
         // Child should have same trait values when parents are identical

@@ -207,7 +207,10 @@ impl MagpieAstBuilder {
             let escaped = regex::escape(keyword);
             let pattern = format!(r"(?i)\b{}\b", escaped);
             let re = Regex::new(&pattern).map_err(|e| {
-                format!("INTERNAL_ERROR: Failed to compile keyword regex '{}': {}", keyword, e)
+                format!(
+                    "INTERNAL_ERROR: Failed to compile keyword regex '{}': {}",
+                    keyword, e
+                )
             })?;
             if re.is_match(&scan_input) {
                 return Err(format!(

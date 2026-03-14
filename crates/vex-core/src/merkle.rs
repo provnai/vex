@@ -477,15 +477,25 @@ mod tests {
         let tree = MerkleTree::from_leaves(leaves.clone());
         assert_eq!(tree.len(), 1);
         let root = tree.root_hash().unwrap();
-        let proof = tree.get_proof_by_hash(&leaves[0].1).expect("Should find single leaf");
+        let proof = tree
+            .get_proof_by_hash(&leaves[0].1)
+            .expect("Should find single leaf");
         assert!(proof.verify(root));
-        assert!(proof.path.is_empty(), "Single leaf proof should have empty path");
+        assert!(
+            proof.path.is_empty(),
+            "Single leaf proof should have empty path"
+        );
     }
 
     #[test]
     fn test_five_leaf_tree() {
         let leaves: Vec<_> = (0..5)
-            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .map(|i| {
+                (
+                    format!("leaf_{}", i),
+                    Hash::digest(format!("data_{}", i).as_bytes()),
+                )
+            })
             .collect();
         let tree = MerkleTree::from_leaves(leaves.clone());
         assert_eq!(tree.len(), 5);
@@ -499,7 +509,12 @@ mod tests {
     #[test]
     fn test_seven_leaf_tree() {
         let leaves: Vec<_> = (0..7)
-            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .map(|i| {
+                (
+                    format!("leaf_{}", i),
+                    Hash::digest(format!("data_{}", i).as_bytes()),
+                )
+            })
             .collect();
         let tree = MerkleTree::from_leaves(leaves.clone());
         assert_eq!(tree.len(), 7);
@@ -513,7 +528,12 @@ mod tests {
     #[test]
     fn test_large_tree_1000_leaves() {
         let leaves: Vec<_> = (0..1000)
-            .map(|i| (format!("leaf_{}", i), Hash::digest(format!("data_{}", i).as_bytes())))
+            .map(|i| {
+                (
+                    format!("leaf_{}", i),
+                    Hash::digest(format!("data_{}", i).as_bytes()),
+                )
+            })
             .collect();
         let tree = MerkleTree::from_leaves(leaves.clone());
         assert_eq!(tree.len(), 1000);
@@ -521,7 +541,9 @@ mod tests {
 
         // Verify a sample of leaves
         for i in [0, 1, 499, 500, 998, 999] {
-            let proof = tree.get_proof_by_hash(&leaves[i].1).expect("Should find leaf");
+            let proof = tree
+                .get_proof_by_hash(&leaves[i].1)
+                .expect("Should find leaf");
             assert!(proof.verify(root), "Proof should verify for leaf {}", i);
         }
     }
@@ -542,7 +564,10 @@ mod tests {
         if let Some(step) = proof.path.first_mut() {
             step.sibling_hash = Hash::digest(b"tampered_sibling");
         }
-        assert!(!proof.verify(root), "Tampered proof step should fail verification");
+        assert!(
+            !proof.verify(root),
+            "Tampered proof step should fail verification"
+        );
     }
 
     #[test]

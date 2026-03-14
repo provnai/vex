@@ -270,8 +270,18 @@ mod tests {
             let mut c = Consensus::new(ConsensusProtocol::WeightedConfidence);
             let id1 = Uuid::from_bytes([1; 16]);
             let id2 = Uuid::from_bytes([2; 16]);
-            c.add_vote(Vote { agent_id: id1, agrees: true, confidence: 0.9, reasoning: None });
-            c.add_vote(Vote { agent_id: id2, agrees: false, confidence: 0.3, reasoning: None });
+            c.add_vote(Vote {
+                agent_id: id1,
+                agrees: true,
+                confidence: 0.9,
+                reasoning: None,
+            });
+            c.add_vote(Vote {
+                agent_id: id2,
+                agrees: false,
+                confidence: 0.3,
+                reasoning: None,
+            });
             c.evaluate();
             assert!(c.reached);
             assert_eq!(c.decision, Some(true));

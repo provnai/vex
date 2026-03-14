@@ -431,7 +431,11 @@ impl RouterBuilder {
     }
 
     /// Register an LLM provider for a specific model_id
-    pub fn add_provider(mut self, model_id: impl Into<String>, provider: Arc<dyn LlmProvider>) -> Self {
+    pub fn add_provider(
+        mut self,
+        model_id: impl Into<String>,
+        provider: Arc<dyn LlmProvider>,
+    ) -> Self {
         self.providers.insert(model_id.into(), provider);
         self
     }

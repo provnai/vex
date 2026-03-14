@@ -15,12 +15,10 @@ static RE_PHONE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").expect("phone regex")
 });
 /// SSN regex (standard 3-2-4 format)
-static RE_SSN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").expect("ssn regex")
-});
-static RE_IP: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").expect("ip regex")
-});
+static RE_SSN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").expect("ssn regex"));
+static RE_IP: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").expect("ip regex"));
 
 // Pre-compiled toxicity patterns (expanded word list)
 static RE_TOXIC_VIOLENCE: Lazy<Regex> = Lazy::new(|| {
@@ -35,9 +33,11 @@ static RE_TOXIC_WEAPONS: Lazy<Regex> = Lazy::new(|| {
 // Pre-compiled injection detection patterns
 static RE_INJECT: Lazy<[Regex; 8]> = Lazy::new(|| {
     [
-        Regex::new(r"(?i)ignore\s+(?:all\s+|previous\s+|above\s+)*(?:instructions?|rules?|prompt)").expect("inject 1"),
+        Regex::new(r"(?i)ignore\s+(?:all\s+|previous\s+|above\s+)*(?:instructions?|rules?|prompt)")
+            .expect("inject 1"),
         Regex::new(r"(?i)(disregard\s+(your\s+)?(instructions?|rules?))").expect("inject 2"),
-        Regex::new(r"(?i)(forget\s+(everything|all)\s+(you|i)\s+(know|were\s+told))").expect("inject 3"),
+        Regex::new(r"(?i)(forget\s+(everything|all)\s+(you|i)\s+(know|were\s+told))")
+            .expect("inject 3"),
         Regex::new(r"(?i)(new\s+(system\s+)?(instruction|rule|role))").expect("inject 4"),
         Regex::new(r"(?i)(override\s+(safety|filter|restriction))").expect("inject 5"),
         Regex::new(r"(?i)(you\s+are\s+(now|a|an)\s+)").expect("inject 6"),
@@ -293,12 +293,27 @@ mod tests {
     fn test_ssn_rejects_invalid_first_groups() {
         let detector = PiiDetector::new();
         // 000, 666, and 900-999 first groups are invalid per IRS rules
-        assert!(detector.detect("SSN: 000-12-3456").is_none(), "000 prefix should not match");
-        assert!(detector.detect("SSN: 666-12-3456").is_none(), "666 prefix should not match");
-        assert!(detector.detect("SSN: 900-12-3456").is_none(), "900 prefix should not match");
-        assert!(detector.detect("SSN: 999-12-3456").is_none(), "999 prefix should not match");
+        assert!(
+            detector.detect("SSN: 000-12-3456").is_none(),
+            "000 prefix should not match"
+        );
+        assert!(
+            detector.detect("SSN: 666-12-3456").is_none(),
+            "666 prefix should not match"
+        );
+        assert!(
+            detector.detect("SSN: 900-12-3456").is_none(),
+            "900 prefix should not match"
+        );
+        assert!(
+            detector.detect("SSN: 999-12-3456").is_none(),
+            "999 prefix should not match"
+        );
         // Valid SSN should still match
-        assert!(detector.detect("SSN: 123-45-6789").is_some(), "Valid SSN should match");
+        assert!(
+            detector.detect("SSN: 123-45-6789").is_some(),
+            "Valid SSN should match"
+        );
     }
 
     #[test]
