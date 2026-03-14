@@ -1,4 +1,4 @@
-//! VEP (Viking Enveloped Packet) Binary Format
+//! VEP (Verifiable Evidence Packet) Binary Format
 //!
 //! A zero-copy, high-performance binary envelope for segmented VEX audit data.
 
@@ -174,7 +174,7 @@ impl<'a> VepPacket<'a> {
 
         let authority_hash = hash_seg(&authority)?;
         let identity_hash = hash_seg(&identity)?;
-        let witness_hash = hash_seg(&witness)?;
+        let witness_hash = witness.to_commitment_hash()?;
 
         let mut capsule = Capsule {
             capsule_id: authority.capsule_id.clone(),

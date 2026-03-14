@@ -105,7 +105,8 @@ async fn proxy_handler(
     let witness = WitnessData {
         chora_node_id: "sidecar-local".to_string(),
         receipt_hash: payload_hash.clone(), // In proxy mode, we link to payload
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp() as u64,
+        metadata: serde_json::Value::Null,
     };
 
     // 5. Build Pillar Hashes
@@ -118,7 +119,7 @@ async fn proxy_handler(
 
     let authority_hash = hash_seg(&authority);
     let identity_hash = hash_seg(&identity);
-    let witness_hash = hash_seg(&witness);
+    let witness_hash = witness.to_commitment_hash().unwrap();
 
     // 6. Assemble Hardened Capsule
     let mut capsule = Capsule {

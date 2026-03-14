@@ -349,7 +349,8 @@ impl Gate for TitanGate {
                         let witness = WitnessSegment {
                             chora_node_id: "chora-primary-v1".to_string(),
                             receipt_hash: chora_resp.signature.clone(),
-                            timestamp: chrono::Utc::now().to_rfc3339(),
+                            timestamp: chrono::Utc::now().timestamp() as u64,
+                            metadata: serde_json::Value::Null,
                         };
 
                         let mut v0_capsule = match EvidenceCapsuleV0::new(

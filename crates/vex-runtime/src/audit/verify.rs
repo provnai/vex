@@ -73,6 +73,7 @@ impl VepVerifier {
             chora_node_id: core_capsule.witness.chora_node_id,
             receipt_hash: core_capsule.witness.receipt_hash,
             timestamp: core_capsule.witness.timestamp,
+            metadata: core_capsule.witness.metadata,
         };
 
         let request_commitment = core_capsule.request_commitment.map(|rc| RequestCommitment {
@@ -168,7 +169,8 @@ mod tests {
         let witness = WitnessSegment {
             chora_node_id: "node1".to_string(),
             receipt_hash: "rh".to_string(),
-            timestamp: "now".to_string(),
+            timestamp: 1710403200,
+            metadata: serde_json::Value::Null,
         };
 
         let mut capsule =
@@ -230,7 +232,8 @@ mod tests {
         let witness = WitnessSegment {
             chora_node_id: "nodeB".to_string(),
             receipt_hash: "receiptB".to_string(),
-            timestamp: "2024-03-12T00:00:00Z".to_string(),
+            timestamp: 1710403200,
+            metadata: serde_json::Value::Null,
         };
 
         let mut capsule =

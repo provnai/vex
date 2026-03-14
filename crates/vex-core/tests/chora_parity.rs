@@ -30,7 +30,8 @@ fn test_capsule_jcs_parity() {
     let witness = WitnessData {
         chora_node_id: "test-chora-node".into(),
         receipt_hash: "deadbeef".into(),
-        timestamp: "2024-03-09T10:00:00Z".into(),
+        timestamp: 1710396000,
+        metadata: serde_json::Value::Null,
     };
 
     let capsule = Capsule {
@@ -66,7 +67,7 @@ fn test_capsule_jcs_parity() {
 
     let auth_hash = hash_seg(&authority);
     let id_hash = hash_seg(&identity);
-    let wit_hash = hash_seg(&witness);
+    let wit_hash = witness.to_commitment_hash().unwrap();
 
     println!("--- RUST NATIVE HASHES ---");
     println!("Intent Hash:    {}", intent_hash.to_hex());

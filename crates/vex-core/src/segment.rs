@@ -54,7 +54,48 @@ fn default_sensor_value() -> serde_json::Value {
 pub struct WitnessData {
     pub chora_node_id: String,
     pub receipt_hash: String,
-    pub timestamp: String,
+    pub timestamp: u64,
+    /// Diagnostic or display-only fields that are NOT part of the commitment surface.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
+}
+
+/// The "Commitment Surface" for the Witness segment.
+/// Lexicographical order and field presence are strictly enforced here for interop parity.
+#[derive(Serialize)]
+struct MinimalWitness<'a> {
+    chora_node_id: &'a str,
+    receipt_hash: &'a str,
+    timestamp: u64,
+}
+
+impl WitnessData {
+    /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
+    /// This ensures that adding extra display fields to the JSON does not break the commitment.
+    pub fn to_commitment_hash(&self) -> Result<String, String> {
+        let minimal = MinimalWitness {
+            chora_node_id: &self.chora_node_id,
+            receipt_hash: &self.receipt_hash,
+            timestamp: self.timestamp,
+        };
+
+        let jcs_bytes = serde_jcs::to_vec(&minimal)
+            .map_err(|e| format!("JCS serialization of minimal witness failed: {}", e))?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(&jcs_bytes);
+        Ok(hex::encode(hasher.finalize()))
+    }
+
+    pub fn to_jcs_hash(&self) -> Result<Hash, String> {
+        let hex = self.to_commitment_hash()?;
+        Ok(Hash::from_bytes(
+            hex::decode(hex)
+                .map_err(|e| e.to_string())?
+                .try_into()
+                .map_err(|_| "Invalid hash length")?,
+        ))
+    }
 }
 
 /// Identity Data (Attest Pillar)
@@ -132,7 +173,7 @@ impl Capsule {
 
         let authority_hash_hex = hash_seg(&self.authority)?;
         let identity_hash_hex = hash_seg(&self.identity)?;
-        let witness_hash_hex = hash_seg(&self.witness)?;
+        let witness_hash_hex = self.witness.to_commitment_hash()?;
 
         // Build the Canonical Composite Object
         let composite_root = serde_json::json!({
@@ -190,5 +231,32 @@ mod tests {
         let hash2 = segment2.to_jcs_hash().unwrap();
 
         assert_ne!(hash1, hash2, "Hashes must change when content changes");
+    }
+
+    #[test]
+    fn test_witness_metadata_exclusion() {
+        let base_witness = WitnessData {
+            chora_node_id: "node-1".to_string(),
+            receipt_hash: "hash-1".to_string(),
+            timestamp: 1710396000,
+            metadata: serde_json::Value::Null,
+        };
+
+        let hash_base = base_witness.to_commitment_hash().unwrap();
+
+        let mut metadata_witness = base_witness.clone();
+        metadata_witness.metadata = serde_json::json!({
+            "witness_mode": "sentinel",
+            "diagnostics": {
+                "latency_ms": 42
+            }
+        });
+
+        let hash_with_metadata = metadata_witness.to_commitment_hash().unwrap();
+
+        assert_eq!(
+            hash_base, hash_with_metadata,
+            "Witness hash must be invariant to extra metadata fields"
+        );
     }
 }
