@@ -68,8 +68,7 @@ impl WitnessSegment {
             "timestamp": self.timestamp,
         });
 
-        let jcs_bytes =
-            serde_jcs::to_vec(&minimal).map_err(|e| VepError::Jcs(e.to_string()))?;
+        let jcs_bytes = serde_jcs::to_vec(&minimal).map_err(|e| VepError::Jcs(e.to_string()))?;
 
         let mut hasher = Sha256::new();
         hasher.update(&jcs_bytes);

@@ -140,22 +140,22 @@ pub struct Capsule {
     pub identity: IdentityData,
     /// CHORA Log Pillar: Where the receipt lives
     pub witness: WitnessData,
- 
+
     // Derived hashes for transparency
     pub intent_hash: String,
     pub authority_hash: String,
     pub identity_hash: String,
     pub witness_hash: String,
     pub capsule_root: String,
- 
+
     /// Ed25519 signature details
     pub crypto: CryptoData,
- 
+
     /// Optional auditable link to raw payload (v0.2+)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_commitment: Option<RequestCommitment>,
 }
- 
+
 impl Capsule {
     /// Compute the canonical "capsule_root" using George's Hash-of-Hashes Spec
     /// `SHA256(JCS({ intent_hash, authority_hash, identity_hash, witness_hash }))`
@@ -167,14 +167,14 @@ impl Capsule {
             hasher.update(&jcs);
             Ok(hex::encode(hasher.finalize()))
         }
- 
+
         let intent_h = self.intent.to_jcs_hash()?;
         let intent_hash_hex = intent_h.to_hex();
- 
+
         let authority_hash_hex = hash_seg(&self.authority)?;
         let identity_hash_hex = hash_seg(&self.identity)?;
         let witness_hash_hex = self.witness.to_commitment_hash()?;
- 
+
         // Build the Canonical Composite Object
         let composite_root = serde_json::json!({
             "intent_hash": intent_hash_hex,
