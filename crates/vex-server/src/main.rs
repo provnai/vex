@@ -57,29 +57,69 @@ async fn main() -> Result<()> {
     ));
     let metrics = Arc::new(Metrics::new());
 
-    // Initialize Persistence (SQLite)
+    // Initialize Persistence (Auto-detect Backend from DATABASE_URL)
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
-    let db = Arc::new(
-        vex_persist::sqlite::SqliteBackend::new(&db_url)
+    let is_postgres = db_url.starts_with("postgres://") || db_url.starts_with("postgresql://");
+
+    let db: Arc<dyn vex_persist::StorageBackend> = if is_postgres {
+        tracing::info!("🔗 High Integrity: Initializing PostgreSQL backend (Railway Managed DB)");
+        let pg_backend = vex_persist::PostgresBackend::new(&db_url)
             .await
-            .expect("Failed to initialize SQLite backend"),
-    );
+            .expect("Failed to initialize PostgreSQL backend");
+        pg_backend
+            .migrate()
+            .await
+            .expect("Failed to migrate PostgreSQL backend");
+        Arc::new(pg_backend)
+    } else {
+        tracing::info!("📂 Playground: Initializing SQLite backend");
+        let sqlite_backend = vex_persist::sqlite::SqliteBackend::new(&db_url)
+            .await
+            .expect("Failed to initialize SQLite backend");
+        sqlite_backend
+            .migrate()
+            .await
+            .expect("Failed to migrate SQLite backend");
+        Arc::new(sqlite_backend)
+    };
 
-    db.migrate()
-        .await
-        .expect("Failed to migrate SQLite backend");
-
-    let evolution_store: Arc<dyn vex_persist::EvolutionStore> =
-        Arc::new(vex_persist::SqliteEvolutionStore::new(db.pool().clone()));
+    let evolution_store: Arc<dyn vex_persist::EvolutionStore> = if is_postgres {
+        let pg_pool = db
+            .as_any()
+            .downcast_ref::<vex_persist::PostgresBackend>()
+            .expect("Failed to downcast to PostgresBackend")
+            .pool();
+        Arc::new(vex_persist::PostgresEvolutionStore::new(pg_pool.clone()))
+    } else {
+        let sqlite_pool = db
+            .as_any()
+            .downcast_ref::<vex_persist::sqlite::SqliteBackend>()
+            .expect("Failed to downcast to SqliteBackend")
+            .pool();
+        Arc::new(vex_persist::SqliteEvolutionStore::new(sqlite_pool.clone()))
+    };
 
     // Initialize Queue
-    let queue_backend = vex_persist::queue::SqliteQueueBackend::new(db.pool().clone());
+    let queue_backend: Arc<dyn QueueBackend> = if is_postgres {
+        let pg_pool = db
+            .as_any()
+            .downcast_ref::<vex_persist::PostgresBackend>()
+            .expect("Failed to downcast to PostgresBackend")
+            .pool();
+        Arc::new(vex_persist::PostgresQueueBackend::new(pg_pool.clone()))
+    } else {
+        let sqlite_pool = db
+            .as_any()
+            .downcast_ref::<vex_persist::sqlite::SqliteBackend>()
+            .expect("Failed to downcast to SqliteBackend")
+            .pool();
+        Arc::new(vex_persist::queue::SqliteQueueBackend::new(
+            sqlite_pool.clone(),
+        ))
+    };
 
     // Use dynamic dispatch for the worker pool backend
-    let worker_pool = WorkerPool::new_with_arc(
-        Arc::new(queue_backend) as Arc<dyn QueueBackend>,
-        WorkerConfig::default(),
-    );
+    let worker_pool = WorkerPool::new_with_arc(queue_backend, WorkerConfig::default());
 
     // REAL Intelligence Layer: Bypass the broken router!
     let llm: Arc<dyn LlmProvider> = if let Ok(key) = std::env::var("GROQ_API_KEY") {
