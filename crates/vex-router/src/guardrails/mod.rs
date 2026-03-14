@@ -14,9 +14,9 @@ static RE_EMAIL: Lazy<Regex> = Lazy::new(|| {
 static RE_PHONE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").expect("phone regex")
 });
-/// SSN regex excluding invalid first groups (000, 666, 900-999) per IRS rules
+/// SSN regex (standard 3-2-4 format)
 static RE_SSN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b(?!000|666|9\d{2})\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").expect("ssn regex")
+    Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").expect("ssn regex")
 });
 static RE_IP: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").expect("ip regex")
@@ -210,8 +210,12 @@ impl PiiDetector {
         if RE_PHONE.is_match(text) {
             return Some("phone number".to_string());
         }
-        if RE_SSN.is_match(text) {
-            return Some("SSN".to_string());
+        if let Some(m) = RE_SSN.find(text) {
+            let ssn = m.as_str();
+            // Invalid first groups (000, 666, 900-999)
+            if !ssn.starts_with("000") && !ssn.starts_with("666") && !ssn.starts_with('9') {
+                return Some("SSN".to_string());
+            }
         }
         if let Some(m) = RE_IP.find(text) {
             // Post-match validation: ensure each octet is 0-255
@@ -219,7 +223,7 @@ impl PiiDetector {
             if octets.len() == 4
                 && octets
                     .iter()
-                    .all(|o| o.parse::<u16>().map_or(false, |n| n <= 255))
+                    .all(|o| o.parse::<u16>().is_ok_and(|n| n <= 255))
             {
                 return Some("IP address".to_string());
             }

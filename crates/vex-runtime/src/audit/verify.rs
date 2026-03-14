@@ -103,7 +103,7 @@ impl VepVerifier {
         let _cleanup = Cleanup(tmp_path.clone());
 
         use tokio::process::Command;
-        let mut cmd = Command::new("magpie");
+        let mut cmd = Command::new(crate::utils::find_magpie_binary());
         cmd.arg("--output")
             .arg("json")
             .arg("--entry")

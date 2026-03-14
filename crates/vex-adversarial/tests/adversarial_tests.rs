@@ -27,8 +27,8 @@ fn test_super_majority_consensus() {
     });
 
     consensus.evaluate();
-    assert!(consensus.reached);
-    assert_eq!(consensus.decision, Some(true));
+    assert!(!consensus.reached);
+    assert_eq!(consensus.decision, None);
 
     // Reset and try 3 Agree, 2 Disagree = 60% -> undecided
     let mut consensus = Consensus::new(ConsensusProtocol::SuperMajority);

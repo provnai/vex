@@ -25,7 +25,7 @@
 //!
 //! // Detect issues in a claim
 //! let issues = shadow.detect_issues("This always works 100% of the time.");
-//! // Returns: ["Universal claim detected - verify no exceptions exist"]
+//! // Returns: ["Over-generalization: Verify if universal claims 'always'/'never' hold true for all edge cases.", "Statistics: Determine if percentages are sourced or if they are illustrative placeholders."]
 //! ```
 //!
 //! ## Consensus Voting
@@ -39,7 +39,7 @@
 //! consensus.add_vote(Vote::new("agent3", false, 0.7));
 //! consensus.evaluate();
 //!
-//! assert!(consensus.reached);
+//! assert!(!consensus.reached); // 2/3 is not > 2/3
 //! ```
 
 pub mod consensus;

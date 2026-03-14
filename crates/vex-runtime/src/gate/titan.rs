@@ -105,8 +105,7 @@ impl TitanGate {
             .await
             .map_err(|e| format!("IO_ERROR: Failed to write intent file: {}", e))?;
 
-        let magpie_path = std::env::var("MAGPIE_BIN_PATH")
-            .unwrap_or_else(|_| "magpie".to_string()); // Default to PATH lookup
+        let magpie_path = crate::utils::find_magpie_binary();
 
         // Convert path for Windows executable if running in WSL
         let mut arg_path = tmp_path.to_string_lossy().to_string();

@@ -6,6 +6,7 @@ pub mod audit;
 pub mod executor;
 pub mod gate;
 pub mod orchestrator;
+pub mod utils;
 
 pub use executor::{AgentExecutor, ExecutorConfig};
 

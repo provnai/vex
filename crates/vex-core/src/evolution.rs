@@ -320,7 +320,7 @@ mod tests {
             let mut genome = Genome::new("Test");
             operator.mutate(&mut genome, 1.0);
             for &t in &genome.traits {
-                assert!(t >= 0.0 && t <= 1.0, "Trait {} out of bounds", t);
+                assert!((0.0..=1.0).contains(&t), "Trait {} out of bounds", t);
             }
         }
     }

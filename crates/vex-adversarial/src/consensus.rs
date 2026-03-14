@@ -259,8 +259,8 @@ mod tests {
             reasoning: None,
         });
         consensus.evaluate();
-        assert!(consensus.reached);
-        assert_eq!(consensus.decision, Some(true));
+        assert!(!consensus.reached);
+        assert_eq!(consensus.decision, None);
     }
 
     #[test]
