@@ -1,87 +1,26 @@
-//! DeepSeek LLM provider (OpenAI-compatible API)
+//! DeepSeek LLM provider — thin wrapper over `OpenAICompatibleProvider`
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::time::Instant;
 
+use crate::openai_compat::OpenAICompatibleProvider;
 use crate::provider::{LlmError, LlmProvider, LlmRequest, LlmResponse};
-
-/// DeepSeek API request format (OpenAI-compatible)
-#[derive(Debug, Serialize)]
-struct DeepSeekRequest {
-    model: String,
-    messages: Vec<Message>,
-    temperature: f32,
-    max_tokens: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    presence_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    frequency_penalty: Option<f32>,
-}
-
-#[derive(Debug, Serialize)]
-struct Message {
-    role: String,
-    content: String,
-}
-
-/// DeepSeek API response format
-#[derive(Debug, Deserialize)]
-struct DeepSeekResponse {
-    choices: Vec<Choice>,
-    model: String,
-    usage: Option<Usage>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Choice {
-    message: MessageContent,
-}
-
-#[derive(Debug, Deserialize)]
-struct MessageContent {
-    content: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Usage {
-    total_tokens: u32,
-}
 
 /// DeepSeek provider for inference
 #[derive(Debug, Clone)]
 pub struct DeepSeekProvider {
-    /// API key
-    api_key: String,
-    /// Model to use (e.g., "deepseek-chat", "deepseek-coder")
-    model: String,
-    /// HTTP client
-    client: reqwest::Client,
-    /// Base URL
-    base_url: String,
-    /// Default timeout
-    default_timeout: std::time::Duration,
+    inner: OpenAICompatibleProvider,
 }
 
 impl DeepSeekProvider {
     /// Create a new DeepSeek provider
     pub fn new(api_key: &str, model: &str) -> Self {
-        let timeout = std::env::var("VEX_LLM_TIMEOUT")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(30);
-
         Self {
-            api_key: api_key.to_string(),
-            model: model.to_string(),
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(timeout))
-                .build()
-                .unwrap_or_else(|_| reqwest::Client::new()),
-            base_url: "https://api.deepseek.com".to_string(),
-            default_timeout: std::time::Duration::from_secs(timeout),
+            inner: OpenAICompatibleProvider::new(
+                api_key,
+                model,
+                "https://api.deepseek.com",
+                "deepseek",
+            ),
         }
     }
 
@@ -99,85 +38,15 @@ impl DeepSeekProvider {
 #[async_trait]
 impl LlmProvider for DeepSeekProvider {
     fn name(&self) -> &str {
-        "deepseek"
+        self.inner.name()
     }
 
     async fn is_available(&self) -> bool {
-        // Simple check - try to reach the API
-        self.client
-            .get(format!("{}/v1/models", self.base_url))
-            .bearer_auth(&self.api_key)
-            .send()
-            .await
-            .is_ok()
+        self.inner.is_available().await
     }
 
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse, LlmError> {
-        let start = Instant::now();
-        let url = format!("{}/v1/chat/completions", self.base_url);
-
-        let messages = vec![
-            Message {
-                role: "system".to_string(),
-                content: request.system,
-            },
-            Message {
-                role: "user".to_string(),
-                content: request.prompt,
-            },
-        ];
-
-        let deepseek_request = DeepSeekRequest {
-            model: self.model.clone(),
-            messages,
-            temperature: request.temperature,
-            max_tokens: request.max_tokens,
-            top_p: request.top_p,
-            presence_penalty: request.presence_penalty,
-            frequency_penalty: request.frequency_penalty,
-        };
-
-        let request_timeout = request.timeout.unwrap_or(self.default_timeout);
-
-        let response = tokio::time::timeout(
-            request_timeout,
-            self.client
-                .post(&url)
-                .bearer_auth(&self.api_key)
-                .json(&deepseek_request)
-                .send(),
-        )
-        .await
-        .map_err(|_| LlmError::Timeout(request_timeout.as_millis() as u64))?
-        .map_err(|e| LlmError::ConnectionFailed(e.to_string()))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(LlmError::RequestFailed(format!(
-                "Status: {}, Body: {}",
-                status, body
-            )));
-        }
-
-        let api_response: DeepSeekResponse = response
-            .json()
-            .await
-            .map_err(|e| LlmError::InvalidResponse(e.to_string()))?;
-
-        let content = api_response
-            .choices
-            .first()
-            .map(|c| c.message.content.clone())
-            .unwrap_or_default();
-
-        Ok(LlmResponse {
-            content,
-            model: api_response.model,
-            tokens_used: api_response.usage.map(|u| u.total_tokens),
-            latency_ms: start.elapsed().as_millis() as u64,
-            trace_root: None,
-        })
+        self.inner.complete(request).await
     }
 }
 
