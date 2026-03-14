@@ -248,9 +248,16 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
                 .map_err(|e| e.to_string())?
                 .content;
 
-            // Try to parse JSON response
+            // Try to parse JSON response — fail closed on parse errors
             let (is_challenge, red_confidence, red_reasoning, _suggested_revision) =
-                if let Some(start) = red_output.find('{') {
+                if let Ok(res) = serde_json::from_str::<ChallengeResponse>(&red_output) {
+                    (
+                        res.is_challenge,
+                        res.confidence,
+                        res.reasoning,
+                        res.suggested_revision,
+                    )
+                } else if let Some(start) = red_output.find('{') {
                     if let Some(end) = red_output.rfind('}') {
                         if let Ok(res) =
                             serde_json::from_str::<ChallengeResponse>(&red_output[start..=end])
@@ -262,18 +269,16 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
                                 res.suggested_revision,
                             )
                         } else {
-                            (
-                                red_output.to_lowercase().contains("disagree"),
-                                0.5,
-                                red_output.clone(),
-                                None,
-                            )
+                            // Fail closed: treat unparseable response as a challenge
+                            (true, 0.5, red_output.clone(), None)
                         }
                     } else {
-                        (false, 0.0, "Parsing failed".to_string(), None)
+                        // Fail closed
+                        (true, 0.5, "Parsing failed".to_string(), None)
                     }
                 } else {
-                    (false, 0.0, "No JSON found".to_string(), None)
+                    // Fail closed
+                    (true, 0.5, "No JSON found".to_string(), None)
                 };
 
             let rebuttal = if is_challenge {
@@ -346,8 +351,11 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
             ))
             .await;
 
+        // Fail closed: on parse failure, blue does NOT agree (conservative)
         let (blue_agrees, blue_confidence, blue_reasoning) = if let Ok(resp) = blue_vote_res {
-            if let Some(start) = resp.content.find('{') {
+            if let Ok(vote) = serde_json::from_str::<VoteResponse>(&resp.content) {
+                (vote.agrees, vote.confidence, vote.reflection)
+            } else if let Some(start) = resp.content.find('{') {
                 if let Some(end) = resp.content.rfind('}') {
                     if let Ok(vote) =
                         serde_json::from_str::<VoteResponse>(&resp.content[start..=end])
@@ -355,29 +363,29 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
                         (vote.agrees, vote.confidence, vote.reflection)
                     } else {
                         (
-                            true,
-                            blue_agent.fitness.max(0.5f64),
+                            false,
+                            blue_agent.fitness,
                             "Failed to parse reflection JSON".to_string(),
                         )
                     }
                 } else {
                     (
-                        true,
-                        blue_agent.fitness.max(0.5f64),
+                        false,
+                        blue_agent.fitness,
                         "No JSON in reflection".to_string(),
                     )
                 }
             } else {
                 (
-                    true,
-                    blue_agent.fitness.max(0.5f64),
+                    false,
+                    blue_agent.fitness,
                     "No reflection content".to_string(),
                 )
             }
         } else {
             (
-                true,
-                blue_agent.fitness.max(0.5f64),
+                false,
+                blue_agent.fitness,
                 "Reflection LLM call failed".to_string(),
             )
         };
@@ -385,7 +393,7 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
         consensus.add_vote(Vote {
             agent_id: blue_agent.id,
             agrees: blue_agrees,
-            confidence: blue_confidence.max(0.5f64),
+            confidence: blue_confidence,
             reasoning: Some(blue_reasoning),
         });
 
@@ -407,7 +415,8 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
         let verified = consensus.reached;
         let confidence = consensus.confidence;
 
-        debate.conclude(consensus.decision.unwrap_or(true), confidence);
+        // Fail closed: if no consensus decision, reject the claim
+        debate.conclude(consensus.decision.unwrap_or(false), confidence);
 
         Ok((final_response, verified, confidence, Some(debate)))
     }
