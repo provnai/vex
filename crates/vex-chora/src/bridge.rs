@@ -57,11 +57,12 @@ impl AuthorityBridge {
         };
 
         // 4. WitnessData — populated from the live CHORA response.
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = chrono::Utc::now().timestamp() as u64;
         let witness = WitnessData {
             chora_node_id: response.authority.capsule_id.clone(),
             receipt_hash: response.signature.clone(),
             timestamp: now,
+            metadata: serde_json::Value::Null,
         };
 
         // 5. Build Pillar Hashes
@@ -78,7 +79,7 @@ impl AuthorityBridge {
 
         let authority_hash = hash_seg(&response.authority)?;
         let identity_hash = hash_seg(&identity)?;
-        let witness_hash = hash_seg(&witness)?;
+        let witness_hash = witness.to_commitment_hash()?;
 
         // 6. Build Composite Capsule
         let mut capsule = Capsule {

@@ -52,7 +52,29 @@ pub struct IdentitySegment {
 pub struct WitnessSegment {
     pub chora_node_id: String,
     pub receipt_hash: String,
-    pub timestamp: String,
+    pub timestamp: u64,
+    /// Diagnostic or display-only fields that are NOT part of the commitment surface.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
+}
+
+impl WitnessSegment {
+    /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
+    pub fn to_commitment_hash(&self) -> Result<String, VepError> {
+        // Strict commitment to only the core fields (Unix timestamp handles JCS parity)
+        let minimal = serde_json::json!({
+            "chora_node_id": self.chora_node_id,
+            "receipt_hash": self.receipt_hash,
+            "timestamp": self.timestamp,
+        });
+
+        let jcs_bytes =
+            serde_jcs::to_vec(&minimal).map_err(|e| VepError::Jcs(e.to_string()))?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(&jcs_bytes);
+        Ok(hex::encode(hasher.finalize()))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +123,7 @@ impl EvidenceCapsuleV0 {
         let intent_hash = hash_segment(&intent)?;
         let authority_hash = hash_segment(&authority)?;
         let identity_hash = hash_segment(&identity)?;
-        let witness_hash = hash_segment(&witness)?;
+        let witness_hash = witness.to_commitment_hash()?;
 
         // Root commitment: JCS lexicographical order is handled by serde_jcs/serde_json
         let root_map = serde_json::json!({
