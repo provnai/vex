@@ -87,31 +87,59 @@ impl Genome {
         }
     }
 
-    /// Convert genome traits to LLM parameters
-    /// Maps:
-    /// - exploration → temperature (0.0-1.0 → 0.1-1.5)
-    /// - precision → top_p (0.0-1.0 → 0.5-1.0, inverted for precision)
-    /// - creativity → presence_penalty (0.0-1.0 → 0.0-1.0)
-    /// - skepticism → frequency_penalty (0.0-1.0 → 0.0-0.5)
-    /// - verbosity → max_tokens scaling (0.0-1.0 → 0.5-2.0x multiplier)
+    /// Convert genome traits to LLM parameters using default mapping config.
     pub fn to_llm_params(&self) -> LlmParams {
+        self.to_llm_params_with_config(&TraitMappingConfig::default())
+    }
+
+    /// Convert genome traits to LLM parameters with custom mapping config.
+    /// Maps:
+    /// - exploration → temperature (configurable range)
+    /// - precision → top_p (1.0 - precision * reduction_factor)
+    /// - creativity → presence_penalty (0.0-1.0 direct)
+    /// - skepticism → frequency_penalty (0.0 - configurable max)
+    /// - verbosity → max_tokens scaling (configurable range)
+    pub fn to_llm_params_with_config(&self, config: &TraitMappingConfig) -> LlmParams {
         let exploration = self.get_trait("exploration").unwrap_or(0.5);
         let precision = self.get_trait("precision").unwrap_or(0.5);
         let creativity = self.get_trait("creativity").unwrap_or(0.5);
         let skepticism = self.get_trait("skepticism").unwrap_or(0.5);
         let verbosity = self.get_trait("verbosity").unwrap_or(0.5);
 
+        let (temp_min, temp_max) = config.temperature_range;
+        let (tok_min, tok_max) = config.max_tokens_range;
+
         LlmParams {
-            // Higher exploration = higher temperature (more random)
-            temperature: 0.1 + exploration * 1.4,
-            // Higher precision = lower top_p (more focused on best tokens)
-            top_p: 1.0 - (precision * 0.5),
-            // Creativity adds presence penalty to encourage novel topics
+            temperature: temp_min + exploration * (temp_max - temp_min),
+            top_p: 1.0 - (precision * config.top_p_reduction),
             presence_penalty: creativity,
-            // Skepticism adds frequency penalty to reduce repetition
-            frequency_penalty: skepticism * 0.5,
-            // Verbosity scales max_tokens (0.5x to 2.0x of base)
-            max_tokens_multiplier: 0.5 + verbosity * 1.5,
+            frequency_penalty: skepticism * config.frequency_penalty_max,
+            max_tokens_multiplier: tok_min + verbosity * (tok_max - tok_min),
+        }
+    }
+}
+
+/// Configuration for mapping genome traits [0,1] to LLM parameter ranges.
+/// Each field is (min, max) defining the output range.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct TraitMappingConfig {
+    /// exploration [0,1] → temperature [min, max] (default: 0.1..1.5)
+    pub temperature_range: (f64, f64),
+    /// precision [0,1] → top_p reduction factor (default: 0.5, meaning top_p = 1.0 - precision * factor)
+    pub top_p_reduction: f64,
+    /// skepticism [0,1] → frequency_penalty [0, max] (default: max=0.5)
+    pub frequency_penalty_max: f64,
+    /// verbosity [0,1] → max_tokens_multiplier [min, max] (default: 0.5..2.0)
+    pub max_tokens_range: (f64, f64),
+}
+
+impl Default for TraitMappingConfig {
+    fn default() -> Self {
+        Self {
+            temperature_range: (0.1, 1.5),
+            top_p_reduction: 0.5,
+            frequency_penalty_max: 0.5,
+            max_tokens_range: (0.5, 2.0),
         }
     }
 }
@@ -283,6 +311,42 @@ mod tests {
 
         // Child should have traits from both parents
         assert!(child.traits.iter().all(|&t| t == 0.0 || t == 1.0));
+    }
+
+    #[test]
+    fn test_mutation_preserves_bounds() {
+        let operator = StandardOperator;
+        for _ in 0..100 {
+            let mut genome = Genome::new("Test");
+            operator.mutate(&mut genome, 1.0);
+            for &t in &genome.traits {
+                assert!(t >= 0.0 && t <= 1.0, "Trait {} out of bounds", t);
+            }
+        }
+    }
+
+    #[test]
+    fn test_crossover_identical_parents() {
+        let parent = Genome::with_traits("P", vec![
+            ("a".to_string(), 0.5),
+            ("b".to_string(), 0.7),
+        ]);
+        let operator = StandardOperator;
+        let child = operator.crossover(&parent, &parent);
+        // Child should have same trait values when parents are identical
+        assert_eq!(child.traits, parent.traits);
+    }
+
+    #[test]
+    fn test_llm_params_defaults() {
+        let genome = Genome::new("Test");
+        let params = genome.to_llm_params();
+        // With all traits at 0.5, check reasonable ranges
+        assert!(params.temperature > 0.0 && params.temperature < 2.0);
+        assert!(params.top_p > 0.0 && params.top_p <= 1.0);
+        assert!(params.presence_penalty >= 0.0 && params.presence_penalty <= 1.0);
+        assert!(params.frequency_penalty >= 0.0);
+        assert!(params.max_tokens_multiplier > 0.0);
     }
 
     #[test]
