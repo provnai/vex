@@ -41,33 +41,54 @@ impl Default for AgentConfig {
     }
 }
 
-/// A fractal agent in the VEX hierarchy
+/// A fractal agent in the VEX hierarchy.
+///
+/// Fields are organized into four logical groups:
+///
+/// **Identity** — `id`, `config`, `created_at`
+///   Immutable properties set at agent creation.
+///
+/// **Hierarchy** — `parent_id`, `children`, `shadow_id`, `generation`, `depth`
+///   Position within the fractal agent tree and adversarial pairing.
+///
+/// **State** — `context`, `merkle_root`, `fitness`
+///   Mutable runtime state updated during execution and evaluation.
+///
+/// **Evolution** — `genome`
+///   Genetic traits evolved across generations via crossover and mutation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
+    // --- Identity ---
     /// Unique identifier
     pub id: AgentId,
-    /// Configuration
+    /// Configuration (name, role, limits)
     pub config: AgentConfig,
-    /// Generation number (0 = root, increases with each fork)
-    pub generation: u32,
-    /// Current depth in the hierarchy
-    pub depth: u8,
-    /// The agent's current context/memory
-    pub context: ContextPacket,
-    /// Merkle root of all child context hashes
-    pub merkle_root: Option<Hash>,
     /// When this agent was created
     pub created_at: DateTime<Utc>,
+
+    // --- Hierarchy ---
+    /// ID of parent agent (None for root)
+    pub parent_id: Option<AgentId>,
     /// IDs of child agents (not serialized, reconstructed at runtime)
     #[serde(skip)]
     pub children: Vec<AgentId>,
     /// ID of shadow (adversarial) agent if spawned
     #[serde(skip)]
     pub shadow_id: Option<AgentId>,
-    /// ID of parent agent (None for root)
-    pub parent_id: Option<AgentId>,
-    /// Fitness score from last evaluation
+    /// Generation number (0 = root, increases with each fork)
+    pub generation: u32,
+    /// Current depth in the hierarchy
+    pub depth: u8,
+
+    // --- State ---
+    /// The agent's current context/memory
+    pub context: ContextPacket,
+    /// Merkle root of all child context hashes
+    pub merkle_root: Option<Hash>,
+    /// Fitness score from last evaluation (0.0 - 1.0)
     pub fitness: f64,
+
+    // --- Evolution ---
     /// Genome encoding agent traits (evolved over generations)
     pub genome: Genome,
 }
