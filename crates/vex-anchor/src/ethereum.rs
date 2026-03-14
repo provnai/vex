@@ -32,18 +32,25 @@ struct JsonRpcError {
     message: String,
 }
 
-/// Ethereum anchor backend
+/// Ethereum **simulation** anchor backend.
+///
+/// **Important:** This backend uses `eth_call` (read-only simulation) to validate calldata
+/// encoding. It does NOT sign or broadcast transactions — no on-chain state is modified.
+/// For production anchoring with real `eth_sendRawTransaction`, integrate ethers-rs.
 ///
 /// Encodes the Merkle root as `0x56455800` (VEX\x00) + root hex calldata.
 /// The anchor_id is `eth://block:<n>/calldata:<first 16 hex chars>`.
 #[derive(Debug, Clone)]
-pub struct EthereumAnchor {
+pub struct EthereumSimulationAnchor {
     rpc_url: String,
     from_address: String,
     client: reqwest::Client,
 }
 
-impl EthereumAnchor {
+/// Backward-compatible alias
+pub type EthereumAnchor = EthereumSimulationAnchor;
+
+impl EthereumSimulationAnchor {
     /// Create a new Ethereum anchor backend
     pub fn new(rpc_url: impl Into<String>, from_address: impl Into<String>) -> Self {
         let client = reqwest::Client::builder()
@@ -95,7 +102,7 @@ impl EthereumAnchor {
 }
 
 #[async_trait]
-impl AnchorBackend for EthereumAnchor {
+impl AnchorBackend for EthereumSimulationAnchor {
     async fn anchor(
         &self,
         root: &Hash,

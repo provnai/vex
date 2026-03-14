@@ -117,10 +117,9 @@ impl ContextPacket {
         Utc::now().signed_duration_since(self.created_at)
     }
 
-    /// Create a compressed version of this packet
-    pub fn compress(&self, level: CompressionLevel) -> Self {
-        // In a real implementation, this would use an LLM to summarize
-        // For now, we just truncate based on compression ratio
+    /// Create a compressed version using truncation only (no LLM).
+    /// For LLM-based compression, use the `compress()` method with a provider.
+    pub fn compress_truncate(&self, level: CompressionLevel) -> Self {
         let max_len = ((1.0 - level.ratio()) * self.content.len() as f64) as usize;
         let compressed_content = if max_len < self.content.len() {
             format!("{}...", &self.content[..max_len.max(10)])
@@ -134,6 +133,13 @@ impl ContextPacket {
         packet.source_agent = self.source_agent;
         packet.importance = self.importance;
         packet
+    }
+
+    /// Create a compressed version of this packet.
+    /// Currently dispatches to truncation; when an LLM provider is available,
+    /// callers should use `vex-temporal` compression for intelligent summarization.
+    pub fn compress(&self, level: CompressionLevel) -> Self {
+        self.compress_truncate(level)
     }
 
     /// Chain this packet to a parent

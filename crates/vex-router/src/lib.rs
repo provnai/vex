@@ -55,7 +55,7 @@ pub use guardrails::{GuardrailResult, Guardrails, Violation, ViolationCategory};
 pub use observability::{Observability, ObservabilitySummary, SavingsReport};
 
 // Re-export cache types
-pub use cache::SemanticCache;
+pub use cache::{SemanticCache, StringSimilarityCache};
 
 #[cfg(feature = "standalone")]
 pub mod gateway;
