@@ -43,6 +43,7 @@ impl AuthorityBridge {
                 aid: hw.agent_id.clone(),
                 identity_type: "hardware-rooted".to_string(),
                 pcrs: None, // Bridge currently uses base identity, TitanGate handles detailed PCR binding
+                metadata: serde_json::Value::Null,
             }
         } else {
             tracing::warn!(
@@ -53,6 +54,7 @@ impl AuthorityBridge {
                 aid: "mock-aid-01".to_string(),
                 identity_type: "unbound".to_string(),
                 pcrs: None,
+                metadata: serde_json::Value::Null,
             }
         };
 

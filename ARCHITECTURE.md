@@ -59,12 +59,12 @@ VEX is a cognitive framework for building verifiable AI agents. It provides a mu
 │                   Persistence Layer                         │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ vex-persist: SQLite + Migrations + Audit Logs          ││
-│  │ Semantic VectorStore + Job Result Persistence           ││
+│  │ Semantic VectorStore + VEP Binary Blob Store            ││
 │  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │                    Anchoring Layer                          │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │ vex-anchor: Merkle root anchoring to external systems   ││
+│  │ vex-anchor: VEP root anchoring to external systems      ││
 │  │ File / Git / OpenTimestamps / Ethereum / Celestia       ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
@@ -123,12 +123,12 @@ VEX is a cognitive framework for building verifiable AI agents. It provides a mu
                                   ▼                                             │
                            ┌──────────────┐                                     │
                            │ vex-sidecar  │  Silicon Boundary Proxy             │
-                           │(.capsule v0.2)  Binary VEP Encapsulation          │
+                           │ (VEP v1.0)   │  Binary VEP Encapsulation (.vep)   │
                            └──────────────┘                                     │
                                   │                                             │
                                   ▼                                             │
                            ┌──────────────┐                                     │
-                           │ vex-persist  │  SQLite audit log + result store ───┘
+                           │ vex-persist  │  SQLite audit log + VEP blob store ───┘
                            └──────────────┘
                                   │
                                   ▼
@@ -140,6 +140,55 @@ VEX is a cognitive framework for building verifiable AI agents. It provides a mu
 Note: vex-macros is compile-time only — #[derive(VexJob)], #[vex_tool],
       #[instrument_agent] — used across crates but not present at runtime.
 ```
+
+---
+
+## Verifiable Evidence Packet (VEP) v1.0
+
+The **VEP** is the definitive binary wire format for the VEX Protocol. It is designed for high-integrity, language-agnostic persistence and transfer of audit evidence.
+
+### Binary Structure (TLV)
+
+Every `.vep` file/packet follows a **Type-Length-Value** structure for atomic bundling of proofs.
+
+| Offset | Size | Name | Description |
+|--------|------|------|-------------|
+| 0      | 3    | Magic | `0x56 0x45 0x50` (ASCII "VEP") |
+| 3      | 1    | Version | `0x01` |
+| 4      | 8    | Length | Full packet length (u64) |
+| 12     | 32   | Root | SHA-256 integrity hash of body |
+| 44     | Var  | Body | TLV Segments (Capsule, AST, Proofs) |
+
+### TLV Segments
+
+1. **Type `0x01` (Capsule)**: The Joint Capsule (JSON canonicalized via JCS).
+2. **Type `0x02` (Intent AST)**: The formal Magpie AST source for the intent.
+3. **Type `0x03` (Identity)**: Silicon-rooted measurements (PCRs / AID).
+4. **Type `0x04` (Attestation)**: The external witness signature (Ed25519).
+
+---
+
+## Joint Capsule Specification (v0.2)
+
+Developed in collaboration with the **CHORA Witness Network**, the Capsule v0.2 standard ensures bit-identical parity between Rust and Go implementations.
+
+### The Four Pillars
+
+VEX decomposes every agent action into four cryptographically committed pillars:
+
+| Pillar | Responsibility | Hash Surface |
+|--------|----------------|--------------|
+| **Intent** | *What* was requested? | Rich Magpie AST + Metadata |
+| **Authority** | *What* was decided? | Outcome + Reason + Nonce |
+| **Identity** | *Who/Where* requested it?| silicon-root (AID) + PCRs |
+| **Witness** | *Who* verified it? | Minimal (NodeID + Receipt + TS) |
+
+### Hardening: JCS & Metadata Catch-alls
+
+To prevent structural drift, VEX uses **JSON Canonicalization Scheme (RFC 8785)**. Every pillar struct contains a flattened `metadata` field. This ensures that:
+- Unknown extension fields are preserved.
+- The binary footprint of every handshake is 100% stable.
+- A single-bit flip in any field (even "ignored" ones) causes a root hash failure.
 
 ---
 

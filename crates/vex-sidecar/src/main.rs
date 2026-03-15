@@ -82,6 +82,7 @@ async fn proxy_handler(
         confidence: 1.0,
         capabilities: vec!["proxy-forwarding".to_string()],
         magpie_source: None,
+        metadata: serde_json::Value::Null,
     };
 
     // 2. Construct IdentityData (Real Hardware ID)
@@ -89,6 +90,7 @@ async fn proxy_handler(
         aid: state.identity.agent_id.clone(),
         identity_type: "hardware-rooted".to_string(),
         pcrs: None,
+        metadata: serde_json::Value::Null,
     };
 
     // 3. Construct AuthorityData (Mocking a local "pass")
@@ -99,6 +101,7 @@ async fn proxy_handler(
         trace_root: payload_hash.clone(),
         nonce: 1,
         gate_sensors: serde_json::Value::Null,
+        metadata: serde_json::Value::Null,
     };
 
     // 4. Construct WitnessData (Local timestamp)

@@ -10,6 +10,7 @@ fn test_capsule_jcs_parity() {
         confidence: 0.95,
         capabilities: vec!["TPM_VERIFY".into()],
         magpie_source: None,
+        metadata: serde_json::Value::Null,
     };
 
     let authority = AuthorityData {
@@ -19,12 +20,14 @@ fn test_capsule_jcs_parity() {
         trace_root: "5555555555555555555555555555555555555555555555555555555555555555".into(),
         nonce: 12345,
         gate_sensors: serde_json::Value::Null,
+        metadata: serde_json::Value::Null,
     };
 
     let identity = IdentityData {
         aid: "test-agent-aid".into(),
         identity_type: "VEX_TPM_v1".into(),
         pcrs: None,
+        metadata: serde_json::Value::Null,
     };
 
     let witness = WitnessData {

@@ -27,6 +27,9 @@ pub struct IntentSegment {
     pub capabilities: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub magpie_source: Option<String>,
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +40,9 @@ pub struct AuthoritySegment {
     pub trace_root: String,
     pub nonce: u64,
     pub gate_sensors: serde_json::Value,
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +52,9 @@ pub struct IdentitySegment {
     /// Platform Configuration Registers (PCRs) for hardware-rooted integrity.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pcrs: Option<std::collections::HashMap<u32, String>>,
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,8 +65,6 @@ pub struct WitnessSegment {
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
-}
-
 impl WitnessSegment {
     /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
     pub fn to_commitment_hash(&self) -> Result<String, VepError> {
@@ -147,7 +154,7 @@ impl EvidenceCapsuleV0 {
             capsule_root,
             crypto: VepCrypto {
                 algo: "ed25519".to_string(),
-                public_key_endpoint: "https://chora.witness.network/keys/v1".to_string(), // Placeholder
+                public_key_endpoint: "https://authority.domain/v1/keys".to_string(), // Generic Placeholder
                 signature_scope: "capsule_root".to_string(),
                 signature_b64: String::new(),
             },

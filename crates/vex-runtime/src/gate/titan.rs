@@ -319,6 +319,7 @@ impl Gate for TitanGate {
                             confidence,
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
                             magpie_source: Some(mp_source.clone()),
+                            metadata: serde_json::Value::Null,
                         };
 
                         let authority = AuthoritySegment {
@@ -331,6 +332,7 @@ impl Gate for TitanGate {
                                 "profile": format!("{:?}", self.profile),
                                 "l2_digest": digest_hex.clone()
                             }),
+                            metadata: chora_resp.authority.metadata,
                         };
 
                         let pcrs = self.identity.get_pcrs(&[0, 7, 11]).await.ok();
@@ -338,6 +340,7 @@ impl Gate for TitanGate {
                             aid: self.identity.public_key_hex(),
                             identity_type: "TPM_ECC_PERSISTENT".to_string(), // Spec alignment
                             pcrs,
+                            metadata: serde_json::Value::Null,
                         };
 
                         let request_commitment = Some(RequestCommitment {
@@ -350,7 +353,7 @@ impl Gate for TitanGate {
                             chora_node_id: "chora-primary-v1".to_string(),
                             receipt_hash: chora_resp.signature.clone(),
                             timestamp: chrono::Utc::now().timestamp() as u64,
-                            metadata: serde_json::Value::Null,
+                            metadata: serde_json::json!({}),
                         };
 
                         let mut v0_capsule = match EvidenceCapsuleV0::new(
@@ -534,6 +537,7 @@ mod tests {
                     trace_root: "00".repeat(32),
                     nonce: 42,
                     gate_sensors: serde_json::json!({}),
+                    metadata: serde_json::Value::Null,
                 },
                 signature: "sig".into(),
             })

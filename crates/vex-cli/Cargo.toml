@@ -18,6 +18,10 @@ path = "src/main.rs"
 vex-core = { workspace = true }
 vex-llm = { workspace = true }
 vex-persist = { workspace = true }
+vex-chora = { workspace = true }
+
+# Network
+reqwest = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
@@ -31,6 +35,10 @@ anyhow = { workspace = true }
 
 # Serialization
 serde_json = { workspace = true }
+serde_jcs = { workspace = true }
+
+# Cryptography
+sha2 = { workspace = true }
 
 # Terminal output
 colored = "2"
@@ -38,6 +46,7 @@ comfy-table = "7"
 
 # Utilities
 hex = "0.4"
+base64 = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 

@@ -11,12 +11,16 @@ pub struct InspectArgs {
     /// Path to binary VEP file to inspect
     #[arg(value_name = "FILE")]
     pub path: PathBuf,
+
+    /// Show detailed binary information (hex segments)
+    #[arg(long, short = 'x')]
+    pub hex: bool,
 }
 
 /// Run the inspect command
 pub async fn run(args: InspectArgs) -> Result<()> {
-    println!("{}", "🔍 VEX Payload Inspection".bold().cyan());
-    println!("{}", "═".repeat(40).cyan());
+    println!("{}", "📚 VEX Protocol Deep Inspection (v1.0)".bold().cyan());
+    println!("{}", "═".repeat(45).cyan());
     println!();
 
     // Read binary file
@@ -31,22 +35,37 @@ pub async fn run(args: InspectArgs) -> Result<()> {
 
     // Display Header Info
     println!("  {} {}", "File:".dimmed(), args.path.display());
+
+    if args.hex {
+        let magic = &bytes[0..3];
+        println!(
+            "  {} {} ({})",
+            "Magic Bytes:".dimmed(),
+            hex::encode(magic).green(),
+            String::from_utf8_lossy(magic).bold()
+        );
+    }
+
     println!("  {} {}", "Version:".dimmed(), header.version);
     println!(
         "  {} {}",
         "Agent ID (AID):".dimmed(),
-        hex::encode(header.aid)
+        hex::encode(header.aid).blue()
     );
     println!(
         "  {} {}",
         "Capsule Root:".dimmed(),
-        hex::encode(header.capsule_root)
+        hex::encode(header.capsule_root).magenta()
     );
     println!(
         "  {} {}",
         "Nonce:".dimmed(),
-        u64::from_be_bytes(header.nonce)
+        u64::from_be_bytes(header.nonce).to_string().yellow()
     );
+
+    if args.hex {
+        println!("  {} {} bytes", "Packet Len:".dimmed(), bytes.len());
+    }
     println!();
 
     // Try to reconstruct the capsule for more detail
@@ -90,35 +109,49 @@ pub async fn run(args: InspectArgs) -> Result<()> {
             }
 
             println!();
-            println!("{}", "📄 Evidence Summary:".bold());
+            println!("{}", "📦 TLV Binary Segments (v1.0):".bold());
 
-            if let Some(intent_bytes) = packet.get_segment_data(VepSegmentType::Intent) {
-                println!(
-                    "  {} [{} bytes]",
-                    "Intent Segment".yellow(),
-                    intent_bytes.len()
-                );
-                if let Ok(json) = serde_json::from_slice::<serde_json::Value>(intent_bytes) {
-                    let json_str = json.to_string();
-                    let snippet: String = json_str.chars().take(100).collect();
-                    println!("     {}", format!("{}...", snippet).italic().dimmed());
+            let segments = [
+                (VepSegmentType::Intent, "Intent Capsule (JSON)"),
+                (VepSegmentType::MagpieAst, "Formal Intent (AST)"),
+                (VepSegmentType::Identity, "Silicon Ident (PCRs)"),
+                (VepSegmentType::Witness, "Witness Proof (Ed25519)"),
+            ];
+
+            for (seg_type, label) in segments {
+                if let Some(seg_bytes) = packet.get_segment_data(seg_type) {
+                    println!(
+                        "  {} [Type: {:02X}] [{} bytes]",
+                        label.yellow(),
+                        seg_type as u8,
+                        seg_bytes.len()
+                    );
+
+                    if args.hex {
+                        let hex_preview = if seg_bytes.len() > 32 {
+                            format!("{}...", hex::encode(&seg_bytes[0..32]))
+                        } else {
+                            hex::encode(seg_bytes)
+                        };
+                        println!(
+                            "     {} {}",
+                            "Raw Hex:".dimmed(),
+                            hex_preview.italic().dimmed()
+                        );
+                    }
+
+                    if seg_type == VepSegmentType::Intent {
+                        if let Ok(json) = serde_json::from_slice::<serde_json::Value>(seg_bytes) {
+                            let json_str = json.to_string();
+                            let snippet: String = json_str.chars().take(80).collect();
+                            println!(
+                                "     {} {}",
+                                "Preview:".dimmed(),
+                                format!("{}...", snippet).italic()
+                            );
+                        }
+                    }
                 }
-            }
-
-            if let Some(ast_bytes) = packet.get_segment_data(VepSegmentType::MagpieAst) {
-                println!(
-                    "  {} [{} bytes]",
-                    "Formal Witness (Magpie AST)".yellow(),
-                    ast_bytes.len()
-                );
-            }
-
-            if let Some(witness_bytes) = packet.get_segment_data(VepSegmentType::Witness) {
-                println!(
-                    "  {} [{} bytes]",
-                    "Witness Segment".yellow(),
-                    witness_bytes.len()
-                );
             }
         }
         Err(e) => {
@@ -129,7 +162,7 @@ pub async fn run(args: InspectArgs) -> Result<()> {
             );
             println!(
                 "  {}",
-                "The packet header is valid, but internal segments may be corrupted or missing."
+                "Verification failed because the VEP body does not match the header root hash."
                     .dimmed()
             );
         }

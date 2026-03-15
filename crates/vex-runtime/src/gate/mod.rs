@@ -146,6 +146,7 @@ impl Gate for ChoraGate {
             confidence,
             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
             magpie_source: None,
+            metadata: serde_json::Value::Null,
         };
 
         // 2. Perform Handshake via Unified Bridge

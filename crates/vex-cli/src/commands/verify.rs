@@ -25,11 +25,23 @@ pub struct VerifyArgs {
     /// Show detailed verification output
     #[arg(long)]
     detailed: bool,
+
+    /// Perform a live witness handshake audit (e.g., against CHORA)
+    #[arg(long, short = 'l')]
+    live: bool,
+
+    /// CHORA Gate URL for live audit
+    #[arg(long, env = "CHORA_GATE_URL")]
+    gate_url: Option<String>,
+
+    /// CHORA API Key for live audit
+    #[arg(long, env = "CHORA_API_KEY")]
+    api_key: Option<String>,
 }
 
 /// Run the verify command
 pub async fn run(args: VerifyArgs) -> Result<()> {
-    if args.audit.is_none() && args.db.is_none() {
+    if args.audit.is_none() && args.db.is_none() && !args.live {
         println!("{}", "VEX Verification".bold().cyan());
         println!("{}", "═".repeat(40).cyan());
         println!();
@@ -42,21 +54,161 @@ pub async fn run(args: VerifyArgs) -> Result<()> {
             "  {} Verify a VEX database",
             "vex verify --db vex.db".green()
         );
+        println!(
+            "  {} Perform live witness handshake audit",
+            "vex verify --live".green()
+        );
         println!();
         println!("The verify command checks the integrity of VEX audit chains");
-        println!("using Merkle tree verification.");
+        println!("using Merkle tree verification or live gate auditing.");
         return Ok(());
     }
 
     // Handle audit file verification
-    if let Some(audit_path) = args.audit {
-        verify_audit_file(&audit_path, args.detailed).await?;
+    if let Some(audit_path) = &args.audit {
+        verify_audit_file(audit_path, args.detailed).await?;
     }
 
     // Handle database verification
-    if let Some(db_path) = args.db {
-        verify_database(&db_path, args.detailed).await?;
+    if let Some(db_path) = &args.db {
+        verify_database(db_path, args.detailed).await?;
     }
+
+    // Handle live verification
+    if args.live {
+        verify_live_handshake(args.gate_url.as_deref(), args.api_key.as_deref()).await?;
+    }
+
+    Ok(())
+}
+
+/// Perform a live witness handshake audit against a production gate
+async fn verify_live_handshake(gate_url: Option<&str>, api_key: Option<&str>) -> Result<()> {
+    use sha2::Digest;
+    use uuid::Uuid;
+    use vex_chora::client::{AuthorityClient, HttpChoraClient};
+    use vex_core::segment::IntentData;
+
+    println!("{}", "🌐 VEX Live Witness Audit".bold().cyan());
+    println!("{}", "═".repeat(40).cyan());
+    println!();
+
+    let gate_url_str = gate_url
+        .unwrap_or("https://gate.witness.network"); // Generic Placeholder
+
+    let client = HttpChoraClient::new(
+        gate_url_str.to_string(),
+        api_key.unwrap_or("").to_string(),
+    );
+
+    println!("  {} {}", "Gate:".dimmed(), gate_url_str);
+    print!("  Generating random intent... ");
+
+    let nonce = Uuid::new_v4().to_string();
+    let intent = IntentData {
+        request_sha256: hex::encode(sha2::Sha256::digest(b"Live CLI Handshake Audit")),
+        confidence: 0.99,
+        capabilities: vec!["live-cli-audit".to_string()],
+        magpie_source: None,
+        metadata: serde_json::json!({ "nonce": nonce, "context": "cli-audit" }),
+    };
+
+    println!("{}", "DONE".green());
+    println!("  {} {}", "Audit Nonce:".dimmed(), nonce.yellow());
+
+    print!("  Requesting attestation... ");
+    let intent_jcs = serde_jcs::to_vec(&intent).context("Failed to canonicalize intent")?;
+    let resp = client
+        .request_attestation(&intent_jcs)
+        .await
+        .map_err(|e| anyhow::anyhow!("Handshake failed: {}", e))?;
+
+    println!("{}", "RECEIVED".green());
+    println!(
+        "  {} {}",
+        "Capsule ID:".dimmed(),
+        resp.authority.capsule_id.bold()
+    );
+    println!(
+        "  {} {}",
+        "Outcome:".dimmed(),
+        resp.authority.outcome.green().bold()
+    );
+
+    // Fetch full capsule to get all hashes for root reconstruction
+    print!("  Fetching full evidence... ");
+    let capsule_url = format!(
+        "{}/capsules/{}/json",
+        gate_url_str.trim_end_matches('/'),
+        resp.authority.capsule_id
+    );
+    let full_capsule_json: serde_json::Value = reqwest::get(&capsule_url)
+        .await
+        .context("Failed to connect to capsule endpoint")?
+        .json()
+        .await
+        .context("Failed to parse full capsule JSON")?;
+    println!("{}", "DONE".green());
+
+    let reported_root = full_capsule_json["capsule_root"]
+        .as_str()
+        .context("Missing capsule_root in response")?;
+
+    print!("  Auditing root commitment... ");
+    // Reconstruct root locally using reported hashes
+    let root_map = serde_json::json!({
+        "authority_hash": full_capsule_json["authority_hash"].as_str().unwrap_or(""),
+        "identity_hash": full_capsule_json["identity_hash"].as_str().unwrap_or(""),
+        "intent_hash": full_capsule_json["intent_hash"].as_str().unwrap_or(""),
+        "witness_hash": full_capsule_json["witness_hash"].as_str().unwrap_or("")
+    });
+
+    let local_root_jcs = serde_jcs::to_vec(&root_map).context("Failed to canonicalize root map")?;
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(&local_root_jcs);
+    let local_root = hex::encode(hasher.finalize());
+
+    if local_root != reported_root {
+        return Err(anyhow::anyhow!(
+            "Root audit failure! Local: {}, Reported: {}",
+            local_root,
+            reported_root
+        ));
+    }
+    println!("{}", "OK".green());
+
+    print!("  Verifying production signature... ");
+    let sig_hex = full_capsule_json["crypto"]["signature_b64"]
+        .as_str()
+        .or_else(|| full_capsule_json["signature"].as_str())
+        .context("Missing signature in evidence")?;
+
+    let sig_bytes = if sig_hex.len() == 128 {
+        hex::decode(sig_hex).context("Failed to decode hex signature")?
+    } else {
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, sig_hex)
+            .context("Failed to decode base64 signature")?
+    };
+
+    let root_bytes = hex::decode(&local_root).context("Failed to decode local root to bytes")?;
+    let verified = client
+        .verify_witness_signature(&root_bytes, &sig_bytes)
+        .await
+        .map_err(|e| anyhow::anyhow!("Signature verification error: {}", e))?;
+
+    if !verified {
+        return Err(anyhow::anyhow!(
+            "Cryptographic verification failed! Signature is invalid for the calculated root."
+        ));
+    }
+    println!("{}", "VERIFIED".green());
+
+    println!();
+    println!("{} Live handshake audit successful.", "✓".green().bold());
+    println!(
+        "  All cryptographic guarantees verified against {} gate.",
+        "CHORA".bold()
+    );
 
     Ok(())
 }

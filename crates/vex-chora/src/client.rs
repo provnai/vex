@@ -46,6 +46,7 @@ impl AuthorityClient for MockChoraClient {
             nonce: 42,
             trace_root: "00".repeat(32), // Mocked trace root
             gate_sensors: serde_json::Value::Null,
+            metadata: serde_json::Value::Null,
         };
 
         // Generate mock signature
@@ -208,6 +209,7 @@ impl AuthorityClient for HttpChoraClient {
             nonce,
             trace_root,
             gate_sensors: serde_json::Value::Null,
+            metadata: serde_json::Value::Null,
         };
 
         let signature = api_resp

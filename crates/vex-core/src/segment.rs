@@ -16,6 +16,10 @@ pub struct IntentData {
     pub capabilities: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub magpie_source: Option<String>,
+
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 impl IntentData {
@@ -42,6 +46,10 @@ pub struct AuthorityData {
     pub nonce: u64,
     #[serde(default = "default_sensor_value")]
     pub gate_sensors: serde_json::Value,
+
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 fn default_sensor_value() -> serde_json::Value {
@@ -51,28 +59,22 @@ fn default_sensor_value() -> serde_json::Value {
 /// Witness Data (CHORA Append-Only Log)
 /// Proves the receipt issuance parameters.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WitnessData {
-    pub chora_node_id: String,
-    pub receipt_hash: String,
-    pub timestamp: u64,
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
 }
 
-/// The "Commitment Surface" for the Witness segment.
-/// Lexicographical order and field presence are strictly enforced here for interop parity.
-#[derive(Serialize)]
-struct MinimalWitness<'a> {
-    chora_node_id: &'a str,
-    receipt_hash: &'a str,
-    timestamp: u64,
-}
-
 impl WitnessData {
-    /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
-    /// This ensures that adding extra display fields to the JSON does not break the commitment.
+    /// Compute the "witness_hash" using the Minimal Witness spec.
+    /// Only chora_node_id, receipt_hash, and timestamp are hashed.
     pub fn to_commitment_hash(&self) -> Result<String, String> {
+        #[derive(Serialize)]
+        struct MinimalWitness<'a> {
+            chora_node_id: &'a str,
+            receipt_hash: &'a str,
+            timestamp: u64,
+        }
+
         let minimal = MinimalWitness {
             chora_node_id: &self.chora_node_id,
             receipt_hash: &self.receipt_hash,
@@ -97,6 +99,7 @@ impl WitnessData {
         ))
     }
 }
+}
 
 /// Identity Data (Attest Pillar)
 /// Proves the silicon source and its integrity state.
@@ -108,6 +111,10 @@ pub struct IdentityData {
     /// Map of PCR index (e.g., 0, 7, 11) to SHA-256 hash (hex string).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pcrs: Option<std::collections::HashMap<u32, String>>,
+
+    /// Catch-all for extra fields to preserve binary parity in JCS.
+    #[serde(flatten, default)]
+    pub metadata: serde_json::Value,
 }
 
 /// Crypto verification details.
@@ -157,7 +164,7 @@ pub struct Capsule {
 }
 
 impl Capsule {
-    /// Compute the canonical "capsule_root" using George's Hash-of-Hashes Spec
+    /// Compute the canonical "capsule_root" using the CHORA Hash-of-Hashes Spec
     /// `SHA256(JCS({ intent_hash, authority_hash, identity_hash, witness_hash }))`
     pub fn to_composite_hash(&self) -> Result<Hash, String> {
         // Helper to hash a single JCS serializable structure
@@ -207,6 +214,7 @@ mod tests {
             confidence: 0.95,
             capabilities: vec![],
             magpie_source: None,
+            metadata: serde_json::Value::Null,
         };
         let segment2 = segment1.clone();
 
@@ -223,6 +231,7 @@ mod tests {
             confidence: 0.5,
             capabilities: vec![],
             magpie_source: None,
+            metadata: serde_json::Value::Null,
         };
         let mut segment2 = segment1.clone();
         segment2.confidence = 0.9;
@@ -257,6 +266,109 @@ mod tests {
         assert_eq!(
             hash_base, hash_with_metadata,
             "Witness hash must be invariant to extra metadata fields"
+        );
+    }
+
+    #[test]
+    fn test_witness_segment_minimal_interop() {
+        // Specimen from CHORA Witness Network
+        // {
+        //  "chora_node_id": "chora-gate-v1",
+        //  "receipt_hash": "",
+        //  "timestamp": 1710396000
+        // }
+        let witness = WitnessData {
+            chora_node_id: "chora-gate-v1".to_string(),
+            receipt_hash: "".to_string(),
+            timestamp: 1710396000,
+            metadata: serde_json::json!({
+                "witness_mode": "full",
+                "observational_only": false
+            }),
+        };
+
+        let hash_hex = witness.to_commitment_hash().expect("Hashing failed");
+
+        // Expected hash for exactly: {"chora_node_id":"chora-gate-v1","receipt_hash":"","timestamp":1710396000}
+        // JCS should be lexicographical: chora_node_id -> receipt_hash -> timestamp
+        assert_eq!(
+            hash_hex, "79988e14e875e1fe409ccf13628c2c12bc3d2eeacfb09a9024889def4fc8262b",
+            "Witness hash must match the CHORA spec even with extra metadata"
+        );
+    }
+
+    #[test]
+    fn test_authority_extra_fields_parity() {
+        // Specimen based on the CHORA example
+        let json_data = serde_json::json!({
+            "capsule_id": "example-capsule-001",
+            "outcome": "ALLOW",
+            "reason_code": "policy_ok",
+            "trace_root": "trace-001",
+            "nonce": 1234567890,
+            "gate_sensors": null,
+            "rule_set_owner": "chora-authority-node",
+            "fail_closed": true
+        });
+
+        let authority: AuthorityData = serde_json::from_value(json_data.clone()).unwrap();
+
+        // Ensure extra fields went into metadata
+        assert_eq!(authority.metadata["rule_set_owner"], "chora-authority-node");
+        assert_eq!(authority.metadata["fail_closed"], true);
+
+        // Verify JCS serialization includes the extra fields
+        let jcs_bytes = serde_jcs::to_vec(&authority).unwrap();
+        let jcs_str = String::from_utf8(jcs_bytes).unwrap();
+
+        assert!(jcs_str.contains("\"rule_set_owner\":\"chora-authority-node\""));
+        assert!(jcs_str.contains("\"fail_closed\":true"));
+    }
+
+    #[test]
+    fn test_chora_live_specimen_parity() {
+        // 1. Verify Witness Hash Parity
+        // Sample from CHORA Witness Network - 2026-03-14 11:26 AM
+        let witness = WitnessData {
+            chora_node_id: "chora-vps-1".to_string(),
+            receipt_hash: "".to_string(),
+            timestamp: 1773483683,
+            metadata: serde_json::json!({
+                "witness_mode": "attached",
+                "sentinel_mode": "observe_only",
+                "observational_only": true
+            }),
+        };
+
+        let witness_hash = witness.to_commitment_hash().unwrap();
+        assert_eq!(
+            witness_hash, "af138bfd4dff7f7f28bc04617529c00db04306cd49900ab729168ce8b8a9d061",
+            "Witness hash must match the CHORA live production sample"
+        );
+
+        // 2. Verify Capsule Root Commitment (Lexicographical JCS)
+        // Hashes provided for CHORA specimen f3d4bbce...
+        let intent_hash = "1f05a4c81ff8b0026e873d3782b07c5140c89efcd632a5f121159e2e823b744d";
+        let authority_hash = "c1c9cc1c96db2959dc824e4398162d0fd4250ff483f74475740e92e97dc38aef";
+        let identity_hash = "fc6f5810fc16aea2197501867237159f284efdb2e1b6e7865a034b610e4903a3";
+        let witness_hash_live = "af138bfd4dff7f7f28bc04617529c00db04306cd49900ab729168ce8b8a9d061";
+
+        let root_map = serde_json::json!({
+            "authority_hash": authority_hash,
+            "identity_hash": identity_hash,
+            "intent_hash": intent_hash,
+            "witness_hash": witness_hash_live
+        });
+
+        let jcs_bytes = serde_jcs::to_vec(&root_map).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&jcs_bytes);
+        use sha2::Digest;
+        let capsule_root = hex::encode(hasher.finalize());
+
+        assert_eq!(
+            capsule_root, "f3d4bbce71827fbe4529cc6ec6560439454dcccf3a93b603be18d7e5034f32f1",
+            "Capsule root commitment must match the CHORA live production sample"
         );
     }
 }

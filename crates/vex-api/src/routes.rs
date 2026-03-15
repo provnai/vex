@@ -262,6 +262,7 @@ pub async fn execute_agent(
         confidence: 1.0,
         capabilities: vec!["api-execution".to_string()],
         magpie_source: None,
+        metadata: serde_json::Value::Null,
     };
     let intent_hash = intent
         .to_jcs_hash()

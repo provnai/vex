@@ -52,6 +52,7 @@ impl VepVerifier {
             confidence: core_capsule.intent.confidence,
             capabilities: core_capsule.intent.capabilities,
             magpie_source: core_capsule.intent.magpie_source,
+            metadata: core_capsule.intent.metadata,
         };
 
         let authority = AuthoritySegment {
@@ -61,12 +62,14 @@ impl VepVerifier {
             trace_root: core_capsule.authority.trace_root,
             nonce: core_capsule.authority.nonce,
             gate_sensors: core_capsule.authority.gate_sensors,
+            metadata: core_capsule.authority.metadata,
         };
 
         let identity = IdentitySegment {
             aid: core_capsule.identity.aid,
             identity_type: core_capsule.identity.identity_type,
             pcrs: core_capsule.identity.pcrs,
+            metadata: core_capsule.identity.metadata,
         };
 
         let witness = WitnessSegment {
@@ -152,6 +155,7 @@ mod tests {
             confidence: 0.9,
             capabilities: vec!["test".to_string()],
             magpie_source: None,
+            metadata: serde_json::Value::Null,
         };
         let authority = AuthoritySegment {
             capsule_id: "test-capsule".to_string(),
@@ -160,16 +164,18 @@ mod tests {
             trace_root: "tr".to_string(),
             nonce: 42,
             gate_sensors: serde_json::Value::Null,
+            metadata: serde_json::Value::Null,
         };
         let identity = IdentitySegment {
             aid: hex::encode([0u8; 32]), // Mock AID
             identity_type: "mock".to_string(),
             pcrs: None,
+            metadata: serde_json::Value::Null,
         };
         let witness = WitnessSegment {
             chora_node_id: "node1".to_string(),
             receipt_hash: "rh".to_string(),
-            timestamp: 1710403200,
+            timestamp: 1710396000,
             metadata: serde_json::Value::Null,
         };
 
@@ -215,6 +221,7 @@ mod tests {
             confidence: 1.0,
             capabilities: vec!["audit".to_string()],
             magpie_source: None,
+            metadata: serde_json::Value::Null,
         };
         let authority = AuthoritySegment {
             capsule_id: "capsule-xyz-789".to_string(),
@@ -223,16 +230,18 @@ mod tests {
             trace_root: "tr".to_string(),
             nonce: 101,
             gate_sensors: serde_json::Value::Null,
+            metadata: serde_json::Value::Null,
         };
         let identity = IdentitySegment {
             aid: hex::encode([1u8; 32]),
             identity_type: "hardware".to_string(),
             pcrs: None,
+            metadata: serde_json::Value::Null,
         };
         let witness = WitnessSegment {
             chora_node_id: "nodeB".to_string(),
             receipt_hash: "receiptB".to_string(),
-            timestamp: 1710403200,
+            timestamp: 1710396000,
             metadata: serde_json::Value::Null,
         };
 

@@ -10,7 +10,7 @@ pub const VEP_VERSION_V2: u8 = 2; // CHORA Capsule v1 uses v2 wire
 pub const VEP_VERSION_V3: u8 = 3; // VEX Capsule v0.2 uses v3 wire
 pub const VEP_HEADER_SIZE: usize = 76;
 
-/// VEP Header (76 bytes) - Aligned with George's Wire Spec
+/// VEP Header (76 bytes) - Aligned with the VEP Wire Specification
 /// format: magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned, Debug, Clone, Copy)]
 #[repr(C)]
@@ -92,7 +92,7 @@ impl<'a> VepPacket<'a> {
     }
 
     /// Verifies the cryptographic integrity of the packet against a CHORA public key. (Phase 3.2)
-    /// Following George's Capsule v1 Spec: The signature is over the `capsule_root`.
+    /// Following the CHORA Capsule v1 Spec: The signature is over the `capsule_root`.
     pub fn verify(&self, chora_public_key_bytes: &[u8]) -> Result<bool, String> {
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 

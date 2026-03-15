@@ -14,12 +14,12 @@ The commitment surface is built upon **JCS (JSON Canonicalization Scheme - RFC 8
 ### Pillar Hashing (Canonical Scopes)
 To ensure mathematical parity across nodes (VEX, CHORA, ATTEST), only the following fields are included in the JCS hashing scope for each pillar. Any extra metadata fields in the JSON MUST be excluded from the hash.
 
-| Pillar | Canonical Hashing Scope (Fields) |
-|--------|----------------------------------|
-| **Intent** | `request_sha256`, `confidence`, `capabilities`, `magpie_source` |
-| **Authority** | `capsule_id`, `outcome`, `reason_code`, `trace_root`, `nonce`, `gate_sensors` |
-| **Identity** | `aid`, `identity_type`, `pcrs` |
-| **Witness** | `chora_node_id`, `receipt_hash`, `timestamp` |
+| Pillar | Canonical Hashing Scope (Surface Type) | Fields Included |
+|--------|----------------------------------------|-----------------|
+| **Intent** | **Inclusive** (Models + Metadata) | `request_sha256`, `confidence`, `capabilities`, `magpie_source`, `*` (All extra fields) |
+| **Authority** | **Inclusive** (Models + Metadata) | `capsule_id`, `outcome`, `reason_code`, `trace_root`, `nonce`, `gate_sensors`, `*` (All extra fields) |
+| **Identity** | **Inclusive** (Models + Metadata) | `aid`, `identity_type`, `pcrs`, `*` (All extra fields) |
+| **Witness** | **Minimal** (Explicit Fields Only) | `chora_node_id`, `receipt_hash`, `timestamp` |
 
 ### Capsule Root (The Commitment)
 The `capsule_root` is the single canonical commitment for the entire artifact. When building the root object for JCS, field keys **MUST** be ordered lexicographically.
@@ -49,7 +49,8 @@ Documents the agent's internal state and formal reasoning prior to execution.
   "request_sha256": "hex[32] (Payload commitment)",
   "confidence": "float64 (0.0 - 1.0)",
   "capabilities": ["string (e.g., 'filesystem', 'network')"],
-  "magpie_source": "string (Optional - bundled UTF-8 formal AST)"
+  "magpie_source": "string (Optional - bundled UTF-8 formal AST)",
+  "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
 
@@ -62,7 +63,8 @@ Documents the governance decision and the cryptographic trace allowed by the gat
   "reason_code": "string (e.g., 'POLICY_MATCH')",
   "trace_root": "hex[32] (Cryptographic policy trace)",
   "nonce": "uint64 (Strictly increasing counter)",
-  "gate_sensors": "object (Optional gate sensor telemetry)"
+  "gate_sensors": "object (Optional gate sensor telemetry)",
+  "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
 
@@ -76,7 +78,8 @@ Proves the hardware source (Silicon) and its boot/runtime integrity state.
     "0": "hex[32] (SRTM - System Measurement)",
     "7": "hex[32] (Secure Boot Policy)",
     "11": "hex[32] (Kernel Runtime Integrity)"
-  }
+  },
+  "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
 *Constraints:* PCR indices **MUST** be represented as strings in the JSON map to satisfy JCS deterministic sorting requirements.
@@ -87,7 +90,7 @@ The third-party custody record from the witness network. This pillar uses a **mi
 {
   "chora_node_id": "string (Authority Node ID)",
   "receipt_hash": "hex (Authority signature of the root)",
-  "timestamp": "string (RFC3339 UTC)"
+  "timestamp": "uint64 (Unix Epoch - Seconds)"
 }
 ```
 *Note: Metadata fields like `witness_mode` or `sentinel_mode` may be present in the JSON but ARE NOT hashed.*
@@ -177,7 +180,8 @@ Implementation-specific test vectors for v0.2 are provided in the `vex-runtime` 
 
 - **Zero Float Ambiguity**: All internal hashing logic MUST use integers or strings.
 - **Lexicographical Integrity**: Objects MUST be sorted by key during JCS canonicalization.
-- **Backward Compatibility**: Extra metadata fields (e.g., `witness_mode`) MAY be included in the JSON for auditability but SHOULD be excluded from hashing if compatibility with v0.1 verifiers is required.
+- **Structural Hardening**: Intent, Authority, and Identity pillars use an **Inclusive** hashing surface. Any field present in the JSON at these levels (flattened metadata) MUST be captured and included in the JCS hash to ensure binary parity for extended protocols.
+- **Minimal Witness Compliance**: The Witness pillar uses an **Explicit** hashing surface. Only the three defined fields are hashed; all other witness fields (e.g., `witness_mode`) sit outside the cryptographic commitment.
 - **Omission over Null**: Optional fields that are empty MUST be omitted from the JSON rather than set to `null` to minimize artifact size.
 - **Hardware-Rooted Seal**: The signature MUST be the FINAL operation, sealing the hardware identity and PCR state into the witness receipt.
 - **OTS Finality**: External anchoring (e.g., OpenTimestamps) is performed *after* the capsule is sealed and witnessed.

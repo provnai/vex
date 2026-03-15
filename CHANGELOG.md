@@ -5,6 +5,33 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-15
+
+### Added
+- **📜 VEP v1.0 Formalization**: Promoted the Verifiable Evidence Packet (VEP) binary envelope to its definitive 76-byte TLV-based wire format. Standardized `VEP_VERSION_V3`.
+- **🛠️ `vex-cli` Protocol Extensions**:
+    - `vex inspect --hex`: Implemented a deep binary dissector for offline VEP packet inspection.
+    - `vex verify --live`: Implemented real-time witness audit against the CHORA production gate.
+- **🧬 Metadata Parity (Hardened JCS)**: Implemented flattened `metadata` support across Intent, Authority, and Identity pillars to ensure bit-identical interop with legacy and extended specimens.
+- **🛡️ Witness Integrity (Minimal Scope)**: Standardized on "Minimal Hashing" for the Witness pillar (NodeID, Receipt, Timestamp) to ensure cross-stack cryptographic compatibility.
+
+### Fixed
+- **🐛 witness_hash Parity**: Resolved a 256-bit hash mismatch in minimal witness commitment logic encountered during production gate verification.
+- **🐛 cli-flag Conflict**: Fixed `clap` argument collisions between global verbose settings and command-specific hex/audit flags in `vex-cli`.
+
+## [1.3.1] - 2026-03-14
+
+### Added
+- **🛡️ Panic Elimination**: Replaced `.unwrap()` in security-critical paths (e.g., `merkle.rs`) with graceful error handling and `HALT` capsules.
+- **⚖️ Fail-Closed Defaults**: Standardized on "Fail-Closed" behavior across `TitanGate` for unparseable responses or edge-case failures.
+- **🔄 LLM Deduplication**: Consolidated multiple model providers (OpenAI, DeepSeek, Mistral) under a unified `OpenAICompatibleProvider`.
+- **🏛️ Honest Naming Audit**: Renamed legacy components to reflect their true function (e.g., `EthereumAnchor` -> `EthereumSimulationAnchor`, `SemanticCache` -> `StringSimilarityCache`).
+- **🛰️ Persistent Routing**: Properly wired the centralized router to persistent storage backends (Postgres/SQLite).
+
+### Fixed
+- **📏 Consensus Boundary Fix**: Corrected supermajority logic to strictly require `ratio > 2/3`.
+- **🔍 Regex Portability**: Replaced unsupported non-capture lookahead regex with pure Rust logic for SSN/Sensitive data detection in `vex-router`.
+
 ## [1.3.0] - 2026-03-14
 
 ### Added

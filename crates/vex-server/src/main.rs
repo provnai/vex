@@ -188,6 +188,9 @@ async fn main() -> Result<()> {
     let authority_client = match std::env::var("CHORA_GATE_URL") {
         Ok(url) => {
             let key = std::env::var("CHORA_API_KEY").unwrap_or_default();
+            if key.is_empty() {
+                tracing::warn!("CHORA_API_KEY not set. Live audit may fail if gate requires auth.");
+            }
             tracing::info!("🔗 CHORA AuthorityBridge: HttpChoraClient active.");
             vex_chora::client::make_authority_client(url, key)
         }
