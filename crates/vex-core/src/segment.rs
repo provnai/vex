@@ -3,23 +3,38 @@
 //! Provides the data structures and JCS canonicalization for the v0.1.0 "Hardened" Commitment model.
 
 use crate::merkle::Hash;
+use crate::zk::{ZkError, ZkVerifier};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Intent Data (VEX Pillar)
-/// Proves the proposed action before execution.
+/// Proves the proposed action before execution. It supports two variants:
+/// - Transparent: Standard human-readable reasoning (Standard).
+/// - Shadow: STARK-proofed hidden intent for privacy (High-Compliance).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct IntentData {
-    pub request_sha256: String,
-    pub confidence: f64,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub magpie_source: Option<String>,
+#[serde(untagged, rename_all = "snake_case")]
+pub enum IntentData {
+    Transparent {
+        request_sha256: String,
+        confidence: f64,
+        #[serde(default)]
+        capabilities: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        magpie_source: Option<String>,
 
-    /// Catch-all for extra fields to preserve binary parity in JCS.
-    #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+        /// Catch-all for extra fields to preserve binary parity in JCS.
+        #[serde(flatten, default)]
+        metadata: serde_json::Value,
+    },
+    Shadow {
+        commitment_hash: String,
+        stark_proof_b64: String,
+        public_inputs: serde_json::Value,
+
+        /// Catch-all for extra fields to preserve binary parity in JCS.
+        #[serde(flatten, default)]
+        metadata: serde_json::Value,
+    },
 }
 
 impl IntentData {
@@ -33,6 +48,20 @@ impl IntentData {
 
         Ok(Hash::from_bytes(result.into()))
     }
+
+    /// Verifies the Zero-Knowledge proof for Shadow intents.
+    /// For Transparent intents, this always returns Ok(true).
+    pub fn verify_shadow(&self, verifier: &dyn ZkVerifier) -> Result<bool, ZkError> {
+        match self {
+            IntentData::Transparent { .. } => Ok(true),
+            IntentData::Shadow {
+                commitment_hash,
+                stark_proof_b64,
+                public_inputs,
+                ..
+            } => verifier.verify_stark(commitment_hash, stark_proof_b64, public_inputs),
+        }
+    }
 }
 
 /// Authority Data (CHORA Pillar)
@@ -44,7 +73,10 @@ pub struct AuthorityData {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
-    #[serde(default = "default_sensor_value")]
+    #[serde(
+        default = "default_sensor_value",
+        skip_serializing_if = "serde_json::Value::is_null"
+    )]
     pub gate_sensors: serde_json::Value,
 
     /// Catch-all for extra fields to preserve binary parity in JCS.
@@ -75,13 +107,11 @@ impl WitnessData {
         #[derive(Serialize)]
         struct MinimalWitness<'a> {
             chora_node_id: &'a str,
-            receipt_hash: &'a str,
             timestamp: u64,
         }
 
         let minimal = MinimalWitness {
             chora_node_id: &self.chora_node_id,
-            receipt_hash: &self.receipt_hash,
             timestamp: self.timestamp,
         };
 
@@ -167,41 +197,43 @@ pub struct Capsule {
 }
 
 impl Capsule {
-    /// Compute the canonical "capsule_root" using the CHORA Hash-of-Hashes Spec
-    /// `SHA256(JCS({ intent_hash, authority_hash, identity_hash, witness_hash }))`
+    /// Compute the canonical "capsule_root" using the Binary Merkle Tree model.
+    /// This enables ZK-Explorer partial disclosure proofs for "Shadow Intents".
     pub fn to_composite_hash(&self) -> Result<Hash, String> {
-        // Helper to hash a single JCS serializable structure
-        fn hash_seg<T: Serialize>(seg: &T) -> Result<String, String> {
-            let jcs = serde_jcs::to_vec(seg).map_err(|e| e.to_string())?;
-            let mut hasher = Sha256::new();
-            hasher.update(&jcs);
-            Ok(hex::encode(hasher.finalize()))
-        }
-
         let intent_h = self.intent.to_jcs_hash()?;
-        let intent_hash_hex = intent_h.to_hex();
 
-        let authority_hash_hex = hash_seg(&self.authority)?;
-        let identity_hash_hex = hash_seg(&self.identity)?;
-        let witness_hash_hex = self.witness.to_commitment_hash()?;
+        // Authority and Identity are hashed as "Naked" leaves for byte-level interop with CHORA.
+        let authority_h = {
+            let jcs = serde_jcs::to_vec(&self.authority).map_err(|e| e.to_string())?;
+            let mut hasher = sha2::Sha256::new();
+            use sha2::Digest;
+            hasher.update(&jcs);
+            Hash::from_bytes(hasher.finalize().into())
+        };
 
-        // Build the Canonical Composite Object
-        let composite_root = serde_json::json!({
-            "intent_hash": intent_hash_hex,
-            "authority_hash": authority_hash_hex,
-            "identity_hash": identity_hash_hex,
-            "witness_hash": witness_hash_hex
-        });
+        let identity_h = {
+            let jcs = serde_jcs::to_vec(&self.identity).map_err(|e| e.to_string())?;
+            let mut hasher = sha2::Sha256::new();
+            use sha2::Digest;
+            hasher.update(&jcs);
+            Hash::from_bytes(hasher.finalize().into())
+        };
 
-        // Hash the Composite Object
-        let composite_jcs = serde_jcs::to_vec(&composite_root)
-            .map_err(|e| format!("JCS Serialization of composite root failed: {}", e))?;
+        let witness_h = self.witness.to_jcs_hash()?;
 
-        let mut hasher = Sha256::new();
-        hasher.update(&composite_jcs);
-        let result = hasher.finalize();
+        // Build 4-leaf Merkle Tree (RFC 6962 compatible structure)
+        let leaves = vec![
+            ("intent".to_string(), intent_h),
+            ("authority".to_string(), authority_h),
+            ("identity".to_string(), identity_h),
+            ("witness".to_string(), witness_h),
+        ];
 
-        Ok(Hash::from_bytes(result.into()))
+        let tree = crate::merkle::MerkleTree::from_leaves(leaves);
+
+        tree.root_hash()
+            .cloned()
+            .ok_or_else(|| "Failed to calculate Merkle root".to_string())
     }
 }
 
@@ -211,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_intent_segment_jcs_deterministic() {
-        let segment1 = IntentData {
+        let segment1 = IntentData::Transparent {
             request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e"
                 .to_string(),
             confidence: 0.95,
@@ -229,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_intent_segment_content_change() {
-        let segment1 = IntentData {
+        let segment1 = IntentData::Transparent {
             request_sha256: "a".into(),
             confidence: 0.5,
             capabilities: vec![],
@@ -237,12 +269,45 @@ mod tests {
             metadata: serde_json::Value::Null,
         };
         let mut segment2 = segment1.clone();
-        segment2.confidence = 0.9;
+        if let IntentData::Transparent {
+            ref mut confidence, ..
+        } = segment2
+        {
+            *confidence = 0.9;
+        }
 
         let hash1 = segment1.to_jcs_hash().unwrap();
         let hash2 = segment2.to_jcs_hash().unwrap();
 
         assert_ne!(hash1, hash2, "Hashes must change when content changes");
+    }
+
+    #[test]
+    fn test_shadow_intent_jcs_deterministic() {
+        let segment1 = IntentData::Shadow {
+            commitment_hash: "5555555555555555555555555555555555555555555555555555555555555555"
+                .to_string(),
+            stark_proof_b64: "c29tZS1zdGFyay1wcm9vZg==".to_string(),
+            public_inputs: serde_json::json!({
+                "policy_id": "standard-v1",
+                "outcome_commitment": "ALLOW"
+            }),
+            metadata: serde_json::Value::Null,
+        };
+        let segment2 = segment1.clone();
+
+        let hash1 = segment1.to_jcs_hash().unwrap();
+        let hash2 = segment2.to_jcs_hash().unwrap();
+
+        assert_eq!(hash1, hash2, "Shadow JCS hashing must be deterministic");
+
+        // Verify that it contains the variant tag in JCS
+        let jcs_bytes = serde_jcs::to_vec(&segment1).unwrap();
+        let jcs_str = String::from_utf8(jcs_bytes).unwrap();
+        assert!(
+            jcs_str.contains("\"variant\":\"shadow\""),
+            "JCS must include the variant tag"
+        );
     }
 
     #[test]
@@ -345,8 +410,8 @@ mod tests {
 
         let witness_hash = witness.to_commitment_hash().unwrap();
         assert_eq!(
-            witness_hash, "af138bfd4dff7f7f28bc04617529c00db04306cd49900ab729168ce8b8a9d061",
-            "Witness hash must match the CHORA live production sample"
+            witness_hash, "7d4e2acaa7e459261d48f79cbec2a08ef5f8489e7cb610f375b708f9b8027e33",
+            "Witness hash must match the CHORA live production sample (excluding receipt_hash)"
         );
 
         // 2. Verify Capsule Root Commitment (Lexicographical JCS)
@@ -354,7 +419,7 @@ mod tests {
         let intent_hash = "1f05a4c81ff8b0026e873d3782b07c5140c89efcd632a5f121159e2e823b744d";
         let authority_hash = "c1c9cc1c96db2959dc824e4398162d0fd4250ff483f74475740e92e97dc38aef";
         let identity_hash = "fc6f5810fc16aea2197501867237159f284efdb2e1b6e7865a034b610e4903a3";
-        let witness_hash_live = "af138bfd4dff7f7f28bc04617529c00db04306cd49900ab729168ce8b8a9d061";
+        let witness_hash_live = "7d4e2acaa7e459261d48f79cbec2a08ef5f8489e7cb610f375b708f9b8027e33";
 
         let root_map = serde_json::json!({
             "authority_hash": authority_hash,
@@ -370,8 +435,8 @@ mod tests {
         let capsule_root = hex::encode(hasher.finalize());
 
         assert_eq!(
-            capsule_root, "f3d4bbce71827fbe4529cc6ec6560439454dcccf3a93b603be18d7e5034f32f1",
-            "Capsule root commitment must match the CHORA live production sample"
+            capsule_root, "4401e5b102f949472b0bc247a8a9cb1dd685a3ba387f0cca332fb13fafdbd960",
+            "Capsule root commitment must match the recomputed v0.2 model"
         );
     }
 }

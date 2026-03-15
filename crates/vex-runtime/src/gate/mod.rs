@@ -141,7 +141,7 @@ impl Gate for ChoraGate {
         capabilities: Vec<Capability>,
     ) -> EvidenceCapsule {
         // 1. Build IntentData from execution context
-        let intent = vex_core::segment::IntentData {
+        let intent = vex_core::segment::IntentData::Transparent {
             request_sha256: hex::encode(sha2::Sha256::digest(suggested_output.as_bytes())),
             confidence,
             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),

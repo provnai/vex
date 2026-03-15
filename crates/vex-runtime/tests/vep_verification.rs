@@ -6,6 +6,7 @@ use vex_runtime::audit::vep::{
 #[test]
 fn test_vep_binary_serialization() {
     let intent = IntentSegment {
+        variant: "transparent".to_string(),
         request_sha256: "0".repeat(64),
         confidence: 0.95,
         capabilities: vec!["Subprocess".to_string()],
@@ -94,6 +95,7 @@ fn test_vep_signature_verification() {
 
     let mut capsule = EvidenceCapsuleV0::new(
         IntentSegment {
+            variant: "transparent".to_string(),
             request_sha256: "0".repeat(64),
             confidence: 1.0,
             capabilities: vec![],

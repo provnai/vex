@@ -223,10 +223,16 @@ impl Router {
             .map_err(RouterError::VepVerificationFailed)?;
 
         // 3. Extract prompt from intent (hardened identifier)
-        let prompt = format!(
-            "Encapsulated Intent (Hardened): {}",
-            capsule.intent.request_sha256.clone()
-        );
+        let intent_id = match &capsule.intent {
+            vex_core::segment::IntentData::Transparent { request_sha256, .. } => {
+                request_sha256.clone()
+            }
+            vex_core::segment::IntentData::Shadow {
+                commitment_hash, ..
+            } => commitment_hash.clone(),
+        };
+
+        let prompt = format!("Encapsulated Intent (Hardened): {}", intent_id);
         let system = "VEP Enveloped Request";
 
         self.execute(&prompt, system).await

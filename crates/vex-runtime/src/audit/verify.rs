@@ -47,12 +47,26 @@ impl VepVerifier {
             .map_err(|e| VerifierError::Integrity(e.to_string()))?;
 
         // 4. Map back to Runtime VEP Capsule (V0)
-        let intent = IntentSegment {
-            request_sha256: core_capsule.intent.request_sha256,
-            confidence: core_capsule.intent.confidence,
-            capabilities: core_capsule.intent.capabilities,
-            magpie_source: core_capsule.intent.magpie_source,
-            metadata: core_capsule.intent.metadata,
+        let intent = match core_capsule.intent {
+            vex_core::segment::IntentData::Transparent {
+                request_sha256,
+                confidence,
+                capabilities,
+                magpie_source,
+                metadata,
+            } => IntentSegment {
+                variant: "transparent".to_string(),
+                request_sha256,
+                confidence,
+                capabilities,
+                magpie_source,
+                metadata,
+            },
+            vex_core::segment::IntentData::Shadow { .. } => {
+                return Err(VerifierError::Integrity(
+                    "SHADOW_INTENT_NOT_SUPPORTED_IN_V0".to_string(),
+                ))
+            }
         };
 
         let authority = AuthoritySegment {
@@ -151,6 +165,7 @@ mod tests {
         let verifying_key = signing_key.verifying_key();
 
         let intent = IntentSegment {
+            variant: "transparent".to_string(),
             request_sha256: "aabbcc".to_string(),
             confidence: 0.9,
             capabilities: vec!["test".to_string()],
@@ -217,6 +232,7 @@ mod tests {
 
         // 1. Create a VEP
         let intent = IntentSegment {
+            variant: "transparent".to_string(),
             request_sha256: "deadbeef".to_string(),
             confidence: 1.0,
             capabilities: vec!["audit".to_string()],

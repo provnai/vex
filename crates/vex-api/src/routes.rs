@@ -257,7 +257,7 @@ pub async fn execute_agent(
 
     // Phase 2.1: Generate IntentData and segmented commitment (trace_root)
     let trace_root_hash = vex_core::Hash::digest(prompt.as_bytes());
-    let intent = vex_core::IntentData {
+    let intent = vex_core::IntentData::Transparent {
         request_sha256: trace_root_hash.to_hex(),
         confidence: 1.0,
         capabilities: vec!["api-execution".to_string()],

@@ -1,4 +1,4 @@
-# VEX Protocol (v1.3.0)
+# VEX Protocol (v1.5.0)
 
 > **A protocol for verifiable AI reasoning.**
 
@@ -52,12 +52,12 @@ VEX provides a verification and memory layer designed for production environment
 
 ---
 
-## What's New in v1.3.0 🛡️
+## What's New in v1.5.0 🛡️
 
-- 🧬 **Hardware PCR Binding (v0.2)** - Integrated direct TPM 2.0/CNG interaction for kernel-level integrity measurements (PCRs 0, 7, 11).
-- 🏗️ **Silicon-Proxy Architecture** - Redesigned the data flow to incorporate `vex-hardware`, `vex-chora`, and binary `VEP` encapsulation.
-- 🧪 **Zero-Error WSL CI** - Achieved 100% green pipeline parity in virtualized Linux environments, ensuring production stability.
-- 👮 **Formal Intent Hardening** - Replaced string-based IR with `MagpieAstBuilder` for programmatic, injection-proof instruction generation.
+- **🧩 Merkle Core Upgrade** — Standardized the 4-leaf Binary Merkle Tree (RFC 6962) as the default commitment model. Enables "Partial Disclosure" audits in the VEP Explorer.
+- **🛡️ Forensic JCS Parity** — Enforced strict "Omission over Null" serialization for optional fields, ensuring absolute byte-perfect parity with CHORA production gates.
+- **🔒 ZK-Privacy Readiness** — Structural shift to Merkle trees enables future support for "Shadow Intent" ZK-proofs.
+- **📜 Spec v0.3 Alignment** — Full codebase synchronization with the joint VEX x CHORA v0.3 "Sovereign Audit" specification.
 
 ---
 

@@ -16,7 +16,7 @@ mod tests {
     #[tokio::test]
     async fn test_bridge_handshake() {
         let bridge = AuthorityBridge::new(std::sync::Arc::new(MockChoraClient));
-        let intent = vex_core::segment::IntentData {
+        let intent = vex_core::segment::IntentData::Transparent {
             request_sha256: "8ee6010d905547c377c67e63559e989b8073b168f11a1ffefd092c7ca962076e"
                 .to_string(),
             confidence: 0.95,
@@ -28,7 +28,11 @@ mod tests {
         let capsule = bridge.perform_handshake(intent).await.unwrap();
 
         // Verify segments are present
-        assert_eq!(capsule.intent.confidence, 0.95);
+        if let vex_core::segment::IntentData::Transparent { confidence, .. } = &capsule.intent {
+            assert_eq!(*confidence, 0.95);
+        } else {
+            panic!("Expected Transparent intent");
+        }
         assert_eq!(capsule.authority.nonce, 42);
         assert_eq!(capsule.identity.aid, "mock-aid-01");
 

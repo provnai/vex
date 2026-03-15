@@ -58,6 +58,7 @@ pub mod merkle;
 pub mod rule;
 pub mod segment;
 pub mod vep;
+pub mod zk;
 
 #[cfg(test)]
 mod jcs_fuzz;
@@ -74,4 +75,4 @@ pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
 pub use segment::{AuthorityData, IdentityData, IntentData};
-pub use vep::{VepHeader, VepPacket, VepSegmentHeader, VepSegmentType, VEP_MAGIC, VEP_VERSION_V2};
+pub use vep::{VepHeader, VepPacket, VepSegmentType, VEP_MAGIC, VEP_VERSION_V2};

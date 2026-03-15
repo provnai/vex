@@ -39,6 +39,7 @@ serde_jcs = { workspace = true }
 
 # Cryptography
 sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
 
 # Terminal output
 colored = "2"
@@ -49,6 +50,7 @@ hex = "0.4"
 base64 = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+rand = { workspace = true }
 
 # Logging
 tracing = { workspace = true }

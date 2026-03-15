@@ -21,7 +21,8 @@ VEX is a Rust framework for verifying and managing AI agent state through advers
 
 ## Technical Specifications
 
-- [.capsule Specification v0.2](specs/capsule-v0.2.md) (Standard PCR Binding)
+- [.capsule Specification v0.3](specs/capsule-v0.3.md) (Merkle Hardening)
+- [.capsule Specification v0.2](specs/capsule-v0.2.md) (Standard PCR Binding - Frozen)
 
 ## Crates
 

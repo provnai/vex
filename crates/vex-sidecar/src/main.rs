@@ -76,8 +76,8 @@ async fn proxy_handler(
     // Hash the original body for tracking
     let payload_hash = hex::encode(Sha256::digest(&body_bytes));
 
-    // 1. Construct IntentData (Hardened v0.1)
-    let intent = IntentData {
+    // 1. Construct IntentData (Transparent variant for Sidecar)
+    let intent = IntentData::Transparent {
         request_sha256: payload_hash.clone(),
         confidence: 1.0,
         capabilities: vec!["proxy-forwarding".to_string()],

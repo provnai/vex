@@ -35,6 +35,12 @@ reqwest = { workspace = true }
 regex = { workspace = true }
 once_cell = "1"
 tempfile = "3.10"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true }
 [dev-dependencies]
 rand = { workspace = true }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }

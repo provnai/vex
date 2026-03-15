@@ -1,5 +1,5 @@
 # Verifiable Agent Receipt (.capsule)
-## VEX × CHORA Joint Specification v0.2 (PCR Binding)
+## VEX × CHORA Joint Specification v0.3 (Merkle Hardening)
 
 **Authors:** Quinten Stroobants (VEX), George Lagogiannis (CHORA)
 
@@ -21,20 +21,27 @@ To ensure mathematical parity across nodes (VEX, CHORA, ATTEST), only the follow
 | **Identity** | **Inclusive** (Models + Metadata) | `aid`, `identity_type`, `pcrs`, `*` (All extra fields) |
 | **Witness** | **Minimal** (Explicit Fields Only) | `chora_node_id`, `receipt_hash`, `timestamp` |
 
-### Capsule Root (The Commitment)
-The `capsule_root` is the single canonical commitment for the entire artifact. When building the root object for JCS, field keys **MUST** be ordered lexicographically.
+### Capsule Root (Merkle Tree Commitment)
+VEX v0.3 transitions from a flat composite hash to a **4-leaf Binary Merkle Tree (RFC 6962 compatible)**. This structure enables "Partial Disclosure" audits in the VEP Explorer, where a verifier can confirm the root without seeing every pillar (e.g., hiding private Intent while verifying Authority).
 
-```
-capsule_root = SHA256(JCS({
-  "authority_hash": authority_hash,
-  "identity_hash":  identity_hash,
-  "intent_hash":    intent_hash,
-  "witness_hash":   witness_hash
-}))
-```
+#### Leaf Construction
+Each of the 4 pillars is hashed using JCS + SHA-256 to form the leaves:
+- `h_intent` = SHA256(JCS(IntentData))
+- `h_auth` = SHA256(JCS(AuthorityData))
+- `h_ident` = SHA256(JCS(IdentityData))
+- `h_witness` = SHA256(JCS(WitnessData))
+
+#### Node Calculation (RFC 6962 Domain Separation)
+Internal nodes use a `0x01` prefix byte to prevent second-preimage attacks:
+- `h12` = SHA256(`0x01` | `h_intent` | `h_auth`)
+- `h34` = SHA256(`0x01` | `h_ident` | `h_witness`)
+- **`capsule_root`** = SHA256(`0x01` | `h12` | `h34`)
+
+> [!IMPORTANT]
+> This Merkle model is a breaking change from v0.2. Older verifiers relying on the flat JCS composite hash will fail commitment audit. For forensic migration, the `vex-cli` retains a legacy fallback for v0.2 artifacts.
 
 > [!NOTE]
-> The `request_commitment` field (v0.2 Additive) is explicitly **EXCLUDED** from the `capsule_root` calculation to maintain backward compatibility with v0.1 signatures.
+> The `request_commitment` field (v0.2 Additive) is explicitly **EXCLUDED** from the Merkle tree calculation to maintain structural parity with the core 4-pillar model.
 
 **Signature Surface:** The 32-byte binary `capsule_root` is the direct input to the signature algorithm: `Ed25519(private_key, capsule_root)`.
 
@@ -111,7 +118,7 @@ The JSON representation of the capsule, typically used for API transmission and 
    "authority_hash": "hex",
    "identity_hash": "hex",
    "witness_hash": "hex",
-   "capsule_root": "hex",
+   "capsule_root": "hex (Merkle Root)",
    "crypto": {
      "algo": "ed25519",
      "public_key_endpoint": "url (Key discovery)",
@@ -140,7 +147,7 @@ magic(3) | version(1) | aid(32) | capsule_root(32) | nonce(8)
 - **magic**: `0x564550` ("VEP")
 - **version**: `0x03` (VEX v1.4.0 / Hardened Interop)
 - **aid**: 32-byte Hardware Identity Hash
-- **capsule_root**: 32-byte Binary Commitment Root
+- **capsule_root**: 32-byte Binary Merkle Root
 - **nonce**: 8-byte Replay Protection Counter (Big-Endian)
 
 ### Binary Body (TLV Segments)
@@ -157,7 +164,7 @@ Following the header, the body consists of Type-Length-Value segments.
 
 ---
 
-## 5. Offline Verification Flow (Definitive)
+## 5. Offline Verification Flow (Definitive v0.3)
 
 1.  **Header Deconstruction**: Extract binary `capsule_root`, `aid`, and `nonce`.
 2.  **TLV Segment Extraction**: Traverse the binary body. Ensure all 4 primary pillars (Intent, Authority, Identity, Witness) and the Signature are present.
@@ -165,14 +172,14 @@ Following the header, the body consists of Type-Length-Value segments.
     - Verify `identity.aid` matches header `aid`.
     - Verify `authority.nonce` matches header `nonce`.
 4.  **Silicon State Audit**: Compare `identity.pcrs` against known-good "Golden PCR" states for the deployment environment.
-5.  **Recompute Commitment Path**:
+5.  **Merkle Reconstruction**:
     - Recompute pillar hashes: `SHA256(JCS(Segment))`.
-    - Recompute `capsule_root` using JCS lexicographical ordering of the four hashes.
+    - Recompute `capsule_root` using the **4-leaf Binary Merkle Tree** (RFC 6962) model.
 6.  **Cryptographic Validation**: Verify the binary `Signature` (Type 6) against the recomputed `capsule_root`.
 7.  **Formal Intent Check (Optional)**: Execute `magpie parse` on the `MagpieAst` (Type 7) to confirm the formal logic matches the authorized `trace_root`.
 
-**Reference Parity Vector (v0.2):**
-Implementation-specific test vectors for v0.2 are provided in the `vex-runtime` test suite. The `capsule_root` calculation MUST remain stable across all compliant implementations.
+**Reference Parity Vector (v0.3):**
+Implementation-specific test vectors for v0.3 are provided in the `vex-core` test suite. The `capsule_root` calculation MUST remain stable across all compliant implementations.
 
 ---
 
@@ -182,6 +189,7 @@ Implementation-specific test vectors for v0.2 are provided in the `vex-runtime` 
 - **Lexicographical Integrity**: Objects MUST be sorted by key during JCS canonicalization.
 - **Structural Hardening**: Intent, Authority, and Identity pillars use an **Inclusive** hashing surface. Any field present in the JSON at these levels (flattened metadata) MUST be captured and included in the JCS hash to ensure binary parity for extended protocols.
 - **Minimal Witness Compliance**: The Witness pillar uses an **Explicit** hashing surface. Only the three defined fields are hashed; all other witness fields (e.g., `witness_mode`) sit outside the cryptographic commitment.
-- **Omission over Null**: Optional fields that are empty MUST be omitted from the JSON rather than set to `null` to minimize artifact size.
+- **Omission over Null**: Optional fields that are empty (e.g., `gate_sensors: null`) MUST be omitted from the JSON rather than set to `null` to minimize artifact size and ensure byte-level parity across implementations.
+- **RFC 6962 Domain Separation**: Internal nodes MUST use the `0x01` prefix byte to prevent second-preimage attacks. 
 - **Hardware-Rooted Seal**: The signature MUST be the FINAL operation, sealing the hardware identity and PCR state into the witness receipt.
 - **OTS Finality**: External anchoring (e.g., OpenTimestamps) is performed *after* the capsule is sealed and witnessed.

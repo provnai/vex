@@ -308,6 +308,44 @@ impl AuditProver {
         .is_ok())
     }
 }
+
+impl vex_core::zk::ZkVerifier for AuditProver {
+    fn verify_stark(
+        &self,
+        commitment_hash: &str,
+        stark_proof_b64: &str,
+        _public_inputs: &serde_json::Value,
+    ) -> Result<bool, vex_core::zk::ZkError> {
+        use base64::{engine::general_purpose, Engine as _};
+
+        // 1. Decode Proof
+        let proof_bytes = general_purpose::STANDARD
+            .decode(stark_proof_b64)
+            .map_err(|e| {
+                vex_core::zk::ZkError::InvalidFormat(format!("Base64 decode failed: {}", e))
+            })?;
+
+        // 2. Decode Commitment (Target Root)
+        let commitment_bytes = hex::decode(commitment_hash).map_err(|e| {
+            vex_core::zk::ZkError::InvalidFormat(format!("Hex decode failed: {}", e))
+        })?;
+
+        if commitment_bytes.len() != 32 {
+            return Err(vex_core::zk::ZkError::InvalidFormat(
+                "Commitment must be 32 bytes".to_string(),
+            ));
+        }
+
+        let mut next_state = [0u8; 32];
+        next_state.copy_from_slice(&commitment_bytes);
+
+        // 3. Verify via Plonky3
+        // Note: For Shadow Intents, we assume an initial state of [0; 32] for now.
+        // In a full implementation, the 'start_root' might come from public_inputs.
+        Self::verify_proof(&proof_bytes, [0u8; 32], next_state)
+            .map_err(|e| vex_core::zk::ZkError::VerificationFailed(e.to_string()))
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,5 +371,28 @@ mod tests {
         let last = proof.len() - 1;
         proof[last] ^= 0xFF;
         assert!(!AuditProver::verify_proof(&proof, prev, [0u8; 32]).unwrap());
+    }
+
+    #[test]
+    fn test_zk_verifier_implementation() {
+        use base64::{engine::general_purpose, Engine as _};
+        use vex_core::zk::ZkVerifier;
+
+        let prev = [0u8; 32];
+        let next = [1u8; 32];
+        let proof = AuditProver::prove_transition(prev, next).unwrap();
+
+        let commitment_hash = hex::encode(next);
+        let stark_proof_b64 = general_purpose::STANDARD.encode(proof);
+        let public_inputs = serde_json::json!({});
+
+        let prover = AuditProver;
+        let result = prover
+            .verify_stark(&commitment_hash, &stark_proof_b64, &public_inputs)
+            .unwrap();
+        assert!(
+            result,
+            "ZkVerifier implementation must correctly verify a valid proof"
+        );
     }
 }

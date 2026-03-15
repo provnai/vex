@@ -22,6 +22,7 @@ pub const VEP_VERSION: u8 = 0x03;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntentSegment {
+    pub variant: String,
     pub request_sha256: String,
     pub confidence: f64,
     pub capabilities: Vec<String>,

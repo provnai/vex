@@ -5,6 +5,14 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-03-15
+
+### Added
+- **🧩 Merkle Core Upgrade**: Standardized the 4-leaf Binary Merkle Tree (RFC 6962) as the default commitment model for Evidence Capsules. Enables partial disclosure audits.
+- **🛡️ Forensic JCS Parity**: Enforced strict "Omission over Null" serialization for optional fields (e.g., `gate_sensors`) to ensure byte-perfect cryptographic parity with CHORA dev gates.
+- **🔒 ZK-Privacy Readiness**: Structural shift to the Merkle model prepares the VEP Explorer for "Shadow Intent" proof verification.
+- **📜 Spec v0.3 Alignment**: Synchronized the codebase with the joint VEX x CHORA v0.3 specification.
+
 ## [1.4.0] - 2026-03-15
 
 ### Added
