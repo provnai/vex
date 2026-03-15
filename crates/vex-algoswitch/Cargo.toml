@@ -9,10 +9,10 @@ authors.workspace = true
 readme = "README.md"
 
 [dependencies]
-once_cell = "1.19"
+once_cell = "1.21"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "benches"

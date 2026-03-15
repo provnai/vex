@@ -30,9 +30,9 @@ async-stream = "0.3"
 tokio-stream = "0.1"
 pin-project-lite = "0.2"
 jsonschema = { workspace = true }
-tokio-tungstenite = "0.24"
-wasmtime = { version = "22.0.0", features = ["async", "wat"] }
-wasmtime-wasi = { version = "22.0.0", features = ["preview1"] }
+tokio-tungstenite = "0.28"
+wasmtime = { version = "42.0.1", features = ["async", "wat"] }
+wasmtime-wasi = { version = "36.0.6", features = ["preview1"] }
 
 # High-performance caching
 moka = { version = "0.12", features = ["future"] }
@@ -46,5 +46,5 @@ default = []
 openai = ["dep:async-openai"]
 
 [dependencies.async-openai]
-version = "0.24"
+version = "0.33"
 optional = true
