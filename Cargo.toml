@@ -36,10 +36,10 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "ne
 async-trait = "0.1"
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json"] }
-axum = "0.7"
+axum = "0.8"
 hyper = { version = "1", features = ["http1", "http2", "client", "server"] }
-tower = { version = "0.4", features = ["util", "timeout", "retry", "limit", "buffer"] }
-tower-http = { version = "0.5", features = ["trace", "cors", "compression-gzip", "set-header", "auth"] }
+tower = { version = "0.5", features = ["util", "timeout", "retry", "limit", "buffer"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "set-header", "auth"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -56,27 +56,27 @@ anyhow = "1"
 # Logging/tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-nix = { version = "0.29", features = ["fs"] }
+nix = { version = "0.31", features = ["fs"] }
 
 # Utilities
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-rand = "0.8"
+rand = "0.9"
 hex = "0.4"
-jsonschema = "0.18" # Keeping it conservative
+jsonschema = "0.45" # Keeping it conservative
 provn-sdk = "0.3.0"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
 portable-pty = "0.9.0"
 regex = "1.12.2"
-clap = { version = "4.4", features = ["derive"] }
-config = "0.13"
-dirs = "5.0"
+clap = { version = "4.6", features = ["derive"] }
+config = "0.15"
+dirs = "6.0"
 aes-gcm = "0.10"
 argon2 = "0.5"
 rpassword = "7.0"
-snow = "0.9"
+snow = "0.10"
 ring = "0.17"
-notify = "6"
+notify = "8"
 base64 = "0.22"
 
 # Security - Secure secret memory handling
@@ -87,7 +87,7 @@ ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 zerocopy = { version = "0.8", features = ["derive"] }
 
 # Platform Security & System APIs
-windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
 windows = { version = "0.58", features = ["Win32_Storage_FileSystem", "Win32_Foundation"] }
 
 # Internal VEX crates
