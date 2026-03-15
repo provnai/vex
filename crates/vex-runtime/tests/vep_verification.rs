@@ -68,11 +68,31 @@ fn test_vep_jcs_parity() {
 
     // We need to ensure Binary Merkle Tree construction matches the v0.3 spec
     use vex_core::merkle::{Hash, MerkleTree};
-    
-    let intent_h = Hash::from_bytes(hex::decode("e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb").unwrap().try_into().unwrap());
-    let authority_h = Hash::from_bytes(hex::decode("6fac0de31355fc1dfe36eee1e0c226f7cc36dd58eaad0aca0c2d3873b4784d35").unwrap().try_into().unwrap());
-    let identity_h = Hash::from_bytes(hex::decode("7869bae0249b33e09b881a0b44faba6ee3f4bab7edcc2aa5a5e9290e2563c828").unwrap().try_into().unwrap());
-    let witness_h = Hash::from_bytes(hex::decode("174dfb80917cca8a8d4760b82656e78df0778cb3aadd60b51cd018b3313d5733").unwrap().try_into().unwrap());
+
+    let intent_h = Hash::from_bytes(
+        hex::decode("e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let authority_h = Hash::from_bytes(
+        hex::decode("6fac0de31355fc1dfe36eee1e0c226f7cc36dd58eaad0aca0c2d3873b4784d35")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let identity_h = Hash::from_bytes(
+        hex::decode("7869bae0249b33e09b881a0b44faba6ee3f4bab7edcc2aa5a5e9290e2563c828")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let witness_h = Hash::from_bytes(
+        hex::decode("174dfb80917cca8a8d4760b82656e78df0778cb3aadd60b51cd018b3313d5733")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
 
     let leaves = vec![
         ("intent".to_string(), intent_h),

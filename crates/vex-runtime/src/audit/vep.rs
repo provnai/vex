@@ -136,9 +136,10 @@ impl EvidenceCapsuleV0 {
 
         // Root commitment: 4-leaf Merkle Tree (v0.3 spec)
         use vex_core::merkle::{Hash, MerkleTree};
-        
+
         let intent_h = Hash::from_bytes(hex::decode(&intent_hash).unwrap().try_into().unwrap());
-        let authority_h = Hash::from_bytes(hex::decode(&authority_hash).unwrap().try_into().unwrap());
+        let authority_h =
+            Hash::from_bytes(hex::decode(&authority_hash).unwrap().try_into().unwrap());
         let identity_h = Hash::from_bytes(hex::decode(&identity_hash).unwrap().try_into().unwrap());
         let witness_h = Hash::from_bytes(hex::decode(&witness_hash).unwrap().try_into().unwrap());
 
