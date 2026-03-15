@@ -6,7 +6,6 @@ use vex_runtime::audit::vep::{
 #[test]
 fn test_vep_binary_serialization() {
     let intent = IntentSegment {
-        variant: "transparent".to_string(),
         request_sha256: "0".repeat(64),
         confidence: 0.95,
         capabilities: vec!["Subprocess".to_string()],
@@ -67,24 +66,28 @@ fn test_vep_jcs_parity() {
     // Witness Hash: 174dfb80...
     // Definitive Capsule Root: 71d0324716f378b724e6186340289ecad5b99d6301d1585a322f2518db52693e
 
-    let root_map = serde_json::json!({
-        "intent_hash": "e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb",
-        "authority_hash": "6fac0de31355fc1dfe36eee1e0c226f7cc36dd58eaad0aca0c2d3873b4784d35",
-        "identity_hash": "7869bae0249b33e09b881a0b44faba6ee3f4bab7edcc2aa5a5e9290e2563c828",
-        "witness_hash": "174dfb80917cca8a8d4760b82656e78df0778cb3aadd60b51cd018b3313d5733"
-    });
+    // We need to ensure Binary Merkle Tree construction matches the v0.3 spec
+    use vex_core::merkle::{Hash, MerkleTree};
+    
+    let intent_h = Hash::from_bytes(hex::decode("e02504ea88bd9f05a744cd8a462a114dc2045eb7210ea8c6f5ff2679663c92cb").unwrap().try_into().unwrap());
+    let authority_h = Hash::from_bytes(hex::decode("6fac0de31355fc1dfe36eee1e0c226f7cc36dd58eaad0aca0c2d3873b4784d35").unwrap().try_into().unwrap());
+    let identity_h = Hash::from_bytes(hex::decode("7869bae0249b33e09b881a0b44faba6ee3f4bab7edcc2aa5a5e9290e2563c828").unwrap().try_into().unwrap());
+    let witness_h = Hash::from_bytes(hex::decode("174dfb80917cca8a8d4760b82656e78df0778cb3aadd60b51cd018b3313d5733").unwrap().try_into().unwrap());
 
-    // We need to ensure JCS canonicalization works correctly for the root hash
-    let jcs_bytes = serde_jcs::to_vec(&root_map).unwrap();
+    let leaves = vec![
+        ("intent".to_string(), intent_h),
+        ("authority".to_string(), authority_h),
+        ("identity".to_string(), identity_h),
+        ("witness".to_string(), witness_h),
+    ];
 
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(&jcs_bytes);
-    let root_hash = hex::encode(hasher.finalize());
+    let tree = MerkleTree::from_leaves(leaves);
+    let root_hash = tree.root_hash().unwrap().to_hex();
 
+    // The Merkle root for these specific hashes (v0.3)
     assert_eq!(
         root_hash,
-        "71d0324716f378b724e6186340289ecad5b99d6301d1585a322f2518db52693e"
+        "dc7be62bcb8705ba383b518999fb191dca9220aaa9d8c2a5b9070f5aa5686ad1"
     );
 }
 
@@ -95,7 +98,6 @@ fn test_vep_signature_verification() {
 
     let mut capsule = EvidenceCapsuleV0::new(
         IntentSegment {
-            variant: "transparent".to_string(),
             request_sha256: "0".repeat(64),
             confidence: 1.0,
             capabilities: vec![],

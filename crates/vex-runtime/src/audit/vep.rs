@@ -22,7 +22,6 @@ pub const VEP_VERSION: u8 = 0x03;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntentSegment {
-    pub variant: String,
     pub request_sha256: String,
     pub confidence: f64,
     pub capabilities: Vec<String>,
@@ -40,6 +39,7 @@ pub struct AuthoritySegment {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+    #[serde(skip_serializing_if = "serde_json::Value::is_null")]
     pub gate_sensors: serde_json::Value,
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
@@ -134,15 +134,23 @@ impl EvidenceCapsuleV0 {
         let identity_hash = hash_segment(&identity)?;
         let witness_hash = witness.to_commitment_hash()?;
 
-        // Root commitment: JCS lexicographical order is handled by serde_jcs/serde_json
-        let root_map = serde_json::json!({
-            "authority_hash": authority_hash,
-            "identity_hash": identity_hash,
-            "intent_hash": intent_hash,
-            "witness_hash": witness_hash
-        });
+        // Root commitment: 4-leaf Merkle Tree (v0.3 spec)
+        use vex_core::merkle::{Hash, MerkleTree};
+        
+        let intent_h = Hash::from_bytes(hex::decode(&intent_hash).unwrap().try_into().unwrap());
+        let authority_h = Hash::from_bytes(hex::decode(&authority_hash).unwrap().try_into().unwrap());
+        let identity_h = Hash::from_bytes(hex::decode(&identity_hash).unwrap().try_into().unwrap());
+        let witness_h = Hash::from_bytes(hex::decode(&witness_hash).unwrap().try_into().unwrap());
 
-        let capsule_root = hash_segment(&root_map)?;
+        let leaves = vec![
+            ("intent".to_string(), intent_h),
+            ("authority".to_string(), authority_h),
+            ("identity".to_string(), identity_h),
+            ("witness".to_string(), witness_h),
+        ];
+
+        let tree = MerkleTree::from_leaves(leaves);
+        let capsule_root = tree.root_hash().unwrap().to_hex();
 
         Ok(Self {
             capsule_id: authority.capsule_id.clone(),

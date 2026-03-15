@@ -55,7 +55,6 @@ impl VepVerifier {
                 magpie_source,
                 metadata,
             } => IntentSegment {
-                variant: "transparent".to_string(),
                 request_sha256,
                 confidence,
                 capabilities,
@@ -165,7 +164,6 @@ mod tests {
         let verifying_key = signing_key.verifying_key();
 
         let intent = IntentSegment {
-            variant: "transparent".to_string(),
             request_sha256: "aabbcc".to_string(),
             confidence: 0.9,
             capabilities: vec!["test".to_string()],
@@ -232,7 +230,6 @@ mod tests {
 
         // 1. Create a VEP
         let intent = IntentSegment {
-            variant: "transparent".to_string(),
             request_sha256: "deadbeef".to_string(),
             confidence: 1.0,
             capabilities: vec!["audit".to_string()],

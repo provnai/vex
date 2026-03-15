@@ -588,7 +588,6 @@ impl Gate for TitanGate {
                     Ok(chora_resp) => {
                         // Assemble the finalized VEP (Verifiable Evidence Packet)
                         let intent = IntentSegment {
-                            variant: "transparent".to_string(),
                             request_sha256: digest_hex.clone(),
                             confidence,
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
