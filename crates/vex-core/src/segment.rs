@@ -107,11 +107,13 @@ impl WitnessData {
         #[derive(Serialize)]
         struct MinimalWitness<'a> {
             chora_node_id: &'a str,
+            receipt_hash: &'a str,
             timestamp: u64,
         }
 
         let minimal = MinimalWitness {
             chora_node_id: &self.chora_node_id,
+            receipt_hash: &self.receipt_hash,
             timestamp: self.timestamp,
         };
 
@@ -301,12 +303,12 @@ mod tests {
 
         assert_eq!(hash1, hash2, "Shadow JCS hashing must be deterministic");
 
-        // Verify that it contains the variant tag in JCS
+        // Verify JCS serialization (untagged)
         let jcs_bytes = serde_jcs::to_vec(&segment1).unwrap();
         let jcs_str = String::from_utf8(jcs_bytes).unwrap();
         assert!(
-            jcs_str.contains("\"variant\":\"shadow\""),
-            "JCS must include the variant tag"
+            jcs_str.contains("\"commitment_hash\""),
+            "JCS must include the commitment_hash"
         );
     }
 
@@ -408,7 +410,16 @@ mod tests {
             }),
         };
 
-        let witness_hash = witness.to_commitment_hash().unwrap();
+        // Compute legacy witness hash (v0.2 excludes receipt_hash)
+        let legacy_witness = serde_json::json!({
+            "chora_node_id": witness.chora_node_id,
+            "timestamp": witness.timestamp
+        });
+        let jcs_bytes = serde_jcs::to_vec(&legacy_witness).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&jcs_bytes);
+        let witness_hash = hex::encode(hasher.finalize());
+
         assert_eq!(
             witness_hash, "7d4e2acaa7e459261d48f79cbec2a08ef5f8489e7cb610f375b708f9b8027e33",
             "Witness hash must match the CHORA live production sample (excluding receipt_hash)"
