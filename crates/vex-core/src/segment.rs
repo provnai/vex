@@ -59,6 +59,10 @@ fn default_sensor_value() -> serde_json::Value {
 /// Witness Data (CHORA Append-Only Log)
 /// Proves the receipt issuance parameters.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WitnessData {
+    pub chora_node_id: String,
+    pub receipt_hash: String,
+    pub timestamp: u64,
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
@@ -98,7 +102,6 @@ impl WitnessData {
                 .map_err(|_| "Invalid hash length")?,
         ))
     }
-}
 }
 
 /// Identity Data (Attest Pillar)

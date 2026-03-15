@@ -65,6 +65,8 @@ pub struct WitnessSegment {
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
+}
+
 impl WitnessSegment {
     /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
     pub fn to_commitment_hash(&self) -> Result<String, VepError> {

@@ -93,13 +93,9 @@ async fn verify_live_handshake(gate_url: Option<&str>, api_key: Option<&str>) ->
     println!("{}", "═".repeat(40).cyan());
     println!();
 
-    let gate_url_str = gate_url
-        .unwrap_or("https://gate.witness.network"); // Generic Placeholder
+    let gate_url_str = gate_url.unwrap_or("https://gate.witness.network"); // Generic Placeholder
 
-    let client = HttpChoraClient::new(
-        gate_url_str.to_string(),
-        api_key.unwrap_or("").to_string(),
-    );
+    let client = HttpChoraClient::new(gate_url_str.to_string(), api_key.unwrap_or("").to_string());
 
     println!("  {} {}", "Gate:".dimmed(), gate_url_str);
     print!("  Generating random intent... ");
