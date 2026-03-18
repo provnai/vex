@@ -100,6 +100,9 @@ async fn proxy_handler(
         reason_code: "PASSED_SIDECAR".to_string(),
         trace_root: payload_hash.clone(),
         nonce: 1,
+        escalation_id: None,
+        binding_status: None,
+        continuation_token: None,
         gate_sensors: serde_json::Value::Null,
         metadata: serde_json::Value::Null,
     };

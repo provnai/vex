@@ -142,6 +142,14 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                 magpie_source: None,
                 gate_sensors: serde_json::Value::Null,
                 reproducibility_context: serde_json::Value::Null,
+                resolution_vep_hash: capsule_data
+                    .get("resolution_vep_hash")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                continuation_token: capsule_data
+                    .get("continuation_token")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 vep_blob: vep_blob.clone(),
             });
         }
@@ -224,6 +232,27 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     serde_json::Value::String(event.id.to_string()),
                 )
                 .await?;
+
+            // --- Phase 2: Coordination Ledger Integration ---
+            let coordination = crate::coordination::PersistentCoordinationStore::new(self.backend.clone());
+            use crate::coordination::CoordinationStore;
+
+            // 1. Record Escalation
+            if event.event_type == AuditEventType::Escalation {
+                if let Some(esc_id) = data.get("escalation_id").and_then(|v| v.as_str()) {
+                    let token = capsule.continuation_token.clone();
+                    coordination.record_escalation(tenant_id, esc_id.to_string(), event.id, token).await?;
+                }
+            }
+
+            // 2. Resolve Escalation
+            if event.event_type == AuditEventType::HumanOverride {
+                if let Some(esc_id) = data.get("resolves_escalation_id").and_then(|v| v.as_str()) {
+                    if let Some(res_hash) = &capsule.resolution_vep_hash {
+                        coordination.resolve_escalation(tenant_id, esc_id, event.id, res_hash.clone()).await?;
+                    }
+                }
+            }
         }
 
         Ok(event)

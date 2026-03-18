@@ -74,5 +74,5 @@ pub use fitness::{EvaluationContext, FitnessEvaluator, FitnessReport, HeuristicE
 pub use genome_experiment::GenomeExperiment;
 pub use merkle::{Hash, MerkleNode, MerkleProof, MerkleTree, ProofDirection, ProofStep};
 pub use rule::OptimizationRule;
-pub use segment::{AuthorityData, IdentityData, IntentData};
+pub use segment::{AuthorityData, ContinuationPayload, ContinuationToken, IdentityData, IntentData};
 pub use vep::{VepHeader, VepPacket, VepSegmentType, VEP_MAGIC, VEP_VERSION_V2};

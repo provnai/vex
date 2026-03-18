@@ -30,12 +30,14 @@ pub enum AuditEventType {
     /// CHORA Phase-2 Gate Decision
     #[serde(rename = "CHORA_GATE_DECISION")]
     GateDecision,
+    /// Phase 2: AI Escalation for Human Review
+    Escalation,
     #[serde(untagged)]
     Custom(String),
 }
 
 /// CHORA Evidence Capsule (RFC 8785 Compliant Metadata)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct EvidenceCapsule {
     pub capsule_id: String,
     pub outcome: String, // ALLOW, HALT, ESCALATE
@@ -47,6 +49,13 @@ pub struct EvidenceCapsule {
     pub magpie_source: Option<String>,
     pub gate_sensors: serde_json::Value,
     pub reproducibility_context: serde_json::Value,
+
+    /// New Phase 2: Coordination Ledger resolution link
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution_vep_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation_token: Option<String>,
+
     /// Optional full VEP binary blob
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vep_blob: Option<Vec<u8>>,

@@ -31,6 +31,10 @@ pub enum IntentData {
         stark_proof_b64: String,
         public_inputs: serde_json::Value,
 
+        /// New Phase 2: Plonky3 Circuit Identity
+        #[serde(skip_serializing_if = "Option::is_none")]
+        circuit_id: Option<String>,
+
         /// Catch-all for extra fields to preserve binary parity in JCS.
         #[serde(flatten, default)]
         metadata: serde_json::Value,
@@ -73,6 +77,15 @@ pub struct AuthorityData {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+
+    /// New Phase 2: CHORA Binding Mode Fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escalation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation_token: Option<ContinuationToken>,
+
     #[serde(
         default = "default_sensor_value",
         skip_serializing_if = "serde_json::Value::is_null"
@@ -150,6 +163,63 @@ pub struct IdentityData {
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
+}
+
+/// Continuation Token (Phase 2 Enforcement Primitive)
+/// A signed artifact that permits execution after an escalation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct ContinuationToken {
+    pub payload: ContinuationPayload,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct ContinuationPayload {
+    pub schema: String,
+    pub ledger_event_id: String,
+    pub source_capsule_root: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution_event_id: Option<String>,
+    pub nonce: String,
+    pub iat: String,
+    pub exp: String,
+    pub issuer: String,
+}
+
+impl ContinuationPayload {
+    /// Validates the token's lifecycle (iat/exp) with a grace period.
+    pub fn validate_lifecycle(&self, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
+        let iat = chrono::DateTime::parse_from_rfc3339(&self.iat)
+            .map_err(|e| format!("Invalid iat: {}", e))?
+            .with_timezone(&chrono::Utc);
+        let exp = chrono::DateTime::parse_from_rfc3339(&self.exp)
+            .map_err(|e| format!("Invalid exp: {}", e))?
+            .with_timezone(&chrono::Utc);
+
+        let leeway = chrono::Duration::seconds(30);
+
+        if now < iat - leeway {
+            return Err("Token issued in the future (beyond leeway)".to_string());
+        }
+
+        if now > exp + leeway {
+            return Err("Token expired (beyond leeway)".to_string());
+        }
+
+        Ok(())
+    }
+}
+
+impl ContinuationToken {
+    /// Computes the JCS hash of the payload for signature verification.
+    pub fn payload_hash(&self) -> Result<Vec<u8>, String> {
+        let jcs_bytes = serde_jcs::to_vec(&self.payload)
+            .map_err(|e| format!("JCS serialization failed: {}", e))?;
+        let mut hasher = sha2::Sha256::new();
+        use sha2::Digest;
+        hasher.update(&jcs_bytes);
+        Ok(hasher.finalize().to_vec())
+    }
 }
 
 /// Crypto verification details.
@@ -294,6 +364,7 @@ mod tests {
                 "policy_id": "standard-v1",
                 "outcome_commitment": "ALLOW"
             }),
+            circuit_id: None,
             metadata: serde_json::Value::Null,
         };
         let segment2 = segment1.clone();

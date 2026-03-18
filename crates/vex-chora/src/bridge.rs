@@ -118,4 +118,12 @@ impl AuthorityBridge {
     pub fn canonicalize<T: Serialize>(payload: &T) -> Result<Vec<u8>, String> {
         serde_jcs::to_vec(payload).map_err(|e| format!("JCS Canonicalization failed: {}", e))
     }
+
+    /// Verify a Continuation Token using the Authority Client
+    pub async fn verify_continuation_token(
+        &self,
+        token: &vex_core::ContinuationToken,
+    ) -> Result<bool, String> {
+        self.client.verify_continuation_token(token).await
+    }
 }

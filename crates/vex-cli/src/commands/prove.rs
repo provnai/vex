@@ -64,6 +64,7 @@ pub async fn run(args: ProveArgs) -> Result<()> {
             "debugger_mode": true,
             "timestamp": chrono::Utc::now().to_rfc3339()
         }),
+        circuit_id: None,
     };
 
     if args.full_capsule {
@@ -79,6 +80,9 @@ pub async fn run(args: ProveArgs) -> Result<()> {
                 reason_code: "OK".to_string(),
                 trace_root: "0xdeadbeef".to_string(),
                 nonce: 42,
+                escalation_id: None,
+                binding_status: None,
+                continuation_token: None,
                 gate_sensors: json!({ "tpm_active": true }),
                 metadata: serde_json::Value::Null,
             },

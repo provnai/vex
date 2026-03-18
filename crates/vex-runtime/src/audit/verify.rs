@@ -59,6 +59,7 @@ impl VepVerifier {
                 confidence,
                 capabilities,
                 magpie_source,
+                circuit_id: None, // V0 verifier assumes transparent/unproven for now
                 metadata,
             },
             vex_core::segment::IntentData::Shadow { .. } => {
@@ -74,6 +75,9 @@ impl VepVerifier {
             reason_code: core_capsule.authority.reason_code,
             trace_root: core_capsule.authority.trace_root,
             nonce: core_capsule.authority.nonce,
+            escalation_id: core_capsule.authority.escalation_id,
+            binding_status: core_capsule.authority.binding_status,
+            continuation_token: core_capsule.authority.continuation_token,
             gate_sensors: core_capsule.authority.gate_sensors,
             metadata: core_capsule.authority.metadata,
         };
@@ -168,6 +172,7 @@ mod tests {
             confidence: 0.9,
             capabilities: vec!["test".to_string()],
             magpie_source: None,
+            circuit_id: None,
             metadata: serde_json::Value::Null,
         };
         let authority = AuthoritySegment {
@@ -176,6 +181,8 @@ mod tests {
             reason_code: "OK".to_string(),
             trace_root: "tr".to_string(),
             nonce: 42,
+            escalation_id: None,
+            binding_status: None,
             gate_sensors: serde_json::Value::Null,
             metadata: serde_json::Value::Null,
         };
@@ -234,6 +241,7 @@ mod tests {
             confidence: 1.0,
             capabilities: vec!["audit".to_string()],
             magpie_source: None,
+            circuit_id: None,
             metadata: serde_json::Value::Null,
         };
         let authority = AuthoritySegment {
@@ -242,6 +250,8 @@ mod tests {
             reason_code: "VERIFIED".to_string(),
             trace_root: "tr".to_string(),
             nonce: 101,
+            escalation_id: None,
+            binding_status: None,
             gate_sensors: serde_json::Value::Null,
             metadata: serde_json::Value::Null,
         };

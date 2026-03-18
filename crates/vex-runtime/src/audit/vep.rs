@@ -27,6 +27,9 @@ pub struct IntentSegment {
     pub capabilities: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub magpie_source: Option<String>,
+    /// New Phase 2: Plonky3 Circuit Identity
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub circuit_id: Option<String>,
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
@@ -39,6 +42,13 @@ pub struct AuthoritySegment {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+    /// New Phase 2 fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escalation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation_token: Option<vex_core::ContinuationToken>,
     #[serde(skip_serializing_if = "serde_json::Value::is_null")]
     pub gate_sensors: serde_json::Value,
     /// Catch-all for extra fields to preserve binary parity in JCS.

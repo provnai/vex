@@ -1,0 +1,17 @@
+{
+ "token": {
+ "payload": {
+ "schema": "chora.continuation.token.v1",
+ "ledger_event_id": "763331c3-3b82-485d-b449-0f6f033a5203",
+ "source_capsule_root": "ef7e9de0b541489e249ce4f7c6f49c078d5537be512592c52215e7441222037d",
+ "resolution_event_id": "ems-resolve-763331c3-3b82-485d-b449-0f6f033a5203",
+ "nonce": "nonce-990001",
+ "iat": "2026-03-17T19:06:55.964898+00:00",
+ "exp": "2026-03-17T19:16:55.964913+00:00",
+ "issuer": "chora-gate-v0.3"
+ },
+ "signature": "950f0c0f4b7dd5fd4536e4db5c6aca0b0afe787f9af94d52b1dfbbf6a26b6f00bc695574c85e16a30f19f3c8783276336f400852a03561e26327202c34136e0c"
+ },
+ "nonce": "nonce-990001",
+ "command": ["echo", "Hello from CHORA"]
+}
