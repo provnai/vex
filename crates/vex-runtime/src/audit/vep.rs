@@ -79,20 +79,16 @@ pub struct WitnessSegment {
 }
 
 impl WitnessSegment {
-    /// Compute the SHA-256 hash of the JCS-canonicalized MINIMAL witness structure.
     pub fn to_commitment_hash(&self) -> Result<String, VepError> {
-        // Strict commitment to only the core fields (Unix timestamp handles JCS parity)
+        // v0.3 spec: only chora_node_id and timestamp are committed.
+        // receipt_hash is post-seal metadata and is excluded.
         let minimal = serde_json::json!({
             "chora_node_id": self.chora_node_id,
-            "receipt_hash": self.receipt_hash,
             "timestamp": self.timestamp,
         });
 
         let jcs_bytes = serde_jcs::to_vec(&minimal).map_err(|e| VepError::Jcs(e.to_string()))?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        Ok(hex::encode(hasher.finalize()))
+        Ok(vex_core::merkle::Hash::digest(&jcs_bytes).to_hex())
     }
 }
 
@@ -258,8 +254,5 @@ impl EvidenceCapsuleV0 {
 
 fn hash_segment<T: Serialize>(segment: &T) -> Result<String, VepError> {
     let jcs_bytes = serde_jcs::to_vec(segment).map_err(|e| VepError::Jcs(e.to_string()))?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(&jcs_bytes);
-    Ok(hex::encode(hasher.finalize()))
+    Ok(vex_core::merkle::Hash::digest(&jcs_bytes).to_hex())
 }

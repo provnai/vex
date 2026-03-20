@@ -5,7 +5,6 @@
 use crate::merkle::Hash;
 use crate::zk::{ZkError, ZkVerifier};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 /// Intent Data (VEX Pillar)
 /// Proves the proposed action before execution. It supports two variants:
@@ -45,12 +44,7 @@ impl IntentData {
     pub fn to_jcs_hash(&self) -> Result<Hash, String> {
         let jcs_bytes =
             serde_jcs::to_vec(self).map_err(|e| format!("JCS serialization failed: {}", e))?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        let result = hasher.finalize();
-
-        Ok(Hash::from_bytes(result.into()))
+        Ok(Hash::digest(&jcs_bytes))
     }
 
     /// Verifies the Zero-Knowledge proof for Shadow intents.
@@ -118,7 +112,7 @@ impl WitnessData {
     /// ONLY chora_node_id and timestamp are committed.
     /// receipt_hash is post-seal metadata and is NOT part of the witness commitment surface.
     /// Ref: CHORA_VERIFICATION_CONTRACT_v0.3.md
-    pub fn to_commitment_hash(&self) -> Result<String, String> {
+    pub fn to_commitment_hash(&self) -> Result<Hash, String> {
         #[derive(Serialize)]
         struct MinimalWitness<'a> {
             chora_node_id: &'a str,
@@ -133,19 +127,11 @@ impl WitnessData {
         let jcs_bytes = serde_jcs::to_vec(&minimal)
             .map_err(|e| format!("JCS serialization of minimal witness failed: {}", e))?;
 
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        Ok(hex::encode(hasher.finalize()))
+        Ok(Hash::digest(&jcs_bytes))
     }
 
     pub fn to_jcs_hash(&self) -> Result<Hash, String> {
-        let hex = self.to_commitment_hash()?;
-        Ok(Hash::from_bytes(
-            hex::decode(hex)
-                .map_err(|e| e.to_string())?
-                .try_into()
-                .map_err(|_| "Invalid hash length")?,
-        ))
+        self.to_commitment_hash()
     }
 }
 
@@ -277,18 +263,12 @@ impl Capsule {
         // Authority and Identity are hashed as "Naked" leaves for byte-level interop with CHORA.
         let authority_h = {
             let jcs = serde_jcs::to_vec(&self.authority).map_err(|e| e.to_string())?;
-            let mut hasher = sha2::Sha256::new();
-            use sha2::Digest;
-            hasher.update(&jcs);
-            Hash::from_bytes(hasher.finalize().into())
+            Hash::digest(&jcs)
         };
 
         let identity_h = {
             let jcs = serde_jcs::to_vec(&self.identity).map_err(|e| e.to_string())?;
-            let mut hasher = sha2::Sha256::new();
-            use sha2::Digest;
-            hasher.update(&jcs);
-            Hash::from_bytes(hasher.finalize().into())
+            Hash::digest(&jcs)
         };
 
         let witness_h = self.witness.to_jcs_hash()?;
@@ -427,10 +407,10 @@ mod tests {
 
         let hash_hex = witness.to_commitment_hash().expect("Hashing failed");
 
-        // SHA256({"chora_node_id":"chora-gate-v1","timestamp":1710396000})
+        // SHA256(0x00 + {"chora_node_id":"chora-gate-v1","timestamp":1710396000})
         assert_eq!(
-            hash_hex, "84b8cc23c2d510d30920e3200913f45cf0097365f2fd377e1de1b3d831b5b9ec",
-            "v0.3 witness hash must exclude receipt_hash"
+            hash_hex.to_hex(), "87657d67389ca1a0e3e9bd4bccb5ab60a1cdcc59902d4cd67826d285dd98bff5",
+            "v0.3 witness hash must include 0x00 leaf prefix and exclude receipt_hash"
         );
     }
 
@@ -478,11 +458,11 @@ mod tests {
             }),
         };
 
-        // v0.3: only chora_node_id + timestamp committed
+        // v0.3: only chora_node_id + timestamp committed with 0x00 prefix
         let witness_hash = witness.to_commitment_hash().unwrap();
         assert_eq!(
-            witness_hash, "98d67e7ef952956fae8b75a907423dcb8856af61672ac3c95a11d76af6bd7f25",
-            "v0.3 witness hash must match George's canonical bundle (receipt_hash excluded)"
+            witness_hash.to_hex(), "fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f",
+            "v0.3 witness hash must match hardened spec (0x00 prefix included)"
         );
 
         // Capsule root from George's canonical bundle — verified via RFC 6962 Merkle tree.
@@ -491,7 +471,7 @@ mod tests {
         let intent_h   = hex::decode("e26f0ce40a2434a0a2cb506fbd21415c5aa398fe1bff0c5fa72872afa9dedbfa").unwrap();
         let authority_h = hex::decode("76d0b70f4f0d2df0dd538ce5e03e6eab8c418d949e6b83bafac7da97be6d5a27").unwrap();
         let identity_h  = hex::decode("9aa0bb3fcf0a1cac6794b79cf138dca1a65d3773c63fe4891d9efe0466ff313e").unwrap();
-        let witness_h   = hex::decode("98d67e7ef952956fae8b75a907423dcb8856af61672ac3c95a11d76af6bd7f25").unwrap();
+        let witness_h   = hex::decode("fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f").unwrap();
 
         fn merkle_combine(left: &[u8], right: &[u8]) -> Vec<u8> {
             use sha2::Digest;
@@ -508,8 +488,8 @@ mod tests {
         let capsule_root = hex::encode(&root);
 
         assert_eq!(
-            capsule_root, "d7d45e03f3d5a4e6a2af94b033a8724cad986ec779282163fc2a4b5ff90a1bc4",
-            "Capsule root must match George's canonical v0.3 bundle (RFC 6962 Merkle)"
+            capsule_root, "fbfc5989e9b722bba951e66652a38d77710265fbadf3b51c9e6ab2b9fad06652",
+            "Capsule root must match hardened v0.3 spec (RFC 6962 with 0x00/0x01 prefixes)"
         );
     }
 }

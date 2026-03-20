@@ -348,29 +348,19 @@ impl AuthorityClient for HttpChoraClient {
         token.payload.validate_lifecycle(chrono::Utc::now())
             .map_err(|e| format!("Lifecycle check failed: {}", e))?;
 
-        // 4. Verify Signature with Flexible JCS Alignment
+        // 4. Verify Signature with George's v3 Specs:
+        // - RFC 8785 (JCS) Canonical JSON
+        // - Signed as raw UTF-8 bytes (NOT hashed)
         let jcs_bytes = serde_jcs::to_vec(&token.payload).map_err(|e| e.to_string())?;
         
-        // Attempt 1: Raw JCS
         if verifying_key.verify(&jcs_bytes, &sig).is_ok() {
             return Ok(true);
         }
 
-        // Attempt 2: SHA-256 of JCS (Spec v0.3 Pre-hash)
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        let hash = hasher.finalize();
-        
-        if verifying_key.verify(&hash, &sig).is_ok() {
-            tracing::info!("CHORA: Verified via SHA256 pre-hash alignment");
-            return Ok(true);
-        }
-
-        tracing::warn!(
+        tracing::error!(
             jcs_hex = %hex::encode(&jcs_bytes),
             jcs_utf8 = %String::from_utf8_lossy(&jcs_bytes),
-            "CHORA: Signature verification failed locally."
+            "CHORA: Signature verification failed natively using V3 RFC 8785."
         );
         
         Ok(false)
@@ -393,79 +383,38 @@ mod tests {
     use ed25519_dalek::Verifier;
     #[tokio::test]
     async fn test_george_token_verification() {
+        use base64::Engine as _;
         let token_json = r#"{
             "payload": {
-                "schema": "chora.continuation.token.v1",
+                "schema": "chora.continuation.token.v3",
+                "issuer": "chora-gate-v0.3",
+                "iat": "2026-03-19T16:57:27.542164+00:00",
+                "exp": "2026-03-19T17:07:27.542164+00:00",
                 "ledger_event_id": "763331c3-3b82-485d-b449-0f6f033a5203",
-                "source_capsule_root": "ef7e9de0b541489e249ce4f7c6f49c078d5537be512592c52215e7441222037d",
                 "resolution_event_id": "ems-resolve-763331c3-3b82-485d-b449-0f6f033a5203",
-                "nonce": "nonce-24h-test-001",
-                "iat": "2026-03-18T03:24:14.780283+00:00",
-                "exp": "2026-03-19T03:24:14.780300+00:00",
-                "issuer": "chora-gate-v0.3"
+                "source_capsule_root": "ef7e9de0b541489e249ce4f7c6f49c078d5537be512592c52215e7441222037d",
+                "nonce": "nonce-750001"
             },
-            "signature": "f8853c9a14df9be9bfc603553ece9fe4bd379a6effeb5cdd07e6f6fabf6f5971299544aab99a681c33f146ad1e5b9c6dc6a7d263d1aadf2dddcf1510dd3fcb0d"
+            "signature": "6e6e140025ce60e471a903d787db85c65b5474d743c6e6cda2901b66e63b52e047a4a781815d6df6e9714f8c383a79d8d08661aba774f949f0c242a5884dd201"
         }"#;
 
         let token: vex_core::ContinuationToken = serde_json::from_str(token_json).unwrap();
         
-        // Public key from George's endpoint (hex: e349f4640029c01b52745c6a41fe4b7a13b408eda008d38570c3baeb8c45a189)
-        let raw_key = hex::decode("e349f4640029c01b52745c6a41fe4b7a13b408eda008d38570c3baeb8c45a189").unwrap();
-        let raw_key_bytes: [u8; 32] = raw_key.try_into().unwrap();
+        // Key inside public_key_token.pem (SPKI decoded)
+        // MCowBQYDK2VwAyEAFlfgFLXnzyyB8exqQ+DUDH+tWGX9zaUIHwhC1glFsr4=
+        // The last 32 bytes are the raw Ed25519 public key.
+        let pub_key_b64 = "FlfgFLXnzyyB8exqQ+DUDH+tWGX9zaUIHwhC1glFsr4=";
+        let raw_key_bytes = base64::engine::general_purpose::STANDARD.decode(pub_key_b64).unwrap();
         
-        let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&raw_key_bytes).unwrap();
+        let verifying_key = ed25519_dalek::VerifyingKey::try_from(raw_key_bytes.as_slice()).unwrap();
         let sig_bytes = hex::decode(&token.signature).unwrap();
         let sig = ed25519_dalek::Signature::from_bytes(sig_bytes.as_slice().try_into().unwrap());
         
-        // Brute-force local permutations
-        let timezones = vec!["+00:00", "Z", ""];
+        // In v3, the payload is signed after canonicalization using RFC 8785 (JCS)
+        let jcs_bytes = serde_jcs::to_vec(&token.payload).unwrap();
         
-        let mut found = false;
-        for tz_iat in &timezones {
-            for tz_exp in &timezones {
-                for use_jcs in vec![true, false] {
-                    for pre_hash in vec![false, true] {
-                        let iat = format!("2026-03-18T03:24:14.780283{}", tz_iat);
-                        let exp = format!("2026-03-19T03:24:14.780300{}", tz_exp);
-                        
-                        let data = if use_jcs {
-                            // Standard JCS (Sorted)
-                            let mut p = token.payload.clone();
-                            p.iat = iat.clone();
-                            p.exp = exp.clone();
-                            serde_jcs::to_vec(&p).unwrap()
-                        } else {
-                            // Preserved Order (based on George's sample)
-                            // schema, ledger_event_id, source_capsule_root, resolution_event_id, nonce, iat, exp, issuer
-                            let res_id = token.payload.resolution_event_id.as_ref().map(|s| format!("\"{}\"", s)).unwrap_or("null".to_string());
-                            format!(
-                                "{{\"schema\":\"{}\",\"ledger_event_id\":\"{}\",\"source_capsule_root\":\"{}\",\"resolution_event_id\":{},\"nonce\":\"{}\",\"iat\":\"{}\",\"exp\":\"{}\",\"issuer\":\"{}\"}}",
-                                token.payload.schema, token.payload.ledger_event_id, token.payload.source_capsule_root, res_id, token.payload.nonce, iat, exp, token.payload.issuer
-                            ).into_bytes()
-                        };
+        println!("JCS payload: {}", String::from_utf8_lossy(&jcs_bytes));
 
-                        let finalized_data = if pre_hash {
-                            use sha2::{Digest, Sha256};
-                            let mut hasher = Sha256::new();
-                            hasher.update(&data);
-                            hasher.finalize().to_vec()
-                        } else {
-                            data.clone()
-                        };
-
-                        if verifying_key.verify(&finalized_data, &sig).is_ok() {
-                            println!("SUCCESS: iat_tz={}, exp_tz={}, use_jcs={}, pre_hash={} -> {}", tz_iat, tz_exp, use_jcs, pre_hash, String::from_utf8_lossy(&data));
-                            found = true;
-                            break;
-                        }
-                    }
-                    if found { break; }
-                }
-                if found { break; }
-            }
-            if found { break; }
-        }
-
-        assert!(found, "Signature verification failed for all brute-force permutations");
+        assert!(verifying_key.verify(&jcs_bytes, &sig).is_ok(), "Signature verification failed for Canonical JCS encoded Token V3");
     }
 }

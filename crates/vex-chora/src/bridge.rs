@@ -81,7 +81,7 @@ impl AuthorityBridge {
 
         let authority_hash = hash_seg(&response.authority)?;
         let identity_hash = hash_seg(&identity)?;
-        let witness_hash = witness.to_commitment_hash()?;
+        let witness_hash = witness.to_commitment_hash()?.to_hex();
 
         // 6. Build Composite Capsule
         let mut capsule = Capsule {

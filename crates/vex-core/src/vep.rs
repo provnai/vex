@@ -173,7 +173,7 @@ impl<'a> VepPacket<'a> {
 
         let authority_hash = hash_seg(&authority)?;
         let identity_hash = hash_seg(&identity)?;
-        let witness_hash = witness.to_commitment_hash()?;
+        let witness_hash = witness.to_commitment_hash()?.to_hex();
 
         let mut capsule = Capsule {
             capsule_id: authority.capsule_id.clone(),

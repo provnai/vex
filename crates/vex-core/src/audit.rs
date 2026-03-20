@@ -54,7 +54,7 @@ pub struct EvidenceCapsule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolution_vep_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation_token: Option<String>,
+    pub continuation_token: Option<crate::segment::ContinuationToken>,
 
     /// Optional full VEP binary blob
     #[serde(skip_serializing_if = "Option::is_none")]

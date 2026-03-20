@@ -137,7 +137,7 @@ async fn proxy_handler(
         intent_hash,
         authority_hash,
         identity_hash,
-        witness_hash,
+        witness_hash: witness_hash.to_hex(),
         capsule_root: String::new(),
         crypto: CryptoData {
             algo: "ed25519".to_string(),

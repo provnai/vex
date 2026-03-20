@@ -183,6 +183,7 @@ mod tests {
             nonce: 42,
             escalation_id: None,
             binding_status: None,
+            continuation_token: None,
             gate_sensors: serde_json::Value::Null,
             metadata: serde_json::Value::Null,
         };
@@ -252,6 +253,7 @@ mod tests {
             nonce: 101,
             escalation_id: None,
             binding_status: None,
+            continuation_token: None,
             gate_sensors: serde_json::Value::Null,
             metadata: serde_json::Value::Null,
         };

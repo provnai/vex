@@ -837,6 +837,9 @@ mod tests {
                     nonce: 42,
                     gate_sensors: serde_json::json!({}),
                     metadata: serde_json::Value::Null,
+                    escalation_id: None,
+                    continuation_token: None,
+                    binding_status: None,
                 },
                 signature: "sig".into(),
             })
@@ -845,6 +848,12 @@ mod tests {
             &self,
             _p: &[u8],
             _s: &[u8],
+        ) -> std::result::Result<bool, String> {
+            Ok(true)
+        }
+        async fn verify_continuation_token(
+            &self,
+            _token: &vex_core::segment::ContinuationToken,
         ) -> std::result::Result<bool, String> {
             Ok(true)
         }

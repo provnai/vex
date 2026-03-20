@@ -71,7 +71,7 @@ impl Gate for GenericGateMock {
                 "version": "0.1.0",
             }),
             resolution_vep_hash: None,
-            continuation_token: Some("mock-token-v0.3.0".to_string()),
+            continuation_token: None,
             vep_blob: None,
         }
     }
