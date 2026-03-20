@@ -7,7 +7,7 @@ use crate::backend::{StorageBackend, StorageError, StorageExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use vex_core::audit::AuditEvent;
+
 
 /// The state of an AI Escalation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
