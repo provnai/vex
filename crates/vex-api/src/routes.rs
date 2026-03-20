@@ -16,7 +16,7 @@ use crate::error::{ApiError, ApiResult};
 use crate::sanitize::{sanitize_name, sanitize_prompt_async, sanitize_role};
 use crate::state::AppState;
 use utoipa::OpenApi;
-use vex_core::segment::{AuthorityData, ContinuationToken, IdentityData, IntentData};
+use vex_core::segment::ContinuationToken;
 use vex_core::{ActorType, AuditEventType};
 use vex_persist::coordination::{
     CoordinationRecord, CoordinationStatus, CoordinationStore, PersistentCoordinationStore,
@@ -944,7 +944,7 @@ pub async fn resolve_escalation(
     // This will trigger the Auto-Resolve logic in AuditStore::log
     let audit_store = AuditStore::new(state.db());
 
-    let mut data = serde_json::json!({
+    let data = serde_json::json!({
         "resolves_escalation_id": req.escalation_id,
         "rationale": req.rationale,
     });

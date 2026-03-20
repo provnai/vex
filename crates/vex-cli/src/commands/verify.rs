@@ -542,7 +542,7 @@ async fn verify_capsule_file(
 
     // 2. Merkle Audit (Recompute Root)
     print!("  Auditing Root Commitment... ");
-    let mut root_hash = capsule
+    let root_hash = capsule
         .to_composite_hash()
         .map_err(|e| anyhow::anyhow!("Merkle reconstruction error: {}", e))?;
     let mut _root_hex = root_hash.to_hex();
