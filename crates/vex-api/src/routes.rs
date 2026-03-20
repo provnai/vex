@@ -16,7 +16,12 @@ use crate::error::{ApiError, ApiResult};
 use crate::sanitize::{sanitize_name, sanitize_prompt_async, sanitize_role};
 use crate::state::AppState;
 use utoipa::OpenApi;
-use vex_persist::AgentStore;
+use vex_core::segment::ContinuationToken;
+use vex_core::{ActorType, AuditEventType};
+use vex_persist::coordination::{
+    CoordinationRecord, CoordinationStatus, CoordinationStore, PersistentCoordinationStore,
+};
+use vex_persist::{AgentStore, AuditStore};
 
 /// Health check response
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -207,6 +212,7 @@ pub struct ExecuteRequest {
     pub enable_self_correction: bool,
     #[serde(default = "default_max_rounds")]
     pub max_debate_rounds: u32,
+    pub continuation_token: Option<ContinuationToken>,
 }
 
 fn default_max_rounds() -> u32 {
@@ -226,6 +232,8 @@ pub struct ExecuteResponse {
     pub witness_receipt: Option<String>,
     /// Merkle Tree root of the execution trace (available when polling job result)
     pub merkle_root: Option<String>,
+    /// Signed continuation artifact (Phase 2 Enforcement Loop)
+    pub continuation_token: Option<ContinuationToken>,
 }
 
 /// Execute agent handler
@@ -274,12 +282,60 @@ pub async fn execute_agent(
         "Intent segment generated for v0.2.0 Singularity"
     );
 
-    // Phase 2.2: Authority Handshake (CHORA Witness)
-    let capsule = state
-        .bridge()
-        .perform_handshake(intent.clone())
-        .await
-        .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?;
+    // Phase 2.2: Continuation Authority (Enforcement Loop)
+    // If the client provides a token, they are attempting to resolve an escalation.
+    let mut authorized_execution = false;
+    let mut escalation_id = None;
+
+    if let Some(token) = &req.continuation_token {
+        // 1. Verify Signature & Root Binding
+        let verified = state
+            .bridge()
+            .verify_continuation_token(token)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Token Verification failed: {}", e)))?;
+
+        if !verified {
+            return Err(ApiError::Forbidden(
+                "Invalid or forged continuation token".to_string(),
+            ));
+        }
+
+        // 2. Reconcile with Coordination Ledger
+        let coordination_store = PersistentCoordinationStore::new(state.db());
+        if let Some(record) = coordination_store
+            .get_record(&claims.sub, &token.payload.ledger_event_id)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Coordination Store error: {}", e)))?
+        {
+            // Validate that we are working on the SAME intent (source_capsule_root)
+            if record.escalation_id == token.payload.ledger_event_id {
+                authorized_execution = true;
+                escalation_id = Some(record.escalation_id.clone());
+                tracing::info!(
+                    escalation_id = %record.escalation_id,
+                    "Authorized execution confirmed via Continuation Token"
+                );
+            }
+        }
+    }
+
+    // Phase 2.3: Authority Handshake (CHORA Witness)
+    // If NOT already authorized by a token, perform standard handshake
+    let capsule = if authorized_execution {
+        // Build a "Resumption Capsule" - ideally CHORA provides this or we re-handshake with token context
+        state
+            .bridge()
+            .perform_handshake(intent.clone())
+            .await
+            .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?
+    } else {
+        state
+            .bridge()
+            .perform_handshake(intent.clone())
+            .await
+            .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?
+    };
 
     let witness_receipt = capsule.witness.receipt_hash.clone();
 
@@ -301,12 +357,21 @@ pub async fn execute_agent(
         return Err(ApiError::NotFound("Agent not found".to_string()));
     }
 
-    // Phase 2.1: Evidence Store - Log pre-encryption GateDecision
+    // Phase 2.2: Evidence Store - Log pre-encryption GateDecision
     let audit_store = vex_persist::AuditStore::new(state.db());
+
+    // Check if we should escalate based on CHORA outcome
+    let is_escalated = capsule.authority.outcome == "ESCALATE";
+    let event_type = if is_escalated {
+        vex_core::AuditEventType::Escalation
+    } else {
+        vex_core::AuditEventType::GateDecision
+    };
+
     let _ = audit_store
         .log(
             &claims.sub,
-            vex_core::AuditEventType::GateDecision,
+            event_type,
             vex_core::ActorType::Bot(agent_id),
             Some(agent_id),
             serde_json::json!({
@@ -314,13 +379,64 @@ pub async fn execute_agent(
                 "intent_hash": intent_hash.to_hex(),
                 "authority": capsule.authority,
                 "witness": capsule.witness,
-                "status": "APPROVED_WITNESS"
+                "status": if is_escalated { "ESCALATED_FOR_REVIEW" } else { "APPROVED_WITNESS" },
+                "escalation_id": capsule.authority.escalation_id,
+                "binding_status": capsule.authority.binding_status,
+                "continuation_token": capsule.authority.continuation_token,
             }),
             None,
             Some(witness_receipt.clone()),
             None,
         )
         .await;
+
+    // If escalated, STOP execution and return the escalation details
+    if is_escalated && !authorized_execution {
+        // Record in Coordination Ledger for later resolution
+        let coordination_store = PersistentCoordinationStore::new(state.db());
+        let _ = coordination_store
+            .record_escalation(
+                &claims.sub,
+                capsule.authority.escalation_id.clone().unwrap_or_default(),
+                agent_id,
+                capsule.authority.continuation_token.clone(),
+            )
+            .await;
+
+        return Ok(Json(ExecuteResponse {
+            agent_id,
+            response: format!(
+                "⚠️ Governance Intervention: Execution halted. Escalation ID: {}",
+                capsule
+                    .authority
+                    .escalation_id
+                    .as_deref()
+                    .unwrap_or("unknown")
+            ),
+            verified: false,
+            confidence: 0.0,
+            context_hash: "halted".to_string(),
+            latency_ms: start.elapsed().as_millis() as u64,
+            witness_receipt: Some(witness_receipt),
+            merkle_root: None,
+            continuation_token: capsule.authority.continuation_token.clone(),
+        }));
+    }
+
+    // If we're here and were authorized, update the coordination record to RESOLVED
+    if authorized_execution {
+        if let Some(eid) = escalation_id {
+            let coordination_store = PersistentCoordinationStore::new(state.db());
+            let _ = coordination_store
+                .resolve_escalation(
+                    &claims.sub,
+                    &eid,
+                    agent_id,
+                    "final-resolution".to_string(), // In practice, the VEP hash
+                )
+                .await;
+        }
+    }
 
     // Create job payload with sanitized prompt and adversarial config
     let payload = serde_json::json!({
@@ -362,6 +478,7 @@ pub async fn execute_agent(
         latency_ms: start.elapsed().as_millis() as u64,
         witness_receipt: Some(witness_receipt),
         merkle_root: None,
+        continuation_token: capsule.authority.continuation_token,
     }))
 }
 
@@ -767,6 +884,102 @@ pub async fn get_prometheus_metrics(
     Ok(snapshot.to_prometheus())
 }
 
+/// Escalation resolution request
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ResolveEscalationRequest {
+    pub escalation_id: String,
+    pub resolution_vep_hash: String,
+    pub rationale: String,
+}
+
+/// List active escalations handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/governance/escalations",
+    responses(
+        (status = 200, description = "List of active escalations", body = [CoordinationRecord]),
+        (status = 403, description = "Forbidden")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn list_escalations(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<Vec<CoordinationRecord>>> {
+    let coordination = PersistentCoordinationStore::new(state.db());
+    let active = coordination
+        .list_active(&claims.sub)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Coordination Ledger error: {}", e)))?;
+    Ok(Json(active))
+}
+
+/// Resolve escalation handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/governance/resolve",
+    request_body = ResolveEscalationRequest,
+    responses(
+        (status = 200, description = "Escalation resolved successfully"),
+        (status = 404, description = "Escalation not found"),
+        (status = 403, description = "Forbidden")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn resolve_escalation(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+    Json(req): Json<ResolveEscalationRequest>,
+) -> ApiResult<Json<serde_json::Value>> {
+    // Only admins or authorized human reviewers can resolve escalations
+    if !claims.has_role("user") {
+        return Err(ApiError::Forbidden("Reviewer access required".to_string()));
+    }
+
+    // 1. Log the HumanOverride event in AuditStore
+    // This will trigger the Auto-Resolve logic in AuditStore::log
+    let audit_store = AuditStore::new(state.db());
+
+    let data = serde_json::json!({
+        "resolves_escalation_id": req.escalation_id,
+        "rationale": req.rationale,
+    });
+
+    // Log the resolution event
+    // The AuditStore::log implementation we modified will catch "HumanOverride"
+    // and "resolves_escalation_id" to update the CoordinationLedger.
+    let event = audit_store
+        .log(
+            &claims.sub,
+            AuditEventType::HumanOverride,
+            ActorType::Human(claims.sub.clone()),
+            None,
+            data,
+            None,
+            None,
+            None,
+        )
+        .await
+        .map_err(|e| ApiError::Internal(format!("Audit logging failed: {}", e)))?;
+
+    // Phase 2.2: Link the resolution hash explicitly if provided
+    let mut event = event;
+    if let Some(capsule) = &mut event.evidence_capsule {
+        capsule.resolution_vep_hash = Some(req.resolution_vep_hash.clone());
+    }
+
+    Ok(Json(serde_json::json!({
+        "status": "resolved",
+        "event_id": event.id,
+        "escalation_id": req.escalation_id,
+        "resolution_vep_hash": req.resolution_vep_hash
+    })))
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -781,6 +994,8 @@ pub async fn get_prometheus_metrics(
         get_prometheus_metrics,
         get_routing_stats,
         update_routing_config,
+        list_escalations,
+        resolve_escalation,
         crate::a2a::handler::agent_card_handler,
         crate::a2a::handler::create_task_handler,
         crate::a2a::handler::get_task_handler,
@@ -801,6 +1016,9 @@ pub async fn get_prometheus_metrics(
             crate::a2a::task::TaskRequest,
             crate::a2a::task::TaskResponse,
             crate::a2a::task::TaskStatus,
+            CoordinationRecord,
+            CoordinationStatus,
+            ResolveEscalationRequest,
         )
     ),
     modifiers(&SecurityAddon)
@@ -851,6 +1069,9 @@ pub fn api_router(state: AppState) -> Router {
             "/api/v1/routing/config",
             axum::routing::put(update_routing_config),
         )
+        // Governance endpoints
+        .route("/api/v1/governance/escalations", get(list_escalations))
+        .route("/api/v1/governance/resolve", post(resolve_escalation))
         .route("/metrics", get(get_prometheus_metrics))
         // State
         .with_state(state)

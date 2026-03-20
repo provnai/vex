@@ -64,6 +64,7 @@ pub async fn run(args: ProveArgs) -> Result<()> {
             "debugger_mode": true,
             "timestamp": chrono::Utc::now().to_rfc3339()
         }),
+        circuit_id: None,
     };
 
     if args.full_capsule {
@@ -79,6 +80,9 @@ pub async fn run(args: ProveArgs) -> Result<()> {
                 reason_code: "OK".to_string(),
                 trace_root: "0xdeadbeef".to_string(),
                 nonce: 42,
+                escalation_id: None,
+                binding_status: None,
+                continuation_token: None,
                 gate_sensors: json!({ "tpm_active": true }),
                 metadata: serde_json::Value::Null,
             },
@@ -94,6 +98,7 @@ pub async fn run(args: ProveArgs) -> Result<()> {
                 timestamp: chrono::Utc::now().timestamp() as u64,
                 metadata: serde_json::Value::Null,
             },
+            request_commitment: None,
             intent_hash: String::new(),
             authority_hash: String::new(),
             identity_hash: String::new(),
@@ -105,10 +110,29 @@ pub async fn run(args: ProveArgs) -> Result<()> {
                 signature_scope: "capsule_root".to_string(),
                 signature_b64: String::new(),
             },
-            request_commitment: None,
         };
 
-        // Compute hashes
+        // Populate individual segment hashes for transparency (v0.3 spec)
+        capsule.intent_hash = capsule
+            .intent
+            .to_jcs_hash()
+            .map_err(anyhow::Error::msg)?
+            .to_hex();
+        capsule.authority_hash = {
+            let jcs = serde_jcs::to_vec(&capsule.authority).map_err(|e| anyhow::anyhow!(e))?;
+            vex_core::merkle::Hash::digest(&jcs).to_hex()
+        };
+        capsule.identity_hash = {
+            let jcs = serde_jcs::to_vec(&capsule.identity).map_err(|e| anyhow::anyhow!(e))?;
+            vex_core::merkle::Hash::digest(&jcs).to_hex()
+        };
+        capsule.witness_hash = capsule
+            .witness
+            .to_jcs_hash()
+            .map_err(anyhow::Error::msg)?
+            .to_hex();
+
+        // 4. Compute composite root
         let root_hash = capsule
             .to_composite_hash()
             .map_err(|e| anyhow::anyhow!("Hash error: {}", e))?;

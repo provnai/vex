@@ -5,7 +5,6 @@
 use crate::merkle::Hash;
 use crate::zk::{ZkError, ZkVerifier};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 /// Intent Data (VEX Pillar)
 /// Proves the proposed action before execution. It supports two variants:
@@ -31,6 +30,10 @@ pub enum IntentData {
         stark_proof_b64: String,
         public_inputs: serde_json::Value,
 
+        /// New Phase 2: Plonky3 Circuit Identity
+        #[serde(skip_serializing_if = "Option::is_none")]
+        circuit_id: Option<String>,
+
         /// Catch-all for extra fields to preserve binary parity in JCS.
         #[serde(flatten, default)]
         metadata: serde_json::Value,
@@ -41,12 +44,7 @@ impl IntentData {
     pub fn to_jcs_hash(&self) -> Result<Hash, String> {
         let jcs_bytes =
             serde_jcs::to_vec(self).map_err(|e| format!("JCS serialization failed: {}", e))?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        let result = hasher.finalize();
-
-        Ok(Hash::from_bytes(result.into()))
+        Ok(Hash::digest(&jcs_bytes))
     }
 
     /// Verifies the Zero-Knowledge proof for Shadow intents.
@@ -73,6 +71,15 @@ pub struct AuthorityData {
     pub reason_code: String,
     pub trace_root: String,
     pub nonce: u64,
+
+    /// New Phase 2: CHORA Binding Mode Fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escalation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation_token: Option<ContinuationToken>,
+
     #[serde(
         default = "default_sensor_value",
         skip_serializing_if = "serde_json::Value::is_null"
@@ -101,38 +108,30 @@ pub struct WitnessData {
 }
 
 impl WitnessData {
-    /// Compute the "witness_hash" using the Minimal Witness spec.
-    /// Only chora_node_id, receipt_hash, and timestamp are hashed.
-    pub fn to_commitment_hash(&self) -> Result<String, String> {
+    /// Compute the "witness_hash" using the v0.3 Minimal Witness spec.
+    /// ONLY chora_node_id and timestamp are committed.
+    /// receipt_hash is post-seal metadata and is NOT part of the witness commitment surface.
+    /// Ref: CHORA_VERIFICATION_CONTRACT_v0.3.md
+    pub fn to_commitment_hash(&self) -> Result<Hash, String> {
         #[derive(Serialize)]
         struct MinimalWitness<'a> {
             chora_node_id: &'a str,
-            receipt_hash: &'a str,
             timestamp: u64,
         }
 
         let minimal = MinimalWitness {
             chora_node_id: &self.chora_node_id,
-            receipt_hash: &self.receipt_hash,
             timestamp: self.timestamp,
         };
 
         let jcs_bytes = serde_jcs::to_vec(&minimal)
             .map_err(|e| format!("JCS serialization of minimal witness failed: {}", e))?;
 
-        let mut hasher = Sha256::new();
-        hasher.update(&jcs_bytes);
-        Ok(hex::encode(hasher.finalize()))
+        Ok(Hash::digest(&jcs_bytes))
     }
 
     pub fn to_jcs_hash(&self) -> Result<Hash, String> {
-        let hex = self.to_commitment_hash()?;
-        Ok(Hash::from_bytes(
-            hex::decode(hex)
-                .map_err(|e| e.to_string())?
-                .try_into()
-                .map_err(|_| "Invalid hash length")?,
-        ))
+        self.to_commitment_hash()
     }
 }
 
@@ -150,6 +149,63 @@ pub struct IdentityData {
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
     pub metadata: serde_json::Value,
+}
+
+/// Continuation Token (Phase 2 Enforcement Primitive)
+/// A signed artifact that permits execution after an escalation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct ContinuationToken {
+    pub payload: ContinuationPayload,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct ContinuationPayload {
+    pub schema: String,
+    pub ledger_event_id: String,
+    pub source_capsule_root: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution_event_id: Option<String>,
+    pub nonce: String,
+    pub iat: String,
+    pub exp: String,
+    pub issuer: String,
+}
+
+impl ContinuationPayload {
+    /// Validates the token's lifecycle (iat/exp) with a grace period.
+    pub fn validate_lifecycle(&self, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
+        let iat = chrono::DateTime::parse_from_rfc3339(&self.iat)
+            .map_err(|e| format!("Invalid iat: {}", e))?
+            .with_timezone(&chrono::Utc);
+        let exp = chrono::DateTime::parse_from_rfc3339(&self.exp)
+            .map_err(|e| format!("Invalid exp: {}", e))?
+            .with_timezone(&chrono::Utc);
+
+        let leeway = chrono::Duration::seconds(30);
+
+        if now < iat - leeway {
+            return Err("Token issued in the future (beyond leeway)".to_string());
+        }
+
+        if now > exp + leeway {
+            return Err("Token expired (beyond leeway)".to_string());
+        }
+
+        Ok(())
+    }
+}
+
+impl ContinuationToken {
+    /// Computes the JCS hash of the payload for signature verification.
+    pub fn payload_hash(&self) -> Result<Vec<u8>, String> {
+        let jcs_bytes = serde_jcs::to_vec(&self.payload)
+            .map_err(|e| format!("JCS serialization failed: {}", e))?;
+        let mut hasher = sha2::Sha256::new();
+        use sha2::Digest;
+        hasher.update(&jcs_bytes);
+        Ok(hasher.finalize().to_vec())
+    }
 }
 
 /// Crypto verification details.
@@ -207,18 +263,12 @@ impl Capsule {
         // Authority and Identity are hashed as "Naked" leaves for byte-level interop with CHORA.
         let authority_h = {
             let jcs = serde_jcs::to_vec(&self.authority).map_err(|e| e.to_string())?;
-            let mut hasher = sha2::Sha256::new();
-            use sha2::Digest;
-            hasher.update(&jcs);
-            Hash::from_bytes(hasher.finalize().into())
+            Hash::digest(&jcs)
         };
 
         let identity_h = {
             let jcs = serde_jcs::to_vec(&self.identity).map_err(|e| e.to_string())?;
-            let mut hasher = sha2::Sha256::new();
-            use sha2::Digest;
-            hasher.update(&jcs);
-            Hash::from_bytes(hasher.finalize().into())
+            Hash::digest(&jcs)
         };
 
         let witness_h = self.witness.to_jcs_hash()?;
@@ -294,6 +344,7 @@ mod tests {
                 "policy_id": "standard-v1",
                 "outcome_commitment": "ALLOW"
             }),
+            circuit_id: None,
             metadata: serde_json::Value::Null,
         };
         let segment2 = segment1.clone();
@@ -341,15 +392,12 @@ mod tests {
 
     #[test]
     fn test_witness_segment_minimal_interop() {
-        // Specimen from CHORA Witness Network
-        // {
-        //  "chora_node_id": "chora-gate-v1",
-        //  "receipt_hash": "",
-        //  "timestamp": 1710396000
-        // }
+        // v0.3 spec: witness commitment = {chora_node_id, timestamp} ONLY.
+        // receipt_hash is post-seal metadata and is excluded.
+        // Canonical JCS surface: {"chora_node_id":"chora-gate-v1","timestamp":1710396000}
         let witness = WitnessData {
             chora_node_id: "chora-gate-v1".to_string(),
-            receipt_hash: "".to_string(),
+            receipt_hash: "ignored-in-v03".to_string(),
             timestamp: 1710396000,
             metadata: serde_json::json!({
                 "witness_mode": "full",
@@ -359,11 +407,11 @@ mod tests {
 
         let hash_hex = witness.to_commitment_hash().expect("Hashing failed");
 
-        // Expected hash for exactly: {"chora_node_id":"chora-gate-v1","receipt_hash":"","timestamp":1710396000}
-        // JCS should be lexicographical: chora_node_id -> receipt_hash -> timestamp
+        // SHA256(0x00 + {"chora_node_id":"chora-gate-v1","timestamp":1710396000})
         assert_eq!(
-            hash_hex, "79988e14e875e1fe409ccf13628c2c12bc3d2eeacfb09a9024889def4fc8262b",
-            "Witness hash must match the CHORA spec even with extra metadata"
+            hash_hex.to_hex(),
+            "87657d67389ca1a0e3e9bd4bccb5ab60a1cdcc59902d4cd67826d285dd98bff5",
+            "v0.3 witness hash must include 0x00 leaf prefix and exclude receipt_hash"
         );
     }
 
@@ -397,12 +445,14 @@ mod tests {
 
     #[test]
     fn test_chora_live_specimen_parity() {
-        // 1. Verify Witness Hash Parity
-        // Sample from CHORA Witness Network - 2026-03-14 11:26 AM
+        // v0.3 live specimen from George's canonical bundle (2026-03-19T08:34:21Z)
+        // capsule_id: 1a3b2267-23a3-46d2-b34e-138912b80652
+        // v0.3 witness spec: {chora_node_id, timestamp} ONLY
         let witness = WitnessData {
             chora_node_id: "chora-vps-1".to_string(),
-            receipt_hash: "".to_string(),
-            timestamp: 1773483683,
+            receipt_hash: "5bfc2b79f9bab22abd12a196aafd8a91cdb14c2cf68230375de9569d99236b5c"
+                .to_string(),
+            timestamp: 1773909261,
             metadata: serde_json::json!({
                 "witness_mode": "attached",
                 "sentinel_mode": "observe_only",
@@ -410,44 +460,47 @@ mod tests {
             }),
         };
 
-        // Compute legacy witness hash (v0.2 excludes receipt_hash)
-        let legacy_witness = serde_json::json!({
-            "chora_node_id": witness.chora_node_id,
-            "timestamp": witness.timestamp
-        });
-        let jcs_bytes = serde_jcs::to_vec(&legacy_witness).unwrap();
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(&jcs_bytes);
-        let witness_hash = hex::encode(hasher.finalize());
-
+        // v0.3: only chora_node_id + timestamp committed with 0x00 prefix
+        let witness_hash = witness.to_commitment_hash().unwrap();
         assert_eq!(
-            witness_hash, "7d4e2acaa7e459261d48f79cbec2a08ef5f8489e7cb610f375b708f9b8027e33",
-            "Witness hash must match the CHORA live production sample (excluding receipt_hash)"
+            witness_hash.to_hex(),
+            "fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f",
+            "v0.3 witness hash must match hardened spec (0x00 prefix included)"
         );
 
-        // 2. Verify Capsule Root Commitment (Lexicographical JCS)
-        // Hashes provided for CHORA specimen f3d4bbce...
-        let intent_hash = "1f05a4c81ff8b0026e873d3782b07c5140c89efcd632a5f121159e2e823b744d";
-        let authority_hash = "c1c9cc1c96db2959dc824e4398162d0fd4250ff483f74475740e92e97dc38aef";
-        let identity_hash = "fc6f5810fc16aea2197501867237159f284efdb2e1b6e7865a034b610e4903a3";
-        let witness_hash_live = "7d4e2acaa7e459261d48f79cbec2a08ef5f8489e7cb610f375b708f9b8027e33";
+        // Capsule root from George's canonical bundle — verified via RFC 6962 Merkle tree.
+        // Tree: combine(combine(intent,authority), combine(identity,witness))
+        // where combine(a,b) = SHA256(0x01 || a_bytes || b_bytes)
+        let intent_h =
+            hex::decode("e26f0ce40a2434a0a2cb506fbd21415c5aa398fe1bff0c5fa72872afa9dedbfa")
+                .unwrap();
+        let authority_h =
+            hex::decode("76d0b70f4f0d2df0dd538ce5e03e6eab8c418d949e6b83bafac7da97be6d5a27")
+                .unwrap();
+        let identity_h =
+            hex::decode("9aa0bb3fcf0a1cac6794b79cf138dca1a65d3773c63fe4891d9efe0466ff313e")
+                .unwrap();
+        let witness_h =
+            hex::decode("fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f")
+                .unwrap();
 
-        let root_map = serde_json::json!({
-            "authority_hash": authority_hash,
-            "identity_hash": identity_hash,
-            "intent_hash": intent_hash,
-            "witness_hash": witness_hash_live
-        });
+        fn merkle_combine(left: &[u8], right: &[u8]) -> Vec<u8> {
+            use sha2::Digest;
+            let mut h = sha2::Sha256::new();
+            h.update([0x01u8]);
+            h.update(left);
+            h.update(right);
+            h.finalize().to_vec()
+        }
 
-        let jcs_bytes = serde_jcs::to_vec(&root_map).unwrap();
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(&jcs_bytes);
-        use sha2::Digest;
-        let capsule_root = hex::encode(hasher.finalize());
+        let l1_left = merkle_combine(&intent_h, &authority_h);
+        let l1_right = merkle_combine(&identity_h, &witness_h);
+        let root = merkle_combine(&l1_left, &l1_right);
+        let capsule_root = hex::encode(&root);
 
         assert_eq!(
-            capsule_root, "4401e5b102f949472b0bc247a8a9cb1dd685a3ba387f0cca332fb13fafdbd960",
-            "Capsule root commitment must match the recomputed v0.2 model"
+            capsule_root, "fbfc5989e9b722bba951e66652a38d77710265fbadf3b51c9e6ab2b9fad06652",
+            "Capsule root must match hardened v0.3 spec (RFC 6962 with 0x00/0x01 prefixes)"
         );
     }
 }

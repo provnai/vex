@@ -100,6 +100,9 @@ async fn proxy_handler(
         reason_code: "PASSED_SIDECAR".to_string(),
         trace_root: payload_hash.clone(),
         nonce: 1,
+        escalation_id: None,
+        binding_status: None,
+        continuation_token: None,
         gate_sensors: serde_json::Value::Null,
         metadata: serde_json::Value::Null,
     };
@@ -134,7 +137,7 @@ async fn proxy_handler(
         intent_hash,
         authority_hash,
         identity_hash,
-        witness_hash,
+        witness_hash: witness_hash.to_hex(),
         capsule_root: String::new(),
         crypto: CryptoData {
             algo: "ed25519".to_string(),

@@ -34,6 +34,7 @@ vex-algoswitch = { workspace = true, optional = true }
 vex-hardware = { workspace = true }
 zerocopy = { workspace = true, features = ["derive"] }
 base64 = "0.22"
+utoipa = { version = "5", features = ["chrono", "uuid"] }
 
 [dev-dependencies]
 criterion = "0.5"

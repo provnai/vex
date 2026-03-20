@@ -19,6 +19,9 @@ fn test_capsule_jcs_parity() {
         reason_code: "WITHIN_POLICY".into(),
         trace_root: "5555555555555555555555555555555555555555555555555555555555555555".into(),
         nonce: 12345,
+        escalation_id: None,
+        binding_status: None,
+        continuation_token: None,
         gate_sensors: serde_json::Value::Null,
         metadata: serde_json::Value::Null,
     };

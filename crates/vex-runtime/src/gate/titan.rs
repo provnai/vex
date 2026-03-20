@@ -469,6 +469,8 @@ impl Gate for TitanGate {
                     "trigger": "BEH-007"
                 }),
                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                resolution_vep_hash: None,
+                continuation_token: None,
                 vep_blob: None,
             };
         }
@@ -490,6 +492,8 @@ impl Gate for TitanGate {
                         "error": e
                     }),
                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                    resolution_vep_hash: None,
+                    continuation_token: None,
                     vep_blob: None,
                 };
             }
@@ -522,6 +526,8 @@ impl Gate for TitanGate {
                                     "resolved_physical_path": resolved_str
                                 }),
                                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                                resolution_vep_hash: None,
+                                continuation_token: None,
                                 vep_blob: None,
                             };
                         }
@@ -542,6 +548,8 @@ impl Gate for TitanGate {
                                 "error": e
                             }),
                             reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                            resolution_vep_hash: None,
+                            continuation_token: None,
                             vep_blob: None,
                         };
                     }
@@ -561,6 +569,8 @@ impl Gate for TitanGate {
                     magpie_source: None,
                     gate_sensors: serde_json::json!({"layer": "L1", "rule": format!("{:?}", rule)}),
                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                    resolution_vep_hash: None,
+                    continuation_token: None,
                     vep_blob: None,
                 };
             }
@@ -592,6 +602,7 @@ impl Gate for TitanGate {
                             confidence,
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
                             magpie_source: Some(mp_source.clone()),
+                            circuit_id: None,
                             metadata: serde_json::Value::Null,
                         };
 
@@ -605,6 +616,9 @@ impl Gate for TitanGate {
                                 "profile": format!("{:?}", self.profile),
                                 "l2_digest": digest_hex.clone()
                             }),
+                            escalation_id: chora_resp.authority.escalation_id.clone(),
+                            binding_status: chora_resp.authority.binding_status.clone(),
+                            continuation_token: chora_resp.authority.continuation_token.clone(),
                             metadata: chora_resp.authority.metadata,
                         };
 
@@ -647,6 +661,8 @@ impl Gate for TitanGate {
                                     magpie_source: None,
                                     gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
                                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    resolution_vep_hash: None,
+                                    continuation_token: None,
                                     vep_blob: None,
                                 };
                             }
@@ -665,6 +681,8 @@ impl Gate for TitanGate {
                                     magpie_source: None,
                                     gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
                                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    resolution_vep_hash: None,
+                                    continuation_token: None,
                                     vep_blob: None,
                                 };
                             }
@@ -707,6 +725,8 @@ impl Gate for TitanGate {
                                 magpie_source: None,
                                 gate_sensors: serde_json::json!({"layer": "L3", "chora_sig": chora_resp.signature}),
                                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                resolution_vep_hash: None,
+                                continuation_token: chora_resp.authority.continuation_token.clone(),
                                 vep_blob: v0_capsule.to_vep_binary().ok(),
                             }
                         }
@@ -720,6 +740,8 @@ impl Gate for TitanGate {
                         magpie_source: None,
                         gate_sensors: serde_json::json!({"layer": "L3", "error": e}),
                         reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                        resolution_vep_hash: None,
+                        continuation_token: None,
                         vep_blob: None,
                     },
                 }
@@ -733,6 +755,8 @@ impl Gate for TitanGate {
                 magpie_source: None,
                 gate_sensors: serde_json::json!({"layer": "L2", "error": e, "digest": digest_hex}),
                 reproducibility_context: serde_json::json!({"gate": "TitanGate/L2"}),
+                resolution_vep_hash: None,
+                continuation_token: None,
                 vep_blob: None,
             },
         }
@@ -765,6 +789,8 @@ mod tests {
                 magpie_source: None,
                 gate_sensors: serde_json::json!({}),
                 reproducibility_context: serde_json::json!({}),
+                resolution_vep_hash: None,
+                continuation_token: None,
                 vep_blob: None,
             }
         }
@@ -811,6 +837,9 @@ mod tests {
                     nonce: 42,
                     gate_sensors: serde_json::json!({}),
                     metadata: serde_json::Value::Null,
+                    escalation_id: None,
+                    continuation_token: None,
+                    binding_status: None,
                 },
                 signature: "sig".into(),
             })
@@ -819,6 +848,12 @@ mod tests {
             &self,
             _p: &[u8],
             _s: &[u8],
+        ) -> std::result::Result<bool, String> {
+            Ok(true)
+        }
+        async fn verify_continuation_token(
+            &self,
+            _token: &vex_core::segment::ContinuationToken,
         ) -> std::result::Result<bool, String> {
             Ok(true)
         }

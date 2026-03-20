@@ -10,6 +10,7 @@ fn test_vep_binary_serialization() {
         confidence: 0.95,
         capabilities: vec!["Subprocess".to_string()],
         magpie_source: None,
+        circuit_id: None,
         metadata: serde_json::Value::Null,
     };
 
@@ -19,6 +20,9 @@ fn test_vep_binary_serialization() {
         reason_code: "OK".to_string(),
         trace_root: "0".repeat(64),
         nonce: 12345,
+        escalation_id: None,
+        binding_status: None,
+        continuation_token: None,
         gate_sensors: serde_json::Value::Null,
         metadata: serde_json::Value::Null,
     };
@@ -122,6 +126,7 @@ fn test_vep_signature_verification() {
             confidence: 1.0,
             capabilities: vec![],
             magpie_source: None,
+            circuit_id: None,
             metadata: serde_json::Value::Null,
         },
         AuthoritySegment {
@@ -130,6 +135,9 @@ fn test_vep_signature_verification() {
             reason_code: "OK".into(),
             trace_root: "0".repeat(64),
             nonce: 1,
+            escalation_id: None,
+            binding_status: None,
+            continuation_token: None,
             gate_sensors: serde_json::Value::Null,
             metadata: serde_json::Value::Null,
         },

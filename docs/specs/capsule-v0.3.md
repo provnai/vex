@@ -24,12 +24,12 @@ To ensure mathematical parity across nodes (VEX, CHORA, ATTEST), only the follow
 ### Capsule Root (Merkle Tree Commitment)
 VEX v0.3 transitions from a flat composite hash to a **4-leaf Binary Merkle Tree (RFC 6962 compatible)**. This structure enables "Partial Disclosure" audits in the VEP Explorer, where a verifier can confirm the root without seeing every pillar (e.g., hiding private Intent while verifying Authority).
 
-#### Leaf Construction
-Each of the 4 pillars is hashed using JCS + SHA-256 to form the leaves:
-- `h_intent` = SHA256(JCS(IntentData))
-- `h_auth` = SHA256(JCS(AuthorityData))
-- `h_ident` = SHA256(JCS(IdentityData))
-- `h_witness` = SHA256(JCS(WitnessData))
+#### Leaf Construction (RFC 6962 Leaves)
+To prevent second-preimage attacks, each leaf is prefixed with a `0x00` byte before hashing:
+- `h_intent` = SHA256(`0x00` | JCS(IntentData))
+- `h_auth` = SHA256(`0x00` | JCS(AuthorityData))
+- `h_ident` = SHA256(`0x00` | JCS(IdentityData))
+- `h_witness` = SHA256(`0x00` | JCS(WitnessData))
 
 #### Node Calculation (RFC 6962 Domain Separation)
 Internal nodes use a `0x01` prefix byte to prevent second-preimage attacks:
@@ -74,6 +74,30 @@ Documents the governance decision and the cryptographic trace allowed by the gat
   "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
+
+### Continuation Token (CHORA Bridge v3)
+Used for cross-gate state transition and persistent identity across authorized sessions.
+```json
+{
+  "payload": {
+    "schema": "chora.continuation.token.v3",
+    "issuer": "string (Gate ID)",
+    "iat": "string (ISO8601 UTC)",
+    "exp": "string (ISO8601 UTC)",
+    "ledger_event_id": "string (UUID)",
+    "source_capsule_root": "hex[32]",
+    "resolution_event_id": "string (Optional)",
+    "nonce": "string"
+  },
+  "signature": "hex (Ed25519 signature over JCS(payload))",
+  "meta": {
+    "signature_scope": "payload",
+    "canonicalization": "RFC8785-JCS",
+    "schema_version": "v3"
+  }
+}
+```
+*Note: The signature is calculated over the JCS-canonicalized bytes of the `payload` object directly (raw bytes, no secondary SHA256).*
 
 ### Identity (Attest Pillar)
 Proves the hardware source (Silicon) and its boot/runtime integrity state.
@@ -173,8 +197,8 @@ Following the header, the body consists of Type-Length-Value segments.
     - Verify `authority.nonce` matches header `nonce`.
 4.  **Silicon State Audit**: Compare `identity.pcrs` against known-good "Golden PCR" states for the deployment environment.
 5.  **Merkle Reconstruction**:
-    - Recompute pillar hashes: `SHA256(JCS(Segment))`.
-    - Recompute `capsule_root` using the **4-leaf Binary Merkle Tree** (RFC 6962) model.
+    - Recompute pillar hashes: `SHA256(0x00 | JCS(Segment))`.
+    - Recompute `capsule_root` using the **4-leaf Binary Merkle Tree** (RFC 6962) model with `0x01` internal node prefixes.
 6.  **Cryptographic Validation**: Verify the binary `Signature` (Type 6) against the recomputed `capsule_root`.
 7.  **Formal Intent Check (Optional)**: Execute `magpie parse` on the `MagpieAst` (Type 7) to confirm the formal logic matches the authorized `trace_root`.
 
@@ -190,6 +214,9 @@ Implementation-specific test vectors for v0.3 are provided in the `vex-core` tes
 - **Structural Hardening**: Intent, Authority, and Identity pillars use an **Inclusive** hashing surface. Any field present in the JSON at these levels (flattened metadata) MUST be captured and included in the JCS hash to ensure binary parity for extended protocols.
 - **Minimal Witness Compliance**: The Witness pillar uses an **Explicit** hashing surface. Only the three defined fields are hashed; all other witness fields (e.g., `witness_mode`) sit outside the cryptographic commitment.
 - **Omission over Null**: Optional fields that are empty (e.g., `gate_sensors: null`) MUST be omitted from the JSON rather than set to `null` to minimize artifact size and ensure byte-level parity across implementations.
-- **RFC 6962 Domain Separation**: Internal nodes MUST use the `0x01` prefix byte to prevent second-preimage attacks. 
+- **RFC 6962 Domain Separation**: To prevent second-preimage attacks:
+    - Leaves MUST use the `0x00` prefix byte.
+    - Internal nodes MUST use the `0x01` prefix byte. 
+- **Raw JCS Signatures (v3)**: The Continuation Token MUST be signed over raw UTF-8 JCS bytes without a secondary SHA256 hash to ensure IMPLEMENTATION PARITY.
 - **Hardware-Rooted Seal**: The signature MUST be the FINAL operation, sealing the hardware identity and PCR state into the witness receipt.
 - **OTS Finality**: External anchoring (e.g., OpenTimestamps) is performed *after* the capsule is sealed and witnessed.

@@ -168,18 +168,53 @@ async fn verify_live_handshake(gate_url: Option<&str>, api_key: Option<&str>) ->
         .context("Missing capsule_root in response")?;
 
     print!("  Auditing root commitment... ");
-    // Reconstruct root locally using reported hashes
-    let root_map = serde_json::json!({
-        "authority_hash": full_capsule_json["authority_hash"].as_str().unwrap_or(""),
-        "identity_hash": full_capsule_json["identity_hash"].as_str().unwrap_or(""),
-        "intent_hash": full_capsule_json["intent_hash"].as_str().unwrap_or(""),
-        "witness_hash": full_capsule_json["witness_hash"].as_str().unwrap_or("")
-    });
+    // Reconstruct root locally using reported hashes (v0.3 Merkle Tree model)
+    use vex_core::merkle::{Hash, MerkleTree};
 
-    let local_root_jcs = serde_jcs::to_vec(&root_map).context("Failed to canonicalize root map")?;
-    let mut hasher = sha2::Sha256::new();
-    hasher.update(&local_root_jcs);
-    let local_root = hex::encode(hasher.finalize());
+    let leaves = vec![
+        (
+            "intent".to_string(),
+            Hash::from_bytes(
+                hex::decode(full_capsule_json["intent_hash"].as_str().unwrap_or(""))
+                    .map_err(|_| anyhow::anyhow!("Invalid intent_hash"))?
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid intent_hash length"))?,
+            ),
+        ),
+        (
+            "authority".to_string(),
+            Hash::from_bytes(
+                hex::decode(full_capsule_json["authority_hash"].as_str().unwrap_or(""))
+                    .map_err(|_| anyhow::anyhow!("Invalid authority_hash"))?
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid authority_hash length"))?,
+            ),
+        ),
+        (
+            "identity".to_string(),
+            Hash::from_bytes(
+                hex::decode(full_capsule_json["identity_hash"].as_str().unwrap_or(""))
+                    .map_err(|_| anyhow::anyhow!("Invalid identity_hash"))?
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid identity_hash length"))?,
+            ),
+        ),
+        (
+            "witness".to_string(),
+            Hash::from_bytes(
+                hex::decode(full_capsule_json["witness_hash"].as_str().unwrap_or(""))
+                    .map_err(|_| anyhow::anyhow!("Invalid witness_hash"))?
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid witness_hash length"))?,
+            ),
+        ),
+    ];
+
+    let tree = MerkleTree::from_leaves(leaves);
+    let local_root = tree
+        .root_hash()
+        .map(|h| h.to_hex())
+        .ok_or_else(|| anyhow::anyhow!("Failed to calculate Merkle root"))?;
 
     if local_root != reported_root {
         return Err(anyhow::anyhow!(
@@ -507,66 +542,17 @@ async fn verify_capsule_file(
 
     // 2. Merkle Audit (Recompute Root)
     print!("  Auditing Root Commitment... ");
-    let mut root_hash = capsule
+    let root_hash = capsule
         .to_composite_hash()
         .map_err(|e| anyhow::anyhow!("Merkle reconstruction error: {}", e))?;
     let mut _root_hex = root_hash.to_hex();
-
-    // Forensic Migration Support: Detect if bundle uses the recursive Witness model or the Flat JCS Composite model
     if _root_hex != capsule.capsule_root {
-        // 1. Check for Flat JCS Composite Model (Found in George's 10:35 AM v0x03 bundle)
-        let flat_meta = serde_json::json!({
-            "intent_hash": capsule.intent_hash,
-            "authority_hash": capsule.authority_hash,
-            "identity_hash": capsule.identity_hash,
-            "witness_hash": capsule.witness_hash,
-        });
-
-        let jcs = serde_jcs::to_vec(&flat_meta).map_err(|e| anyhow::anyhow!("JCS error: {}", e))?;
-        let mut hasher = sha2::Sha256::new();
-        use sha2::Digest;
-        hasher.update(&jcs);
-        let flat_root_hex = hex::encode(hasher.finalize());
-
-        if flat_root_hex == capsule.capsule_root {
-            println!("{}", "OK (FLAT JCS FALLBACK)".yellow().bold());
-            println!(
-                "\n  {} Protocol Drift Detected.",
-                "Forensic Note:".yellow().bold()
-            );
-            println!("  This bundle uses a FLAT JCS COMPOSITE model for the root.");
-            println!("  Our v1.5.0 spec requires a BINARY MERKLE TREE for ZK-Explorer interop.");
-            println!("  Accepting signature parity over composite root for this audit...");
-
-            let h_bytes = hex::decode(&capsule.capsule_root)
-                .map_err(|_| anyhow::anyhow!("Invalid root hex"))?;
-            let mut h_arr = [0u8; 32];
-            h_arr.copy_from_slice(&h_bytes);
-            root_hash = vex_core::merkle::Hash::from_bytes(h_arr);
-            _root_hex = capsule.capsule_root.clone();
-        } else if !capsule.witness.receipt_hash.is_empty() {
-            // 2. Check for Recursive Witness model (Legacy/Transitional)
-            println!("{}", "FAILED".red().bold());
-            println!("  {} {}", "Calculated Root:".dimmed(), _root_hex);
-            println!("  {} {}", "Expected Root:  ".dimmed(), capsule.capsule_root);
-
-            println!(
-                "\n  {} Recursive model detected.",
-                "Forensic Note:".yellow().bold()
-            );
-            println!("  Attempting signature parity over George's declared root anyway...");
-
-            let h_bytes = hex::decode(&capsule.capsule_root)
-                .map_err(|_| anyhow::anyhow!("Invalid root hex"))?;
-            let mut h_arr = [0u8; 32];
-            h_arr.copy_from_slice(&h_bytes);
-            root_hash = vex_core::merkle::Hash::from_bytes(h_arr);
-        } else {
-            println!("{}", "FAILED".red().bold());
-            return Err(anyhow::anyhow!(
-                "Merkle root mismatch! The data does not match the commitment."
-            ));
-        }
+        println!("{}", "FAILED".red().bold());
+        println!("  {} {}", "Calculated Root:".dimmed(), _root_hex);
+        println!("  {} {}", "Expected Root:  ".dimmed(), capsule.capsule_root);
+        return Err(anyhow::anyhow!(
+            "Merkle root mismatch! The data does not match the commitment (Strict v0.3 enforced)."
+        ));
     } else {
         println!("{}", "OK".green().bold());
     }
@@ -762,6 +748,9 @@ mod tests {
                 nonce: 123,
                 gate_sensors: serde_json::Value::Null,
                 metadata: serde_json::Value::Null,
+                escalation_id: None,
+                continuation_token: None,
+                binding_status: None,
             },
             identity: IdentityData {
                 aid: "test-aid".to_string(),

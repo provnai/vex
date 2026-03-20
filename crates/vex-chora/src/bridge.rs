@@ -81,7 +81,7 @@ impl AuthorityBridge {
 
         let authority_hash = hash_seg(&response.authority)?;
         let identity_hash = hash_seg(&identity)?;
-        let witness_hash = witness.to_commitment_hash()?;
+        let witness_hash = witness.to_commitment_hash()?.to_hex();
 
         // 6. Build Composite Capsule
         let mut capsule = Capsule {
@@ -117,5 +117,13 @@ impl AuthorityBridge {
     /// Canonicalize a payload for CHORA compliance (RFC 8785)
     pub fn canonicalize<T: Serialize>(payload: &T) -> Result<Vec<u8>, String> {
         serde_jcs::to_vec(payload).map_err(|e| format!("JCS Canonicalization failed: {}", e))
+    }
+
+    /// Verify a Continuation Token using the Authority Client
+    pub async fn verify_continuation_token(
+        &self,
+        token: &vex_core::ContinuationToken,
+    ) -> Result<bool, String> {
+        self.client.verify_continuation_token(token).await
     }
 }
