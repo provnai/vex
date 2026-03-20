@@ -18,7 +18,9 @@ use crate::state::AppState;
 use utoipa::OpenApi;
 use vex_core::segment::{AuthorityData, ContinuationToken, IdentityData, IntentData};
 use vex_core::{ActorType, AuditEventType};
-use vex_persist::coordination::{CoordinationRecord, CoordinationStatus, CoordinationStore, PersistentCoordinationStore};
+use vex_persist::coordination::{
+    CoordinationRecord, CoordinationStatus, CoordinationStore, PersistentCoordinationStore,
+};
 use vex_persist::{AgentStore, AuditStore};
 
 /// Health check response
@@ -287,26 +289,33 @@ pub async fn execute_agent(
 
     if let Some(token) = &req.continuation_token {
         // 1. Verify Signature & Root Binding
-        let verified = state.bridge().verify_continuation_token(token).await
+        let verified = state
+            .bridge()
+            .verify_continuation_token(token)
+            .await
             .map_err(|e| ApiError::Internal(format!("Token Verification failed: {}", e)))?;
 
         if !verified {
-            return Err(ApiError::Forbidden("Invalid or forged continuation token".to_string()));
+            return Err(ApiError::Forbidden(
+                "Invalid or forged continuation token".to_string(),
+            ));
         }
 
         // 2. Reconcile with Coordination Ledger
         let coordination_store = PersistentCoordinationStore::new(state.db());
-        if let Some(record) = coordination_store.get_record(&claims.sub, &token.payload.ledger_event_id).await
-            .map_err(|e| ApiError::Internal(format!("Coordination Store error: {}", e)))? {
-            
+        if let Some(record) = coordination_store
+            .get_record(&claims.sub, &token.payload.ledger_event_id)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Coordination Store error: {}", e)))?
+        {
             // Validate that we are working on the SAME intent (source_capsule_root)
             if record.escalation_id == token.payload.ledger_event_id {
-                 authorized_execution = true;
-                 escalation_id = Some(record.escalation_id.clone());
-                 tracing::info!(
-                     escalation_id = %record.escalation_id,
-                     "Authorized execution confirmed via Continuation Token"
-                 );
+                authorized_execution = true;
+                escalation_id = Some(record.escalation_id.clone());
+                tracing::info!(
+                    escalation_id = %record.escalation_id,
+                    "Authorized execution confirmed via Continuation Token"
+                );
             }
         }
     }
@@ -315,10 +324,16 @@ pub async fn execute_agent(
     // If NOT already authorized by a token, perform standard handshake
     let capsule = if authorized_execution {
         // Build a "Resumption Capsule" - ideally CHORA provides this or we re-handshake with token context
-        state.bridge().perform_handshake(intent.clone()).await
+        state
+            .bridge()
+            .perform_handshake(intent.clone())
+            .await
             .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?
     } else {
-        state.bridge().perform_handshake(intent.clone()).await
+        state
+            .bridge()
+            .perform_handshake(intent.clone())
+            .await
             .map_err(|e| ApiError::Internal(format!("Authority Handshake failed: {}", e)))?
     };
 
@@ -344,7 +359,7 @@ pub async fn execute_agent(
 
     // Phase 2.2: Evidence Store - Log pre-encryption GateDecision
     let audit_store = vex_persist::AuditStore::new(state.db());
-    
+
     // Check if we should escalate based on CHORA outcome
     let is_escalated = capsule.authority.outcome == "ESCALATE";
     let event_type = if is_escalated {
@@ -379,18 +394,24 @@ pub async fn execute_agent(
     if is_escalated && !authorized_execution {
         // Record in Coordination Ledger for later resolution
         let coordination_store = PersistentCoordinationStore::new(state.db());
-        let _ = coordination_store.record_escalation(
-            &claims.sub,
-            capsule.authority.escalation_id.clone().unwrap_or_default(),
-            agent_id,
-            capsule.authority.continuation_token.clone(),
-        ).await;
+        let _ = coordination_store
+            .record_escalation(
+                &claims.sub,
+                capsule.authority.escalation_id.clone().unwrap_or_default(),
+                agent_id,
+                capsule.authority.continuation_token.clone(),
+            )
+            .await;
 
         return Ok(Json(ExecuteResponse {
             agent_id,
             response: format!(
-                "⚠️ Governance Intervention: Execution halted. Escalation ID: {}", 
-                capsule.authority.escalation_id.as_deref().unwrap_or("unknown")
+                "⚠️ Governance Intervention: Execution halted. Escalation ID: {}",
+                capsule
+                    .authority
+                    .escalation_id
+                    .as_deref()
+                    .unwrap_or("unknown")
             ),
             verified: false,
             confidence: 0.0,
@@ -405,13 +426,15 @@ pub async fn execute_agent(
     // If we're here and were authorized, update the coordination record to RESOLVED
     if authorized_execution {
         if let Some(eid) = escalation_id {
-             let coordination_store = PersistentCoordinationStore::new(state.db());
-             let _ = coordination_store.resolve_escalation(
-                 &claims.sub,
-                 &eid,
-                 agent_id,
-                 "final-resolution".to_string(), // In practice, the VEP hash
-             ).await;
+            let coordination_store = PersistentCoordinationStore::new(state.db());
+            let _ = coordination_store
+                .resolve_escalation(
+                    &claims.sub,
+                    &eid,
+                    agent_id,
+                    "final-resolution".to_string(), // In practice, the VEP hash
+                )
+                .await;
         }
     }
 
@@ -917,17 +940,17 @@ pub async fn resolve_escalation(
         return Err(ApiError::Forbidden("Reviewer access required".to_string()));
     }
 
-    // 1. Log the HumanOverride event in AuditStore 
+    // 1. Log the HumanOverride event in AuditStore
     // This will trigger the Auto-Resolve logic in AuditStore::log
     let audit_store = AuditStore::new(state.db());
-    
+
     let mut data = serde_json::json!({
         "resolves_escalation_id": req.escalation_id,
         "rationale": req.rationale,
     });
-    
+
     // Log the resolution event
-    // The AuditStore::log implementation we modified will catch "HumanOverride" 
+    // The AuditStore::log implementation we modified will catch "HumanOverride"
     // and "resolves_escalation_id" to update the CoordinationLedger.
     let event = audit_store
         .log(
@@ -936,7 +959,7 @@ pub async fn resolve_escalation(
             ActorType::Human(claims.sub.clone()),
             None,
             data,
-            None, 
+            None,
             None,
             None,
         )

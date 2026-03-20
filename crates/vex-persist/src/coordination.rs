@@ -3,10 +3,10 @@
 //! Provides stateful tracking for AI escalations and resolutions.
 //! Links disparate audit events into a single "Coordination State Machine".
 
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use std::sync::Arc;
 use crate::backend::{StorageBackend, StorageError, StorageExt};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use uuid::Uuid;
 use vex_core::audit::AuditEvent;
 
 /// The state of an AI Escalation
@@ -83,7 +83,10 @@ impl<B: StorageBackend + ?Sized> PersistentCoordinationStore<B> {
     }
 
     fn record_key(&self, tenant_id: &str, escalation_id: &str) -> String {
-        format!("{}tenant:{}:record:{}", self.prefix, tenant_id, escalation_id)
+        format!(
+            "{}tenant:{}:record:{}",
+            self.prefix, tenant_id, escalation_id
+        )
     }
 
     fn active_list_key(&self, tenant_id: &str) -> String {
@@ -115,14 +118,17 @@ impl<B: StorageBackend + ?Sized> CoordinationStore for PersistentCoordinationSto
         self.backend.set(&key, &record).await?;
 
         // Add to active list
-        let mut active: Vec<String> = self.backend
+        let mut active: Vec<String> = self
+            .backend
             .get(&self.active_list_key(tenant_id))
             .await?
             .unwrap_or_default();
-        
+
         if !active.contains(&escalation_id) {
             active.push(escalation_id);
-            self.backend.set(&self.active_list_key(tenant_id), &active).await?;
+            self.backend
+                .set(&self.active_list_key(tenant_id), &active)
+                .await?;
         }
 
         Ok(())
@@ -136,10 +142,9 @@ impl<B: StorageBackend + ?Sized> CoordinationStore for PersistentCoordinationSto
         resolution_vep_hash: String,
     ) -> Result<(), StorageError> {
         let key = self.record_key(tenant_id, escalation_id);
-        let mut record: CoordinationRecord = self.backend
-            .get(&key)
-            .await?
-            .ok_or_else(|| StorageError::NotFound(format!("Escalation {} not found", escalation_id)))?;
+        let mut record: CoordinationRecord = self.backend.get(&key).await?.ok_or_else(|| {
+            StorageError::NotFound(format!("Escalation {} not found", escalation_id))
+        })?;
 
         record.status = CoordinationStatus::Resolved;
         record.resolution_event_id = Some(resolution_event_id);
@@ -150,13 +155,16 @@ impl<B: StorageBackend + ?Sized> CoordinationStore for PersistentCoordinationSto
         self.backend.set(&key, &record).await?;
 
         // Remove from active list
-        let mut active: Vec<String> = self.backend
+        let mut active: Vec<String> = self
+            .backend
             .get(&self.active_list_key(tenant_id))
             .await?
             .unwrap_or_default();
-        
+
         active.retain(|id| id != escalation_id);
-        self.backend.set(&self.active_list_key(tenant_id), &active).await?;
+        self.backend
+            .set(&self.active_list_key(tenant_id), &active)
+            .await?;
 
         Ok(())
     }
@@ -166,11 +174,14 @@ impl<B: StorageBackend + ?Sized> CoordinationStore for PersistentCoordinationSto
         tenant_id: &str,
         escalation_id: &str,
     ) -> Result<Option<CoordinationRecord>, StorageError> {
-        self.backend.get(&self.record_key(tenant_id, escalation_id)).await
+        self.backend
+            .get(&self.record_key(tenant_id, escalation_id))
+            .await
     }
 
     async fn list_active(&self, tenant_id: &str) -> Result<Vec<CoordinationRecord>, StorageError> {
-        let active_ids: Vec<String> = self.backend
+        let active_ids: Vec<String> = self
+            .backend
             .get(&self.active_list_key(tenant_id))
             .await?
             .unwrap_or_default();

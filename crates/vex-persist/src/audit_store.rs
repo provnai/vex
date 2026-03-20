@@ -146,16 +146,14 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     .get("resolution_vep_hash")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
-                continuation_token: capsule_data
-                    .get("continuation_token")
-                    .and_then(|v| {
-                        if v.is_string() {
-                            let s = v.as_str().unwrap();
-                            serde_json::from_str::<vex_core::ContinuationToken>(s).ok()
-                        } else {
-                            serde_json::from_value::<vex_core::ContinuationToken>(v.clone()).ok()
-                        }
-                    }),
+                continuation_token: capsule_data.get("continuation_token").and_then(|v| {
+                    if v.is_string() {
+                        let s = v.as_str().unwrap();
+                        serde_json::from_str::<vex_core::ContinuationToken>(s).ok()
+                    } else {
+                        serde_json::from_value::<vex_core::ContinuationToken>(v.clone()).ok()
+                    }
+                }),
                 vep_blob: vep_blob.clone(),
             });
         }
@@ -240,14 +238,17 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                 .await?;
 
             // --- Phase 2: Coordination Ledger Integration ---
-            let coordination = crate::coordination::PersistentCoordinationStore::new(self.backend.clone());
+            let coordination =
+                crate::coordination::PersistentCoordinationStore::new(self.backend.clone());
             use crate::coordination::CoordinationStore;
 
             // 1. Record Escalation
             if event.event_type == AuditEventType::Escalation {
                 if let Some(esc_id) = data.get("escalation_id").and_then(|v| v.as_str()) {
                     let token = capsule.continuation_token.clone();
-                    coordination.record_escalation(tenant_id, esc_id.to_string(), event.id, token).await?;
+                    coordination
+                        .record_escalation(tenant_id, esc_id.to_string(), event.id, token)
+                        .await?;
                 }
             }
 
@@ -255,7 +256,9 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
             if event.event_type == AuditEventType::HumanOverride {
                 if let Some(esc_id) = data.get("resolves_escalation_id").and_then(|v| v.as_str()) {
                     if let Some(res_hash) = &capsule.resolution_vep_hash {
-                        coordination.resolve_escalation(tenant_id, esc_id, event.id, res_hash.clone()).await?;
+                        coordination
+                            .resolve_escalation(tenant_id, esc_id, event.id, res_hash.clone())
+                            .await?;
                     }
                 }
             }

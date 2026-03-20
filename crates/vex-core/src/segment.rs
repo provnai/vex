@@ -409,7 +409,8 @@ mod tests {
 
         // SHA256(0x00 + {"chora_node_id":"chora-gate-v1","timestamp":1710396000})
         assert_eq!(
-            hash_hex.to_hex(), "87657d67389ca1a0e3e9bd4bccb5ab60a1cdcc59902d4cd67826d285dd98bff5",
+            hash_hex.to_hex(),
+            "87657d67389ca1a0e3e9bd4bccb5ab60a1cdcc59902d4cd67826d285dd98bff5",
             "v0.3 witness hash must include 0x00 leaf prefix and exclude receipt_hash"
         );
     }
@@ -449,7 +450,8 @@ mod tests {
         // v0.3 witness spec: {chora_node_id, timestamp} ONLY
         let witness = WitnessData {
             chora_node_id: "chora-vps-1".to_string(),
-            receipt_hash: "5bfc2b79f9bab22abd12a196aafd8a91cdb14c2cf68230375de9569d99236b5c".to_string(),
+            receipt_hash: "5bfc2b79f9bab22abd12a196aafd8a91cdb14c2cf68230375de9569d99236b5c"
+                .to_string(),
             timestamp: 1773909261,
             metadata: serde_json::json!({
                 "witness_mode": "attached",
@@ -461,17 +463,26 @@ mod tests {
         // v0.3: only chora_node_id + timestamp committed with 0x00 prefix
         let witness_hash = witness.to_commitment_hash().unwrap();
         assert_eq!(
-            witness_hash.to_hex(), "fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f",
+            witness_hash.to_hex(),
+            "fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f",
             "v0.3 witness hash must match hardened spec (0x00 prefix included)"
         );
 
         // Capsule root from George's canonical bundle — verified via RFC 6962 Merkle tree.
         // Tree: combine(combine(intent,authority), combine(identity,witness))
         // where combine(a,b) = SHA256(0x01 || a_bytes || b_bytes)
-        let intent_h   = hex::decode("e26f0ce40a2434a0a2cb506fbd21415c5aa398fe1bff0c5fa72872afa9dedbfa").unwrap();
-        let authority_h = hex::decode("76d0b70f4f0d2df0dd538ce5e03e6eab8c418d949e6b83bafac7da97be6d5a27").unwrap();
-        let identity_h  = hex::decode("9aa0bb3fcf0a1cac6794b79cf138dca1a65d3773c63fe4891d9efe0466ff313e").unwrap();
-        let witness_h   = hex::decode("fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f").unwrap();
+        let intent_h =
+            hex::decode("e26f0ce40a2434a0a2cb506fbd21415c5aa398fe1bff0c5fa72872afa9dedbfa")
+                .unwrap();
+        let authority_h =
+            hex::decode("76d0b70f4f0d2df0dd538ce5e03e6eab8c418d949e6b83bafac7da97be6d5a27")
+                .unwrap();
+        let identity_h =
+            hex::decode("9aa0bb3fcf0a1cac6794b79cf138dca1a65d3773c63fe4891d9efe0466ff313e")
+                .unwrap();
+        let witness_h =
+            hex::decode("fa578cb8a5f199060156ba16964329779f724fd9d26322e07bccbb8f8248cf3f")
+                .unwrap();
 
         fn merkle_combine(left: &[u8], right: &[u8]) -> Vec<u8> {
             use sha2::Digest;
@@ -482,9 +493,9 @@ mod tests {
             h.finalize().to_vec()
         }
 
-        let l1_left  = merkle_combine(&intent_h, &authority_h);
+        let l1_left = merkle_combine(&intent_h, &authority_h);
         let l1_right = merkle_combine(&identity_h, &witness_h);
-        let root     = merkle_combine(&l1_left, &l1_right);
+        let root = merkle_combine(&l1_left, &l1_right);
         let capsule_root = hex::encode(&root);
 
         assert_eq!(

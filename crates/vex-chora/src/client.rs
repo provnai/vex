@@ -215,39 +215,55 @@ impl AuthorityClient for HttpChoraClient {
             .map_err(|e| format!("CHORA response parse failed: {} (raw: {})", e, text))?;
 
         // Support both response shapes: nested signed_payload (authority) or flat fields
-        let capsule_id = api_resp.authority.as_ref()
+        let capsule_id = api_resp
+            .authority
+            .as_ref()
             .map(|a| a.capsule_id.clone())
             .or_else(|| api_resp.capsule_id.clone())
             .unwrap_or_else(|| payload_hash.clone());
 
-        let outcome = api_resp.authority.as_ref()
+        let outcome = api_resp
+            .authority
+            .as_ref()
             .map(|a| a.outcome.clone())
             .or_else(|| api_resp.outcome.clone())
             .unwrap_or_else(|| "ALLOW".to_string());
 
-        let reason_code = api_resp.authority.as_ref()
+        let reason_code = api_resp
+            .authority
+            .as_ref()
             .map(|a| a.reason_code.clone())
             .or_else(|| api_resp.reason_code.clone())
             .unwrap_or_else(|| "OK".to_string());
 
-        let nonce = api_resp.authority.as_ref()
+        let nonce = api_resp
+            .authority
+            .as_ref()
             .and_then(|a| a.nonce)
             .unwrap_or(0);
 
-        let trace_root = api_resp.authority.as_ref()
+        let trace_root = api_resp
+            .authority
+            .as_ref()
             .and_then(|a| a.trace_root.clone())
             .or_else(|| api_resp.witness_receipt.clone())
             .unwrap_or_else(|| payload_hash.clone());
 
-        let escalation_id = api_resp.authority.as_ref()
+        let escalation_id = api_resp
+            .authority
+            .as_ref()
             .and_then(|a| a.escalation_id.clone())
             .or_else(|| api_resp.escalation_id.clone());
 
-        let binding_status = api_resp.authority.as_ref()
+        let binding_status = api_resp
+            .authority
+            .as_ref()
             .and_then(|a| a.binding_status.clone())
             .or_else(|| api_resp.binding_status.clone());
 
-        let continuation_token = api_resp.authority.as_ref()
+        let continuation_token = api_resp
+            .authority
+            .as_ref()
             .and_then(|a| a.continuation_token.clone())
             .or_else(|| api_resp.continuation_token.clone());
 
@@ -295,15 +311,16 @@ impl AuthorityClient for HttpChoraClient {
             .text()
             .await
             .map_err(|e| format!("CHORA public_key read failed: {}", e))?;
-        
-        // Live endpoint returns a JSON string, e.g. "e349f464..."
-        let hex_key: String = serde_json::from_str(&text)
-            .unwrap_or_else(|_| text.trim_matches('"').to_string());
 
-        let raw_key_vec = hex::decode(&hex_key)
-            .map_err(|e| format!("Public key hex decode failed: {}", e))?;
-        
-        let raw_key: [u8; 32] = raw_key_vec.try_into()
+        // Live endpoint returns a JSON string, e.g. "e349f464..."
+        let hex_key: String =
+            serde_json::from_str(&text).unwrap_or_else(|_| text.trim_matches('"').to_string());
+
+        let raw_key_vec =
+            hex::decode(&hex_key).map_err(|e| format!("Public key hex decode failed: {}", e))?;
+
+        let raw_key: [u8; 32] = raw_key_vec
+            .try_into()
             .map_err(|_| "Invalid Ed25519 public key length".to_string())?;
 
         let verifying_key = VerifyingKey::from_bytes(&raw_key).map_err(|e| e.to_string())?;
@@ -332,27 +349,32 @@ impl AuthorityClient for HttpChoraClient {
             .map_err(|e| format!("CHORA public_key fetch failed: {}", e))?;
 
         let text = resp.text().await.map_err(|e| e.to_string())?;
-        let hex_key: String = serde_json::from_str(&text)
-            .unwrap_or_else(|_| text.trim_matches('"').to_string());
+        let hex_key: String =
+            serde_json::from_str(&text).unwrap_or_else(|_| text.trim_matches('"').to_string());
 
         let raw_key_vec = hex::decode(&hex_key).map_err(|e| e.to_string())?;
-        let raw_key: [u8; 32] = raw_key_vec.try_into().map_err(|_| "Invalid Key".to_string())?;
+        let raw_key: [u8; 32] = raw_key_vec
+            .try_into()
+            .map_err(|_| "Invalid Key".to_string())?;
 
         let verifying_key = VerifyingKey::from_bytes(&raw_key).map_err(|e| e.to_string())?;
 
         // 2. Decode Signature
         let sig_bytes = hex::decode(&token.signature).map_err(|e| e.to_string())?;
-        let sig = Signature::from_bytes(sig_bytes.as_slice().try_into().map_err(|_| "Invalid Sig")?);
- 
+        let sig =
+            Signature::from_bytes(sig_bytes.as_slice().try_into().map_err(|_| "Invalid Sig")?);
+
         // 3. Lifecycle Validation
-        token.payload.validate_lifecycle(chrono::Utc::now())
+        token
+            .payload
+            .validate_lifecycle(chrono::Utc::now())
             .map_err(|e| format!("Lifecycle check failed: {}", e))?;
 
         // 4. Verify Signature with George's v3 Specs:
         // - RFC 8785 (JCS) Canonical JSON
         // - Signed as raw UTF-8 bytes (NOT hashed)
         let jcs_bytes = serde_jcs::to_vec(&token.payload).map_err(|e| e.to_string())?;
-        
+
         if verifying_key.verify(&jcs_bytes, &sig).is_ok() {
             return Ok(true);
         }
@@ -362,7 +384,7 @@ impl AuthorityClient for HttpChoraClient {
             jcs_utf8 = %String::from_utf8_lossy(&jcs_bytes),
             "CHORA: Signature verification failed natively using V3 RFC 8785."
         );
-        
+
         Ok(false)
     }
 }
@@ -399,22 +421,28 @@ mod tests {
         }"#;
 
         let token: vex_core::ContinuationToken = serde_json::from_str(token_json).unwrap();
-        
+
         // Key inside public_key_token.pem (SPKI decoded)
         // MCowBQYDK2VwAyEAFlfgFLXnzyyB8exqQ+DUDH+tWGX9zaUIHwhC1glFsr4=
         // The last 32 bytes are the raw Ed25519 public key.
         let pub_key_b64 = "FlfgFLXnzyyB8exqQ+DUDH+tWGX9zaUIHwhC1glFsr4=";
-        let raw_key_bytes = base64::engine::general_purpose::STANDARD.decode(pub_key_b64).unwrap();
-        
-        let verifying_key = ed25519_dalek::VerifyingKey::try_from(raw_key_bytes.as_slice()).unwrap();
+        let raw_key_bytes = base64::engine::general_purpose::STANDARD
+            .decode(pub_key_b64)
+            .unwrap();
+
+        let verifying_key =
+            ed25519_dalek::VerifyingKey::try_from(raw_key_bytes.as_slice()).unwrap();
         let sig_bytes = hex::decode(&token.signature).unwrap();
         let sig = ed25519_dalek::Signature::from_bytes(sig_bytes.as_slice().try_into().unwrap());
-        
+
         // In v3, the payload is signed after canonicalization using RFC 8785 (JCS)
         let jcs_bytes = serde_jcs::to_vec(&token.payload).unwrap();
-        
+
         println!("JCS payload: {}", String::from_utf8_lossy(&jcs_bytes));
 
-        assert!(verifying_key.verify(&jcs_bytes, &sig).is_ok(), "Signature verification failed for Canonical JCS encoded Token V3");
+        assert!(
+            verifying_key.verify(&jcs_bytes, &sig).is_ok(),
+            "Signature verification failed for Canonical JCS encoded Token V3"
+        );
     }
 }

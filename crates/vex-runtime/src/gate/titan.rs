@@ -492,10 +492,10 @@ impl Gate for TitanGate {
                         "error": e
                     }),
                     reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
-                resolution_vep_hash: None,
-                continuation_token: None,
-                vep_blob: None,
-            };
+                    resolution_vep_hash: None,
+                    continuation_token: None,
+                    vep_blob: None,
+                };
             }
         }
 
