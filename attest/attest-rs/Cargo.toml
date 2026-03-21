@@ -1,6 +1,6 @@
 [package]
 name = "attest-rs"
-version = "1.5.0"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 description = "Ecosystem-aligned trust layer for AI agents (Rust)"
