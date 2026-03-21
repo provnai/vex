@@ -42,7 +42,7 @@ sha2 = { workspace = true }
 ed25519-dalek = { workspace = true }
 
 # Terminal output
-colored = "2"
+colored = "3"
 comfy-table = "7"
 
 # Utilities
