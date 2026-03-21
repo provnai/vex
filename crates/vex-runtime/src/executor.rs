@@ -84,6 +84,8 @@ pub struct AgentExecutor<L: LlmProvider + ?Sized> {
     pub audit_store: Option<Arc<AuditStore<dyn StorageBackend>>>,
     /// Hardware Identity (Phase 3)
     pub identity: Option<Arc<AgentIdentity>>,
+    /// ZK Verifier (Phase 4)
+    pub verifier: Option<Arc<dyn vex_core::zk::ZkVerifier>>,
 }
 
 impl<L: LlmProvider + ?Sized> std::fmt::Debug for AgentExecutor<L> {
@@ -103,6 +105,7 @@ impl<L: LlmProvider + ?Sized> Clone for AgentExecutor<L> {
             gate: self.gate.clone(),
             audit_store: self.audit_store.clone(),
             identity: self.identity.clone(),
+            verifier: self.verifier.clone(),
         }
     }
 }
@@ -116,6 +119,7 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
             gate,
             audit_store: None,
             identity: None,
+            verifier: None,
         }
     }
 
@@ -130,12 +134,19 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
         self
     }
 
+    /// Attach a ZK Verifier (Phase 4)
+    pub fn with_verifier(mut self, verifier: Arc<dyn vex_core::zk::ZkVerifier>) -> Self {
+        self.verifier = Some(verifier);
+        self
+    }
+
     /// Execute an agent with a prompt and return the result
     pub async fn execute(
         &self,
         tenant_id: &str, // Added tenant_id for audit logging
         agent: &mut Agent,
         prompt: &str,
+        intent_data: Option<vex_core::segment::IntentData>,
         capabilities: Vec<Capability>,
     ) -> Result<ExecutionResult, String> {
         // Step 1: Format context and get initial response from Blue agent
@@ -166,11 +177,65 @@ impl<L: LlmProvider + ?Sized> AgentExecutor<L> {
         // Step 2.5: Policy Gate Verification (Mutation Risk Control)
         let capsule = self
             .gate
-            .execute_gate(agent.id, prompt, &final_response, confidence, capabilities)
+            .execute_gate(
+                agent.id,
+                prompt,
+                &final_response,
+                intent_data,
+                confidence,
+                &capabilities,
+            )
             .await;
 
         if capsule.outcome == "HALT" {
             return Err(format!("Gate Blocking: {}", capsule.reason_code));
+        }
+
+        // Step 2.6: Governed Execution Verification (The AEM Trap)
+        // If capabilities are requested, we MUST have a valid, context-bound Continuation Token.
+        if !capabilities.is_empty() {
+            if let Some(token) = &capsule.continuation_token {
+                let aid = self.identity.as_ref().map(|id| id.agent_id.clone());
+
+                // Binding Surface: Intent Hash (Merkle-hardened representation of the current command)
+                use sha2::{Digest, Sha256};
+                let intent_hash = hex::encode(Sha256::digest(final_response.as_bytes()));
+
+                // Perform Stateless Edge Verification
+                self.gate
+                    .verify_token(
+                        token,
+                        aid.as_deref(),
+                        Some(&intent_hash),
+                        token.payload.circuit_id.as_deref(),
+                    )
+                    .await
+                    .map_err(|e| format!("AEM_GOVERNANCE_VIOLATION: {}", e))?;
+
+                // Phase 4: ZK Re-verification (High Assurance)
+                // If we have a Shadow Intent and a local verifier, re-check the STARK proof.
+                if let (Some(verifier), Some(intent)) = (&self.verifier, &capsule.intent_data) {
+                    if let vex_core::segment::IntentData::Shadow { .. } = intent {
+                        intent
+                            .verify_shadow(verifier.as_ref())
+                            .map_err(|e| format!("AEM_GOVERNANCE_VIOLATION (ZK_FAIL): {}", e))?;
+
+                        tracing::info!(
+                            agent_id = %agent.id,
+                            "AEM: STARK proof re-verified locally for Shadow Intent."
+                        );
+                    }
+                }
+
+                tracing::info!(
+                    agent_id = %agent.id,
+                    intent_hash = %intent_hash,
+                    "AEM: Governed execution permitted via validated token."
+                );
+            } else {
+                // Fail-Closed: No token = No privileged action.
+                return Err("AEM_GOVERNANCE_VIOLATION: Privileged action requires a valid continuation token (Escalation Required).".to_string());
+            }
         }
 
         // Step 3: Create context packet with hash
@@ -441,7 +506,7 @@ mod tests {
         let mut agent = Agent::new(AgentConfig::default());
 
         let result = executor
-            .execute("test-tenant", &mut agent, "Test prompt", vec![])
+            .execute("test-tenant", &mut agent, "Test prompt", None, vec![])
             .await
             .unwrap();
         assert!(!result.response.is_empty());

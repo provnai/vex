@@ -1,5 +1,7 @@
 use sha2::Digest;
-use vex_core::segment::{AuthorityData, Capsule, IdentityData, IntentData, WitnessData};
+use vex_core::segment::{
+    AuthorityData, Capsule, IdentityData, IntentData, SchemaValue, WitnessData,
+};
 
 #[test]
 fn test_capsule_jcs_parity() {
@@ -10,7 +12,7 @@ fn test_capsule_jcs_parity() {
         confidence: 0.95,
         capabilities: vec!["TPM_VERIFY".into()],
         magpie_source: None,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     let authority = AuthorityData {
@@ -22,22 +24,22 @@ fn test_capsule_jcs_parity() {
         escalation_id: None,
         binding_status: None,
         continuation_token: None,
-        gate_sensors: serde_json::Value::Null,
-        metadata: serde_json::Value::Null,
+        gate_sensors: SchemaValue(serde_json::Value::Null),
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     let identity = IdentityData {
         aid: "test-agent-aid".into(),
         identity_type: "VEX_TPM_v1".into(),
         pcrs: None,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     let witness = WitnessData {
         chora_node_id: "test-chora-node".into(),
         receipt_hash: "deadbeef".into(),
         timestamp: 1710396000,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     let capsule = Capsule {

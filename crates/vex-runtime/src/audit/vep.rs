@@ -30,9 +30,11 @@ pub struct IntentSegment {
     /// New Phase 2: Plonky3 Circuit Identity
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circuit_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_data: Option<vex_core::segment::IntentData>,
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: vex_core::segment::SchemaValue,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,10 +52,10 @@ pub struct AuthoritySegment {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continuation_token: Option<vex_core::ContinuationToken>,
     #[serde(skip_serializing_if = "serde_json::Value::is_null")]
-    pub gate_sensors: serde_json::Value,
+    pub gate_sensors: vex_core::segment::SchemaValue,
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: vex_core::segment::SchemaValue,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,7 +67,7 @@ pub struct IdentitySegment {
     pub pcrs: Option<std::collections::HashMap<u32, String>>,
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: vex_core::segment::SchemaValue,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +77,7 @@ pub struct WitnessSegment {
     pub timestamp: u64,
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: vex_core::segment::SchemaValue,
 }
 
 impl WitnessSegment {

@@ -6328,6 +6328,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "async-trait",
+ "attest-rs",
  "axum 0.8.8",
  "base64 0.22.1",
  "chrono",
@@ -6378,6 +6379,7 @@ name = "vex-chora"
 version = "1.5.0"
 dependencies = [
  "async-trait",
+ "attest-rs",
  "base64 0.22.1",
  "chrono",
  "ed25519-dalek",
@@ -6619,6 +6621,7 @@ name = "vex-runtime"
 version = "1.5.0"
 dependencies = [
  "async-trait",
+ "attest-rs",
  "base64 0.22.1",
  "chrono",
  "ed25519-dalek",

@@ -21,6 +21,7 @@ vex-router = { workspace = true }
 vex-anchor = { workspace = true }
 vex-hardware = { workspace = true }
 vex-chora = { workspace = true }
+attest-rs = { workspace = true }
 futures = { workspace = true }
 
 # Async runtime & web framework

@@ -5,6 +5,20 @@ All notable changes to the VEX Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-03-21
+
+### Added
+- **⚡ Phase 4 (ZK-STARK High Assurance)**: Integrated `Plonky3` for "Shadow Intent" generation and verification. Evidence capsules now support STARK-proofed hidden reasoning with local AEM re-verification.
+- **🛡️ AEM Trap Enforcement**: Action Enforcement Module now traps privileged execution to verify Continuation Token bindings and STARK proofs for high-assurance flows.
+- **🧩 Global SchemaValue Unification**: Standardized metadata and sensor types across all **18 active workspace crates** using the unified `SchemaValue` wrapper, ensuring bit-perfect JCS interop.
+- **🏆 Titan-Grade Certification**: Achieved 100% clean `clippy` status (zero warnings) and canonical `cargo fmt` across all targets and features.
+- **📜 Spec v0.3 Finalization**: Refined the hashing surface for Witness and Intent pillars to match the definitive hardened Merkle specification.
+- **📦 Workspace v1.6.0 Synchronization**: All **18 active workspace crates** (including the new `attest-rs` high-assurance bridge) were synchronized to v1.6.0 for the definitive "Titan-Grade" release.
+
+### Fixed
+- **🐛 governed_retest Regression**: Corrected test setup for v0.3 governed execution traps.
+- **🐛 vex-chora Type Mismatch**: Fixed signature verification in CHORA client tests following `ContinuationToken` v3 schema updates.
+
 ## [1.5.0] - 2026-03-15
 
 ### Added

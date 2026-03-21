@@ -205,6 +205,7 @@ async fn main() -> Result<()> {
     // 3. Initialize Gate (using unified bridge)
     let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::ChoraGate {
         bridge: bridge.clone(),
+        prover: None,
     });
 
     // 4. Initialize Audit Store (Merkle-Chained)

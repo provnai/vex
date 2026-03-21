@@ -104,7 +104,7 @@ async fn verify_live_handshake(gate_url: Option<&str>, api_key: Option<&str>) ->
     use sha2::Digest;
     use uuid::Uuid;
     use vex_chora::client::{AuthorityClient, HttpChoraClient};
-    use vex_core::segment::IntentData;
+    use vex_core::segment::{IntentData, SchemaValue};
 
     println!("{}", "🌐 VEX Live Witness Audit".bold().cyan());
     println!("{}", "═".repeat(40).cyan());
@@ -123,7 +123,7 @@ async fn verify_live_handshake(gate_url: Option<&str>, api_key: Option<&str>) ->
         confidence: 0.99,
         capabilities: vec!["live-cli-audit".to_string()],
         magpie_source: None,
-        metadata: serde_json::json!({ "nonce": nonce, "context": "cli-audit" }),
+        metadata: SchemaValue(serde_json::json!({ "nonce": nonce, "context": "cli-audit" })),
     };
 
     println!("{}", "DONE".green());
@@ -722,7 +722,7 @@ mod tests {
         use rand::RngCore;
         use std::collections::HashMap;
         use vex_core::segment::{
-            AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData,
+            AuthorityData, Capsule, CryptoData, IdentityData, IntentData, SchemaValue, WitnessData,
         };
 
         let mut rng = rand::thread_rng();
@@ -738,7 +738,7 @@ mod tests {
                 confidence: 1.0,
                 capabilities: vec![],
                 magpie_source: None,
-                metadata: serde_json::Value::Null,
+                metadata: SchemaValue(serde_json::Value::Null),
             },
             authority: AuthorityData {
                 capsule_id: "test-capsule".to_string(),
@@ -746,8 +746,8 @@ mod tests {
                 reason_code: "OK".to_string(),
                 trace_root: "trace".to_string(),
                 nonce: 123,
-                gate_sensors: serde_json::Value::Null,
-                metadata: serde_json::Value::Null,
+                gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
                 escalation_id: None,
                 continuation_token: None,
                 binding_status: None,
@@ -756,13 +756,13 @@ mod tests {
                 aid: "test-aid".to_string(),
                 identity_type: "unbound".to_string(),
                 pcrs: Some(HashMap::new()),
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             },
             witness: WitnessData {
                 chora_node_id: "test-node".to_string(),
                 receipt_hash: "test-receipt".to_string(),
                 timestamp: 123456789,
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             },
             intent_hash: "hash".to_string(), // Initialized for JCS
             authority_hash: "hash".to_string(),

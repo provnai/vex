@@ -43,7 +43,7 @@ impl AuthorityBridge {
                 aid: hw.agent_id.clone(),
                 identity_type: "hardware-rooted".to_string(),
                 pcrs: None, // Bridge currently uses base identity, TitanGate handles detailed PCR binding
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             }
         } else {
             tracing::warn!(
@@ -54,7 +54,7 @@ impl AuthorityBridge {
                 aid: "mock-aid-01".to_string(),
                 identity_type: "unbound".to_string(),
                 pcrs: None,
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             }
         };
 
@@ -64,7 +64,7 @@ impl AuthorityBridge {
             chora_node_id: response.authority.capsule_id.clone(),
             receipt_hash: response.signature.clone(),
             timestamp: now,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
 
         // 5. Build Pillar Hashes
@@ -123,7 +123,17 @@ impl AuthorityBridge {
     pub async fn verify_continuation_token(
         &self,
         token: &vex_core::ContinuationToken,
+        expected_aid: Option<&str>,
+        expected_intent_hash: Option<&str>,
+        expected_circuit_id: Option<&str>,
     ) -> Result<bool, String> {
-        self.client.verify_continuation_token(token).await
+        self.client
+            .verify_continuation_token(
+                token,
+                expected_aid,
+                expected_intent_hash,
+                expected_circuit_id,
+            )
+            .await
     }
 }

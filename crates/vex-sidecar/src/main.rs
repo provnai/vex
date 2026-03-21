@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{error, info};
 use vex_core::segment::{
-    AuthorityData, Capsule, CryptoData, IdentityData, IntentData, WitnessData,
+    AuthorityData, Capsule, CryptoData, IdentityData, IntentData, SchemaValue, WitnessData,
 };
 use vex_core::VEP_MAGIC;
 use vex_hardware::api::AgentIdentity;
@@ -82,7 +82,7 @@ async fn proxy_handler(
         confidence: 1.0,
         capabilities: vec!["proxy-forwarding".to_string()],
         magpie_source: None,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     // 2. Construct IdentityData (Real Hardware ID)
@@ -90,7 +90,7 @@ async fn proxy_handler(
         aid: state.identity.agent_id.clone(),
         identity_type: "hardware-rooted".to_string(),
         pcrs: None,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     // 3. Construct AuthorityData (Mocking a local "pass")
@@ -103,8 +103,8 @@ async fn proxy_handler(
         escalation_id: None,
         binding_status: None,
         continuation_token: None,
-        gate_sensors: serde_json::Value::Null,
-        metadata: serde_json::Value::Null,
+        gate_sensors: SchemaValue(serde_json::Value::Null),
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     // 4. Construct WitnessData (Local timestamp)
@@ -112,7 +112,7 @@ async fn proxy_handler(
         chora_node_id: "sidecar-local".to_string(),
         receipt_hash: payload_hash.clone(), // In proxy mode, we link to payload
         timestamp: chrono::Utc::now().timestamp() as u64,
-        metadata: serde_json::Value::Null,
+        metadata: SchemaValue(serde_json::Value::Null),
     };
 
     // 5. Build Pillar Hashes
