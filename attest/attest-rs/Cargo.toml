@@ -60,20 +60,20 @@ portable-pty = { workspace = true }
 regex = { workspace = true }
 
 # Plonky3 (ZK Proofs)
-p3-field = "0.4.2"
-p3-matrix = "0.4.2"
-p3-goldilocks = "0.4.2"
+p3-field = "0.5.1"
+p3-matrix = "0.5.1"
+p3-goldilocks = "0.5.1"
 p3-poseidon = "0.4.2"
-p3-poseidon2 = "0.4.2"
-p3-merkle-tree = "0.4.2"
-p3-fri = "0.4.2"
-p3-challenger = "0.4.2"
-p3-commit = "0.4.2"
-p3-uni-stark = "0.4.2"
-p3-dft = "0.4.2"
-p3-air = "0.4.2"
-p3-symmetric = "0.4.2"
-p3-util = "0.4.2"
+p3-poseidon2 = "0.5.1"
+p3-merkle-tree = "0.5.1"
+p3-fri = "0.5.1"
+p3-challenger = "0.5.1"
+p3-commit = "0.5.1"
+p3-uni-stark = "0.5.1"
+p3-dft = "0.5.1"
+p3-air = "0.5.1"
+p3-symmetric = "0.5.1"
+p3-util = "0.5.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog"] }
