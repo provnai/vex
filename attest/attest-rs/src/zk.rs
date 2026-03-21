@@ -188,7 +188,11 @@ pub fn generate_trace_rows(initial: Val, _s: Val, num_steps: usize) -> RowMajorM
     RowMajorMatrix::new(values, FULL_WIDTH)
 }
 
+#[derive(Debug)]
 pub struct AuditProver;
+impl AuditProver {
+    pub const CIRCUIT_ID: &'static str = "attest-rs.audit.v1";
+}
 type Val = Goldilocks;
 type Challenge = BinomialExtensionField<Val, 2>;
 #[derive(Clone, Default)]
@@ -314,7 +318,7 @@ impl vex_core::zk::ZkVerifier for AuditProver {
         &self,
         commitment_hash: &str,
         stark_proof_b64: &str,
-        _public_inputs: &serde_json::Value,
+        public_inputs: &serde_json::Value,
     ) -> Result<bool, vex_core::zk::ZkError> {
         use base64::{engine::general_purpose, Engine as _};
 
@@ -339,10 +343,21 @@ impl vex_core::zk::ZkVerifier for AuditProver {
         let mut next_state = [0u8; 32];
         next_state.copy_from_slice(&commitment_bytes);
 
-        // 3. Verify via Plonky3
-        // Note: For Shadow Intents, we assume an initial state of [0; 32] for now.
-        // In a full implementation, the 'start_root' might come from public_inputs.
-        Self::verify_proof(&proof_bytes, [0u8; 32], next_state)
+        // 3. Extract Start Root from Public Inputs (if available)
+        // For VEX Shadow Intents, the start_root is typically [0; 32] for the first move,
+        // but we support taking it from the JSON for complex chains.
+        let mut prev_state = [0u8; 32];
+        if let Some(start_hex) = public_inputs.get("start_root").and_then(|v| v.as_str()) {
+            let start_bytes = hex::decode(start_hex).map_err(|e| {
+                vex_core::zk::ZkError::InvalidFormat(format!("Start root hex decode failed: {}", e))
+            })?;
+            if start_bytes.len() == 32 {
+                prev_state.copy_from_slice(&start_bytes);
+            }
+        }
+
+        // 4. Verify via Plonky3
+        Self::verify_proof(&proof_bytes, prev_state, next_state)
             .map_err(|e| vex_core::zk::ZkError::VerificationFailed(e.to_string()))
     }
 }

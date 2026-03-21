@@ -5,12 +5,13 @@
 use crate::merkle::Hash;
 use crate::zk::{ZkError, ZkVerifier};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Intent Data (VEX Pillar)
 /// Proves the proposed action before execution. It supports two variants:
 /// - Transparent: Standard human-readable reasoning (Standard).
 /// - Shadow: STARK-proofed hidden intent for privacy (High-Compliance).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(untagged, rename_all = "snake_case")]
 pub enum IntentData {
     Transparent {
@@ -23,12 +24,14 @@ pub enum IntentData {
 
         /// Catch-all for extra fields to preserve binary parity in JCS.
         #[serde(flatten, default)]
-        metadata: serde_json::Value,
+        #[schema(ignore)]
+        metadata: SchemaValue,
     },
     Shadow {
         commitment_hash: String,
         stark_proof_b64: String,
-        public_inputs: serde_json::Value,
+        #[schema(ignore)]
+        public_inputs: SchemaValue,
 
         /// New Phase 2: Plonky3 Circuit Identity
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -36,8 +39,52 @@ pub enum IntentData {
 
         /// Catch-all for extra fields to preserve binary parity in JCS.
         #[serde(flatten, default)]
-        metadata: serde_json::Value,
+        #[schema(ignore)]
+        metadata: SchemaValue,
     },
+}
+
+/// A wrapper for serde_json::Value that implements utoipa::ToSchema.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct SchemaValue(pub serde_json::Value);
+
+impl std::ops::Deref for SchemaValue {
+    type Target = serde_json::Value;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for SchemaValue {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Default for SchemaValue {
+    fn default() -> Self {
+        Self(serde_json::Value::Null)
+    }
+}
+
+impl SchemaValue {
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+}
+
+impl utoipa::PartialSchema for SchemaValue {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::RefOr::T(utoipa::openapi::ObjectBuilder::new().into())
+    }
+}
+
+impl utoipa::ToSchema for SchemaValue {
+    fn name() -> std::borrow::Cow<'static, str> {
+        "SchemaValue".into()
+    }
 }
 
 impl IntentData {
@@ -57,7 +104,7 @@ impl IntentData {
                 stark_proof_b64,
                 public_inputs,
                 ..
-            } => verifier.verify_stark(commitment_hash, stark_proof_b64, public_inputs),
+            } => verifier.verify_stark(commitment_hash, stark_proof_b64, &public_inputs.0),
         }
     }
 }
@@ -82,17 +129,17 @@ pub struct AuthorityData {
 
     #[serde(
         default = "default_sensor_value",
-        skip_serializing_if = "serde_json::Value::is_null"
+        skip_serializing_if = "SchemaValue::is_null"
     )]
-    pub gate_sensors: serde_json::Value,
+    pub gate_sensors: SchemaValue,
 
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: SchemaValue,
 }
 
-fn default_sensor_value() -> serde_json::Value {
-    serde_json::Value::Null
+fn default_sensor_value() -> SchemaValue {
+    SchemaValue(serde_json::Value::Null)
 }
 
 /// Witness Data (CHORA Append-Only Log)
@@ -104,7 +151,7 @@ pub struct WitnessData {
     pub timestamp: u64,
     /// Diagnostic or display-only fields that are NOT part of the commitment surface.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: SchemaValue,
 }
 
 impl WitnessData {
@@ -148,7 +195,7 @@ pub struct IdentityData {
 
     /// Catch-all for extra fields to preserve binary parity in JCS.
     #[serde(flatten, default)]
-    pub metadata: serde_json::Value,
+    pub metadata: SchemaValue,
 }
 
 /// Continuation Token (Phase 2 Enforcement Primitive)
@@ -163,9 +210,14 @@ pub struct ContinuationToken {
 pub struct ContinuationPayload {
     pub schema: String,
     pub ledger_event_id: String,
+    pub aid: String,
     pub source_capsule_root: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub circuit_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub resolution_event_id: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
     pub nonce: String,
     pub iat: String,
     pub exp: String,
@@ -301,7 +353,7 @@ mod tests {
             confidence: 0.95,
             capabilities: vec![],
             magpie_source: None,
-            metadata: serde_json::Value::Null,
+            metadata: SchemaValue::default(),
         };
         let segment2 = segment1.clone();
 
@@ -318,7 +370,7 @@ mod tests {
             confidence: 0.5,
             capabilities: vec![],
             magpie_source: None,
-            metadata: serde_json::Value::Null,
+            metadata: SchemaValue::default(),
         };
         let mut segment2 = segment1.clone();
         if let IntentData::Transparent {
@@ -340,12 +392,12 @@ mod tests {
             commitment_hash: "5555555555555555555555555555555555555555555555555555555555555555"
                 .to_string(),
             stark_proof_b64: "c29tZS1zdGFyay1wcm9vZg==".to_string(),
-            public_inputs: serde_json::json!({
+            public_inputs: SchemaValue(serde_json::json!({
                 "policy_id": "standard-v1",
                 "outcome_commitment": "ALLOW"
-            }),
+            })),
             circuit_id: None,
-            metadata: serde_json::Value::Null,
+            metadata: SchemaValue::default(),
         };
         let segment2 = segment1.clone();
 
@@ -369,18 +421,18 @@ mod tests {
             chora_node_id: "node-1".to_string(),
             receipt_hash: "hash-1".to_string(),
             timestamp: 1710396000,
-            metadata: serde_json::Value::Null,
+            metadata: SchemaValue(serde_json::Value::Null),
         };
 
         let hash_base = base_witness.to_commitment_hash().unwrap();
 
         let mut metadata_witness = base_witness.clone();
-        metadata_witness.metadata = serde_json::json!({
+        metadata_witness.metadata = SchemaValue(serde_json::json!({
             "witness_mode": "sentinel",
             "diagnostics": {
                 "latency_ms": 42
             }
-        });
+        }));
 
         let hash_with_metadata = metadata_witness.to_commitment_hash().unwrap();
 
@@ -399,10 +451,10 @@ mod tests {
             chora_node_id: "chora-gate-v1".to_string(),
             receipt_hash: "ignored-in-v03".to_string(),
             timestamp: 1710396000,
-            metadata: serde_json::json!({
+            metadata: SchemaValue(serde_json::json!({
                 "witness_mode": "full",
                 "observational_only": false
-            }),
+            })),
         };
 
         let hash_hex = witness.to_commitment_hash().expect("Hashing failed");
@@ -453,11 +505,11 @@ mod tests {
             receipt_hash: "5bfc2b79f9bab22abd12a196aafd8a91cdb14c2cf68230375de9569d99236b5c"
                 .to_string(),
             timestamp: 1773909261,
-            metadata: serde_json::json!({
+            metadata: SchemaValue(serde_json::json!({
                 "witness_mode": "attached",
                 "sentinel_mode": "observe_only",
                 "observational_only": true
-            }),
+            })),
         };
 
         // v0.3: only chora_node_id + timestamp committed with 0x00 prefix
@@ -468,7 +520,7 @@ mod tests {
             "v0.3 witness hash must match hardened spec (0x00 prefix included)"
         );
 
-        // Capsule root from George's canonical bundle — verified via RFC 6962 Merkle tree.
+        // Capsule root from George's canonical bundle -- verified via RFC 6962 Merkle tree.
         // Tree: combine(combine(intent,authority), combine(identity,witness))
         // where combine(a,b) = SHA256(0x01 || a_bytes || b_bytes)
         let intent_h =

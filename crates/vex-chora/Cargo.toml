@@ -9,6 +9,7 @@ description = "Native bridge to the external CHORA witness network"
 [dependencies]
 vex-core = { workspace = true }
 vex-hardware = { workspace = true }
+attest-rs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_jcs = "0.1"

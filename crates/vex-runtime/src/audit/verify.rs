@@ -47,7 +47,7 @@ impl VepVerifier {
             .map_err(|e| VerifierError::Integrity(e.to_string()))?;
 
         // 4. Map back to Runtime VEP Capsule (V0)
-        let intent = match core_capsule.intent {
+        let intent = match &core_capsule.intent {
             vex_core::segment::IntentData::Transparent {
                 request_sha256,
                 confidence,
@@ -55,12 +55,13 @@ impl VepVerifier {
                 magpie_source,
                 metadata,
             } => IntentSegment {
-                request_sha256,
-                confidence,
-                capabilities,
-                magpie_source,
+                request_sha256: request_sha256.clone(),
+                confidence: *confidence,
+                capabilities: capabilities.clone(),
+                magpie_source: magpie_source.clone(),
                 circuit_id: None, // V0 verifier assumes transparent/unproven for now
-                metadata,
+                intent_data: Some(core_capsule.intent.clone()),
+                metadata: vex_core::segment::SchemaValue(metadata.0.clone()),
             },
             vex_core::segment::IntentData::Shadow { .. } => {
                 return Err(VerifierError::Integrity(
@@ -173,7 +174,8 @@ mod tests {
             capabilities: vec!["test".to_string()],
             magpie_source: None,
             circuit_id: None,
-            metadata: serde_json::Value::Null,
+            intent_data: None,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let authority = AuthoritySegment {
             capsule_id: "test-capsule".to_string(),
@@ -184,20 +186,20 @@ mod tests {
             escalation_id: None,
             binding_status: None,
             continuation_token: None,
-            gate_sensors: serde_json::Value::Null,
-            metadata: serde_json::Value::Null,
+            gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let identity = IdentitySegment {
             aid: hex::encode([0u8; 32]), // Mock AID
             identity_type: "mock".to_string(),
             pcrs: None,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let witness = WitnessSegment {
             chora_node_id: "node1".to_string(),
             receipt_hash: "rh".to_string(),
             timestamp: 1710396000,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
 
         let mut capsule =
@@ -243,7 +245,8 @@ mod tests {
             capabilities: vec!["audit".to_string()],
             magpie_source: None,
             circuit_id: None,
-            metadata: serde_json::Value::Null,
+            intent_data: None,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let authority = AuthoritySegment {
             capsule_id: "capsule-xyz-789".to_string(),
@@ -254,20 +257,20 @@ mod tests {
             escalation_id: None,
             binding_status: None,
             continuation_token: None,
-            gate_sensors: serde_json::Value::Null,
-            metadata: serde_json::Value::Null,
+            gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let identity = IdentitySegment {
             aid: hex::encode([1u8; 32]),
             identity_type: "hardware".to_string(),
             pcrs: None,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
         let witness = WitnessSegment {
             chora_node_id: "nodeB".to_string(),
             receipt_hash: "receiptB".to_string(),
             timestamp: 1710396000,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
 
         let mut capsule =

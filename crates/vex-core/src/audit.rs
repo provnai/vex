@@ -1,6 +1,7 @@
 //! Audit log types with Merkle verification (ISO 42001 / EU AI Act compliant)
 
 use crate::merkle::Hash;
+use crate::segment::SchemaValue;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -37,7 +38,7 @@ pub enum AuditEventType {
 }
 
 /// CHORA Evidence Capsule (RFC 8785 Compliant Metadata)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
 pub struct EvidenceCapsule {
     pub capsule_id: String,
     pub outcome: String, // ALLOW, HALT, ESCALATE
@@ -47,14 +48,16 @@ pub struct EvidenceCapsule {
     /// Bundled Magpie AST for independent verification
     #[serde(skip_serializing_if = "Option::is_none")]
     pub magpie_source: Option<String>,
-    pub gate_sensors: serde_json::Value,
-    pub reproducibility_context: serde_json::Value,
+    pub gate_sensors: SchemaValue,
+    pub reproducibility_context: SchemaValue,
 
     /// New Phase 2: Coordination Ledger resolution link
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolution_vep_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continuation_token: Option<crate::segment::ContinuationToken>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_data: Option<crate::segment::IntentData>,
 
     /// Optional full VEP binary blob
     #[serde(skip_serializing_if = "Option::is_none")]

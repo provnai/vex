@@ -105,7 +105,9 @@ async fn test_consolidation_flow() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Fill Memory manually (> 50)
     for _i in 0..75 {
-        let _ = orchestrator.process(tenant_id, "test query", vec![]).await;
+        let _ = orchestrator
+            .process(tenant_id, "test query", None, vec![])
+            .await;
     }
 
     // 4. Verify Rules Persistence

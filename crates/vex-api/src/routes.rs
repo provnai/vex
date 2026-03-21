@@ -270,7 +270,7 @@ pub async fn execute_agent(
         confidence: 1.0,
         capabilities: vec!["api-execution".to_string()],
         magpie_source: None,
-        metadata: serde_json::Value::Null,
+        metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
     };
     let intent_hash = intent
         .to_jcs_hash()
@@ -291,7 +291,7 @@ pub async fn execute_agent(
         // 1. Verify Signature & Root Binding
         let verified = state
             .bridge()
-            .verify_continuation_token(token)
+            .verify_continuation_token(token, None, None, None)
             .await
             .map_err(|e| ApiError::Internal(format!("Token Verification failed: {}", e)))?;
 

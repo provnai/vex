@@ -1,5 +1,4 @@
-# Verifiable Agent Receipt (.capsule)
-## VEX × CHORA Joint Specification v0.3 (Merkle Hardening)
+## VEX x CHORA Joint Specification v0.3 (Merkle Hardening)
 
 **Authors:** Quinten Stroobants (VEX), George Lagogiannis (CHORA)
 
@@ -19,7 +18,7 @@ To ensure mathematical parity across nodes (VEX, CHORA, ATTEST), only the follow
 | **Intent** | **Inclusive** (Models + Metadata) | `request_sha256`, `confidence`, `capabilities`, `magpie_source`, `*` (All extra fields) |
 | **Authority** | **Inclusive** (Models + Metadata) | `capsule_id`, `outcome`, `reason_code`, `trace_root`, `nonce`, `gate_sensors`, `*` (All extra fields) |
 | **Identity** | **Inclusive** (Models + Metadata) | `aid`, `identity_type`, `pcrs`, `*` (All extra fields) |
-| **Witness** | **Minimal** (Explicit Fields Only) | `chora_node_id`, `receipt_hash`, `timestamp` |
+| **Witness** | **Minimal** (Explicit Fields Only) | `chora_node_id`, `timestamp` |
 
 ### Capsule Root (Merkle Tree Commitment)
 VEX v0.3 transitions from a flat composite hash to a **4-leaf Binary Merkle Tree (RFC 6962 compatible)**. This structure enables "Partial Disclosure" audits in the VEP Explorer, where a verifier can confirm the root without seeing every pillar (e.g., hiding private Intent while verifying Authority).
@@ -51,12 +50,25 @@ Internal nodes use a `0x01` prefix byte to prevent second-preimage attacks:
 
 ### Intent (VEX Pillar)
 Documents the agent's internal state and formal reasoning prior to execution.
+#### Transparent (Standard)
 ```json
 {
   "request_sha256": "hex[32] (Payload commitment)",
   "confidence": "float64 (0.0 - 1.0)",
   "capabilities": ["string (e.g., 'filesystem', 'network')"],
   "magpie_source": "string (Optional - bundled UTF-8 formal AST)",
+  "...": "Any (Flattened Extra Metadata - Included in Hash)"
+}
+```
+
+#### Shadow (High-Compliance)
+Used when the intent itself must remain hidden (privacy-preserving).
+```json
+{
+  "commitment_hash": "hex[32] (The hidden intent hash)",
+  "stark_proof_b64": "base64 (The Plonky3 STARK proof)",
+  "public_inputs": "object (Extra verification context)",
+  "circuit_id": "string (Optional - Plonky3 Identity)",
   "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
@@ -71,9 +83,11 @@ Documents the governance decision and the cryptographic trace allowed by the gat
   "trace_root": "hex[32] (Cryptographic policy trace)",
   "nonce": "uint64 (Strictly increasing counter)",
   "gate_sensors": "object (Optional gate sensor telemetry)",
+  "continuation_token": "object (Required if outcome is ALLOW)",
   "...": "Any (Flattened Extra Metadata - Included in Hash)"
 }
 ```
+*Enforcement Note:* An `ALLOW` outcome is necessary but NOT sufficient for execution. The runtime MUST also verify the `continuation_token` against the local hardware identity.
 
 ### Continuation Token (CHORA Bridge v3)
 Used for cross-gate state transition and persistent identity across authorized sessions.
@@ -81,13 +95,16 @@ Used for cross-gate state transition and persistent identity across authorized s
 {
   "payload": {
     "schema": "chora.continuation.token.v3",
-    "issuer": "string (Gate ID)",
+    "ledger_event_id": "string (UUID)",
+    "aid": "hex[32] (Hardware Identity Binding)",
+    "source_capsule_root": "hex[32] (Intent Hash)",
+    "circuit_id": "string (Optional - Plonky3 Binding)",
+    "resolution_event_id": "string (Optional)",
+    "capabilities": ["string (e.g., 'filesystem')"],
+    "nonce": "string",
     "iat": "string (ISO8601 UTC)",
     "exp": "string (ISO8601 UTC)",
-    "ledger_event_id": "string (UUID)",
-    "source_capsule_root": "hex[32]",
-    "resolution_event_id": "string (Optional)",
-    "nonce": "string"
+    "issuer": "string (Gate ID)"
   },
   "signature": "hex (Ed25519 signature over JCS(payload))",
   "meta": {
@@ -220,3 +237,24 @@ Implementation-specific test vectors for v0.3 are provided in the `vex-core` tes
 - **Raw JCS Signatures (v3)**: The Continuation Token MUST be signed over raw UTF-8 JCS bytes without a secondary SHA256 hash to ensure IMPLEMENTATION PARITY.
 - **Hardware-Rooted Seal**: The signature MUST be the FINAL operation, sealing the hardware identity and PCR state into the witness receipt.
 - **OTS Finality**: External anchoring (e.g., OpenTimestamps) is performed *after* the capsule is sealed and witnessed.
+
+---
+
+## 7. Governed Execution Invariants (The AEM Contract)
+
+To move from "Verifiable" to "Governed" execution, the VEX/CHORA stack enforces the following invariants:
+
+### 7.1 The Runtime Trap
+The VEX **Action Enforcement Module (AEM)** MUST enter a deterministic wait-state immediately following intent finalization. No privileged syscalls (Network, FS, Tool) are permitted until a valid `continuation_token` is received and verified.
+
+### 7.2 Direct Hardware Binding
+The `continuation_token` MUST bind directly to the hardware **`aid`**. This enables **Stateless Edge Verification**, allowing the AEM to verify the token locally against the Silicon Root without a ledger round-trip.
+
+### 7.3 ZK-STARK Integrity (Shadow Intents)
+For v0.3 "Shadow Intents", the token binding surface MUST include:
+- **`intent_hash`**: Top-level Merkle root of the intent.
+- **`circuit_id`**: The Plonky3 circuit identity of the proof.
+This prevents token replay or cross-proof misattribution.
+
+### 7.4 Non-Bypassability
+Any mismatch in `aid`, `intent_hash`, or `circuit_id` MUST result in an immediate **HALT** and audit log entry.

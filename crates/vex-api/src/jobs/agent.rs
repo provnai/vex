@@ -129,6 +129,7 @@ impl Job for AgentExecutionJob {
             .process(
                 tenant_id,
                 &self.payload.prompt,
+                None, // Initial intent data usually None for jobs
                 self.payload.capabilities.clone(),
             )
             .await

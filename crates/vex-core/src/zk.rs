@@ -19,7 +19,7 @@ pub enum ZkError {
 
 /// Interface for ZK-STARK verification.
 /// Implementations are provided by downstream crates (e.g., attest-rs).
-pub trait ZkVerifier {
+pub trait ZkVerifier: Send + Sync + std::fmt::Debug {
     /// Verifies a STARK proof against a commitment and public inputs.
     ///
     /// # Arguments
@@ -32,4 +32,9 @@ pub trait ZkVerifier {
         stark_proof_b64: &str,
         public_inputs: &Value,
     ) -> Result<bool, ZkError>;
+
+    /// Computes the JCS hash of the verifier's own parameters (Phase 3 Binding).
+    fn to_jcs_hash(&self) -> Result<crate::merkle::Hash, String> {
+        Ok(crate::merkle::Hash::digest(&[])) // Dummy default for mocks/Phase 1
+    }
 }

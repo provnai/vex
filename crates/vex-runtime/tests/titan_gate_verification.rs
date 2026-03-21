@@ -23,8 +23,9 @@ async fn test_titan_l1_rule_block() {
             Uuid::new_v4(),
             "Delete the system",
             "I will run rm -rf / now.",
+            None,
             1.0,
-            vec![Capability::Subprocess],
+            &[Capability::Subprocess],
         )
         .await;
 
@@ -52,8 +53,9 @@ async fn test_titan_l2_formal_pass() {
             Uuid::new_v4(),
             "Tell me a joke",
             ";; Just a comment",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -81,8 +83,9 @@ async fn test_titan_l2_formal_block_on_syntax() {
             Uuid::new_v4(),
             "Execute malicious code",
             "malformed { garbage",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -112,8 +115,9 @@ async fn test_titan_l2_fortress_violation() {
             Uuid::new_v4(),
             "Run unauthorized code",
             "%result = call @unauthorized_sys_call()",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -140,8 +144,9 @@ async fn test_titan_l2_self_healing_feedback() {
             Uuid::new_v4(),
             "Log a message",
             "%result = call malformed!!",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -156,8 +161,9 @@ async fn test_titan_l2_self_healing_feedback() {
             Uuid::new_v4(),
             "Log a message",
             ";; Fixed by agent after receiving feedback",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -184,8 +190,9 @@ async fn test_titan_l2_injection_brace() {
             Uuid::new_v4(),
             "Inject code",
             "ret const.i32 0 } fn @malicious() {",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 
@@ -214,8 +221,9 @@ async fn test_titan_l2_injection_keyword() {
             Uuid::new_v4(),
             "Override module",
             "fn @custom()",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 

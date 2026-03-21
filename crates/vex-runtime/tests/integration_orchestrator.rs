@@ -33,6 +33,7 @@ async fn test_orchestrator_chora_gate_flow() {
     // 4. Setup ChoraGate
     let gate = Arc::new(ChoraGate {
         bridge: bridge.clone(),
+        prover: None,
     });
 
     // 5. Setup Orchestrator
@@ -48,9 +49,9 @@ async fn test_orchestrator_chora_gate_flow() {
     );
 
     // 6. Execute Job
-    let prompt = "Analyze the safety of accessing the internal database.";
+    let tenant_id = "test-tenant"; // Define tenant_id as it's used in the updated process call
     let result = orchestrator
-        .process("test-tenant", prompt, vec![])
+        .process(tenant_id, "test query", None, vec![])
         .await
         .expect("Execution failed");
 

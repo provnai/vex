@@ -15,8 +15,8 @@ Tracked issues that need resolution before v1.0.
 
 ## ⚡ Performance
 - [x] **Async Migration**: [RESOLVED] Decoupled schema migrations from hot-path constructors.
-- [x] **Workspace Bloat**: [PARTIAL] Reclaimed ~1.5GB of orphaned build artifacts in Phase 9. Full cross-crate dependency optimization ongoing.
+- [x] **Workspace Bloat**: [RESOLVED] Phase 9 cleanup and v1.6.0 "Titan-Grade" sterilization achieved zero-warning/canonical parity.
 
-## 🧪 Testing Gaps
-- [ ] **Real-World Benchmarks**: Integration tests using live Claude/GPT models (currently mostly mocked).
+## 🧪 Post-Release Validation (v1.7.0 Roadmap)
+- [ ] **Real-World Benchmarks**: Transition from high-fidelity mocks to live-provider (Claude-3.5-Sonnet/GPT-4o) adversarial stress-testing.
 - [x] **JCS Fuzzing**: [RESOLVED] Implemented `jcs_fuzz.rs` property-based testing (5000 iterations passed).

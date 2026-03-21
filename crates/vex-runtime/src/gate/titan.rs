@@ -442,8 +442,9 @@ impl Gate for TitanGate {
         agent_id: Uuid,
         task_prompt: &str,
         suggested_output: &str,
+        intent_data: Option<vex_core::segment::IntentData>,
         confidence: f64,
-        capabilities: Vec<Capability>,
+        capabilities: &[Capability],
     ) -> EvidenceCapsule {
         // --- Layer 1: Deterministic (McpVanguard) ---
         // 1.1 Entropy-Based Exfiltration Detection (ISO 42001/VEX Requirement)
@@ -462,15 +463,18 @@ impl Gate for TitanGate {
                 witness_receipt: "entropy-block".into(),
                 nonce: 0,
                 magpie_source: None,
-                gate_sensors: serde_json::json!({
+                gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({
                     "layer": "L1",
                     "entropy": entropy,
                     "threshold": entropy_threshold,
                     "trigger": "BEH-007"
-                }),
-                reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                })),
+                reproducibility_context: vex_core::segment::SchemaValue(
+                    serde_json::json!({"gate": "TitanGate/L1"}),
+                ),
                 resolution_vep_hash: None,
                 continuation_token: None,
+                intent_data: intent_data.clone(),
                 vep_blob: None,
             };
         }
@@ -486,14 +490,17 @@ impl Gate for TitanGate {
                     witness_receipt: "stateful-throttle-block".into(),
                     nonce: 0,
                     magpie_source: None,
-                    gate_sensors: serde_json::json!({
+                    gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({
                         "layer": "L1",
                         "cumulative_check": "FAILED",
                         "error": e
-                    }),
-                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                    })),
+                    reproducibility_context: vex_core::segment::SchemaValue(
+                        serde_json::json!({"gate": "TitanGate/L1"}),
+                    ),
                     resolution_vep_hash: None,
                     continuation_token: None,
+                    intent_data: intent_data.clone(),
                     vep_blob: None,
                 };
             }
@@ -520,14 +527,17 @@ impl Gate for TitanGate {
                                 witness_receipt: "path-resolve-block".into(),
                                 nonce: 0,
                                 magpie_source: None,
-                                gate_sensors: serde_json::json!({
+                                gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({
                                     "layer": "L1",
                                     "attempted_path": suggested_output,
                                     "resolved_physical_path": resolved_str
-                                }),
-                                reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                                })),
+                                reproducibility_context: vex_core::segment::SchemaValue(
+                                    serde_json::json!({"gate": "TitanGate/L1"}),
+                                ),
                                 resolution_vep_hash: None,
                                 continuation_token: None,
+                                intent_data: intent_data.clone(),
                                 vep_blob: None,
                             };
                         }
@@ -542,14 +552,17 @@ impl Gate for TitanGate {
                             witness_receipt: "path-resolve-failed".into(),
                             nonce: 0,
                             magpie_source: None,
-                            gate_sensors: serde_json::json!({
+                            gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({
                                 "layer": "L1",
                                 "attempted_path": suggested_output,
                                 "error": e
-                            }),
-                            reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                            })),
+                            reproducibility_context: vex_core::segment::SchemaValue(
+                                serde_json::json!({"gate": "TitanGate/L1"}),
+                            ),
                             resolution_vep_hash: None,
                             continuation_token: None,
+                            intent_data: intent_data.clone(),
                             vep_blob: None,
                         };
                     }
@@ -567,10 +580,15 @@ impl Gate for TitanGate {
                     witness_receipt: "deterministic-none".into(),
                     nonce: 0,
                     magpie_source: None,
-                    gate_sensors: serde_json::json!({"layer": "L1", "rule": format!("{:?}", rule)}),
-                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L1"}),
+                    gate_sensors: vex_core::segment::SchemaValue(
+                        serde_json::json!({"layer": "L1", "rule": format!("{:?}", rule)}),
+                    ),
+                    reproducibility_context: vex_core::segment::SchemaValue(
+                        serde_json::json!({"gate": "TitanGate/L1"}),
+                    ),
                     resolution_vep_hash: None,
                     continuation_token: None,
+                    intent_data: intent_data.clone(),
                     vep_blob: None,
                 };
             }
@@ -603,7 +621,8 @@ impl Gate for TitanGate {
                             capabilities: capabilities.iter().map(|c| format!("{:?}", c)).collect(),
                             magpie_source: Some(mp_source.clone()),
                             circuit_id: None,
-                            metadata: serde_json::Value::Null,
+                            intent_data: intent_data.clone(),
+                            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
                         };
 
                         let authority = AuthoritySegment {
@@ -612,10 +631,10 @@ impl Gate for TitanGate {
                             reason_code: chora_resp.authority.reason_code.clone(),
                             trace_root: chora_resp.authority.trace_root.clone(),
                             nonce: chora_resp.authority.nonce,
-                            gate_sensors: serde_json::json!({
+                            gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({
                                 "profile": format!("{:?}", self.profile),
                                 "l2_digest": digest_hex.clone()
-                            }),
+                            })),
                             escalation_id: chora_resp.authority.escalation_id.clone(),
                             binding_status: chora_resp.authority.binding_status.clone(),
                             continuation_token: chora_resp.authority.continuation_token.clone(),
@@ -627,7 +646,7 @@ impl Gate for TitanGate {
                             aid: self.identity.public_key_hex(),
                             identity_type: "TPM_ECC_PERSISTENT".to_string(), // Spec alignment
                             pcrs,
-                            metadata: serde_json::Value::Null,
+                            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
                         };
 
                         let request_commitment = Some(RequestCommitment {
@@ -640,7 +659,7 @@ impl Gate for TitanGate {
                             chora_node_id: "chora-primary-v1".to_string(),
                             receipt_hash: chora_resp.signature.clone(),
                             timestamp: chrono::Utc::now().timestamp() as u64,
-                            metadata: serde_json::json!({}),
+                            metadata: vex_core::segment::SchemaValue(serde_json::json!({})),
                         };
 
                         let mut v0_capsule = match EvidenceCapsuleV0::new(
@@ -659,10 +678,15 @@ impl Gate for TitanGate {
                                     witness_receipt: "none".into(),
                                     nonce: 0,
                                     magpie_source: None,
-                                    gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
-                                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    gate_sensors: vex_core::segment::SchemaValue(
+                                        serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
+                                    ),
+                                    reproducibility_context: vex_core::segment::SchemaValue(
+                                        serde_json::json!({"gate": "TitanGate/L3"}),
+                                    ),
                                     resolution_vep_hash: None,
                                     continuation_token: None,
+                                    intent_data: None,
                                     vep_blob: None,
                                 };
                             }
@@ -679,10 +703,15 @@ impl Gate for TitanGate {
                                     witness_receipt: "none".into(),
                                     nonce: 0,
                                     magpie_source: None,
-                                    gate_sensors: serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
-                                    reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                    gate_sensors: vex_core::segment::SchemaValue(
+                                        serde_json::json!({"layer": "L3", "error": format!("{}", e)}),
+                                    ),
+                                    reproducibility_context: vex_core::segment::SchemaValue(
+                                        serde_json::json!({"gate": "TitanGate/L3"}),
+                                    ),
                                     resolution_vep_hash: None,
                                     continuation_token: None,
+                                    intent_data: None,
                                     vep_blob: None,
                                 };
                             }
@@ -705,6 +734,7 @@ impl Gate for TitanGate {
                                     agent_id,
                                     task_prompt,
                                     suggested_output,
+                                    intent_data.clone(),
                                     confidence,
                                     capabilities,
                                 )
@@ -723,10 +753,15 @@ impl Gate for TitanGate {
                                 witness_receipt: v0_capsule.witness_hash.clone(),
                                 nonce: v0_capsule.authority.nonce,
                                 magpie_source: None,
-                                gate_sensors: serde_json::json!({"layer": "L3", "chora_sig": chora_resp.signature}),
-                                reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                                gate_sensors: vex_core::segment::SchemaValue(
+                                    serde_json::json!({"layer": "L3", "chora_sig": chora_resp.signature}),
+                                ),
+                                reproducibility_context: vex_core::segment::SchemaValue(
+                                    serde_json::json!({"gate": "TitanGate/L3"}),
+                                ),
                                 resolution_vep_hash: None,
                                 continuation_token: chora_resp.authority.continuation_token.clone(),
+                                intent_data: None,
                                 vep_blob: v0_capsule.to_vep_binary().ok(),
                             }
                         }
@@ -738,10 +773,15 @@ impl Gate for TitanGate {
                         witness_receipt: "none".into(),
                         nonce: 0,
                         magpie_source: None,
-                        gate_sensors: serde_json::json!({"layer": "L3", "error": e}),
-                        reproducibility_context: serde_json::json!({"gate": "TitanGate/L3"}),
+                        gate_sensors: vex_core::segment::SchemaValue(
+                            serde_json::json!({"layer": "L3", "error": e}),
+                        ),
+                        reproducibility_context: vex_core::segment::SchemaValue(
+                            serde_json::json!({"gate": "TitanGate/L3"}),
+                        ),
                         resolution_vep_hash: None,
                         continuation_token: None,
+                        intent_data: None,
                         vep_blob: None,
                     },
                 }
@@ -753,13 +793,35 @@ impl Gate for TitanGate {
                 witness_receipt: "semantic-none".into(),
                 nonce: 0,
                 magpie_source: None,
-                gate_sensors: serde_json::json!({"layer": "L2", "error": e, "digest": digest_hex}),
-                reproducibility_context: serde_json::json!({"gate": "TitanGate/L2"}),
+                gate_sensors: vex_core::segment::SchemaValue(
+                    serde_json::json!({"layer": "L2", "error": e, "digest": digest_hex}),
+                ),
+                reproducibility_context: vex_core::segment::SchemaValue(
+                    serde_json::json!({"gate": "TitanGate/L2"}),
+                ),
                 resolution_vep_hash: None,
                 continuation_token: None,
+                intent_data: None,
                 vep_blob: None,
             },
         }
+    }
+
+    async fn verify_token(
+        &self,
+        token: &vex_core::ContinuationToken,
+        expected_aid: Option<&str>,
+        expected_intent_hash: Option<&str>,
+        expected_circuit_id: Option<&str>,
+    ) -> Result<bool, String> {
+        self.inner
+            .verify_token(
+                token,
+                expected_aid,
+                expected_intent_hash,
+                expected_circuit_id,
+            )
+            .await
     }
 }
 
@@ -777,8 +839,9 @@ mod tests {
             _id: Uuid,
             _p: &str,
             _o: &str,
+            _intent: Option<vex_core::segment::IntentData>,
             _c: f64,
-            _cap: Vec<Capability>,
+            _cap: &[Capability],
         ) -> EvidenceCapsule {
             EvidenceCapsule {
                 capsule_id: "inner".into(),
@@ -787,12 +850,23 @@ mod tests {
                 witness_receipt: "root".into(),
                 nonce: 0,
                 magpie_source: None,
-                gate_sensors: serde_json::json!({}),
-                reproducibility_context: serde_json::json!({}),
+                gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({})),
+                reproducibility_context: vex_core::segment::SchemaValue(serde_json::json!({})),
                 resolution_vep_hash: None,
                 continuation_token: None,
+                intent_data: None,
                 vep_blob: None,
             }
+        }
+
+        async fn verify_token(
+            &self,
+            _token: &vex_core::ContinuationToken,
+            _expected_aid: Option<&str>,
+            _expected_intent_hash: Option<&str>,
+            _expected_circuit_id: Option<&str>,
+        ) -> Result<bool, String> {
+            Ok(true)
         }
     }
 
@@ -835,8 +909,8 @@ mod tests {
                     reason_code: "OK".into(),
                     trace_root: "00".repeat(32),
                     nonce: 42,
-                    gate_sensors: serde_json::json!({}),
-                    metadata: serde_json::Value::Null,
+                    gate_sensors: vex_core::segment::SchemaValue(serde_json::json!({})),
+                    metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
                     escalation_id: None,
                     continuation_token: None,
                     binding_status: None,
@@ -854,6 +928,9 @@ mod tests {
         async fn verify_continuation_token(
             &self,
             _token: &vex_core::segment::ContinuationToken,
+            _expected_aid: Option<&str>,
+            _expected_intent_hash: Option<&str>,
+            _expected_circuit_id: Option<&str>,
         ) -> std::result::Result<bool, String> {
             Ok(true)
         }
@@ -874,7 +951,7 @@ mod tests {
         );
 
         let capsule = gate
-            .execute_gate(Uuid::new_v4(), "prompt", "ret const.i32 0", 1.0, vec![])
+            .execute_gate(Uuid::new_v4(), "prompt", "ret const.i32 0", None, 1.0, &[])
             .await;
 
         if capsule.outcome != "ALLOW" {
@@ -909,7 +986,7 @@ mod tests {
         let high_entropy = (0..=255u8).map(|b| b as char).collect::<String>();
 
         let capsule = gate
-            .execute_gate(Uuid::new_v4(), "prompt", &high_entropy, 1.0, vec![])
+            .execute_gate(Uuid::new_v4(), "prompt", &high_entropy, None, 1.0, &[])
             .await;
 
         assert_eq!(capsule.outcome, "HALT");
@@ -936,7 +1013,7 @@ mod tests {
         let path_str = temp.path().to_string_lossy().to_string();
 
         let capsule = gate
-            .execute_gate(Uuid::new_v4(), "prompt", &path_str, 1.0, vec![])
+            .execute_gate(Uuid::new_v4(), "prompt", &path_str, None, 1.0, &[])
             .await;
 
         // On Linux, this should pass L1 but fail L2 because it's not valid Magpie.
@@ -972,7 +1049,7 @@ mod tests {
 
         for i in 1..=2 {
             let capsule = gate
-                .execute_gate(agent_id, "prompt", &med_entropy, 1.0, vec![])
+                .execute_gate(agent_id, "prompt", &med_entropy, None, 1.0, &[])
                 .await;
             assert_eq!(
                 capsule.outcome, "ALLOW",
@@ -982,7 +1059,7 @@ mod tests {
         }
 
         let capsule = gate
-            .execute_gate(agent_id, "prompt", &med_entropy, 1.0, vec![])
+            .execute_gate(agent_id, "prompt", &med_entropy, None, 1.0, &[])
             .await;
         assert_eq!(capsule.outcome, "HALT");
         assert!(
@@ -1010,13 +1087,13 @@ mod tests {
         let low_entropy = "ret const.i32 0".to_owned();
 
         for _ in 0..2 {
-            gate.execute_gate(agent_id, "prompt", &med_entropy, 1.0, vec![])
+            gate.execute_gate(agent_id, "prompt", &med_entropy, None, 1.0, &[])
                 .await;
         }
 
         for i in 0..3 {
             let capsule = gate
-                .execute_gate(agent_id, "prompt", &low_entropy, 1.0, vec![])
+                .execute_gate(agent_id, "prompt", &low_entropy, None, 1.0, &[])
                 .await;
             assert_eq!(
                 capsule.outcome, "ALLOW",
@@ -1026,7 +1103,7 @@ mod tests {
         }
 
         let capsule = gate
-            .execute_gate(agent_id, "prompt", &med_entropy, 1.0, vec![])
+            .execute_gate(agent_id, "prompt", &med_entropy, None, 1.0, &[])
             .await;
         assert_eq!(
             capsule.outcome, "ALLOW",
@@ -1054,7 +1131,7 @@ mod tests {
         };
 
         let capsule = gate
-            .execute_gate(Uuid::new_v4(), "prompt", sensitive, 1.0, vec![])
+            .execute_gate(Uuid::new_v4(), "prompt", sensitive, None, 1.0, &[])
             .await;
 
         assert_eq!(capsule.outcome, "HALT");

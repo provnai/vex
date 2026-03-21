@@ -17,6 +17,7 @@ vex-llm = { workspace = true }
 vex-persist = { workspace = true }
 vex-anchor = { workspace = true }
 vex-chora = { workspace = true }
+attest-rs = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }

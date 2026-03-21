@@ -111,6 +111,8 @@ pub struct Orchestrator<L: LlmProvider + ?Sized> {
     identity: Option<Arc<vex_hardware::api::AgentIdentity>>,
     /// Gate provider for final decision verification
     gate: Arc<dyn crate::gate::Gate>,
+    /// ZK Verifier (Phase 4)
+    verifier: Option<Arc<dyn vex_core::zk::ZkVerifier>>,
 }
 
 impl std::fmt::Debug for TrackedAgent {
@@ -163,7 +165,15 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
             audit_store: None,
             identity: None,
             gate,
+            verifier: None,
         }
+    }
+
+    /// Attach a ZK Verifier (Phase 4)
+    pub fn with_verifier(mut self, verifier: Arc<dyn vex_core::zk::ZkVerifier>) -> Self {
+        self.executor = self.executor.clone().with_verifier(verifier.clone());
+        self.verifier = Some(verifier);
+        self
     }
 
     /// Add an anchoring backend
@@ -213,6 +223,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
         &self,
         tenant_id: &str,
         query: &str,
+        intent_data: Option<vex_core::segment::IntentData>,
         capabilities: Vec<vex_llm::Capability>,
     ) -> Result<OrchestrationResult, String> {
         // Create root agent
@@ -252,7 +263,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
 
             execution_futures.push(tokio::spawn(async move {
                 let result = executor
-                    .execute(&tenant, &mut child, &query_str, caps)
+                    .execute(&tenant, &mut child, &query_str, None, caps)
                     .await;
                 (child.id, child, result)
             }));
@@ -302,6 +313,7 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
                 tenant_id,
                 &mut root,
                 &synthesis_prompt,
+                intent_data.clone(),
                 capabilities.clone(),
             )
             .await?;
@@ -361,15 +373,15 @@ impl<L: LlmProvider + ?Sized + 'static> Orchestrator<L> {
             }
         }
 
-        // 4. Decision Gate (Final verification)
         let gate_capsule = self
             .gate
             .execute_gate(
                 root_id,
                 query,
                 &root_result.response,
+                intent_data,
                 avg_confidence,
-                capabilities,
+                &capabilities,
             )
             .await;
 
@@ -758,7 +770,7 @@ mod tests {
         let orchestrator = Orchestrator::new(llm, config, None, gate);
 
         let result = orchestrator
-            .process("test-tenant", "What is the meaning of life?", vec![])
+            .process("test-tenant", "What is the meaning of life?", None, vec![])
             .await
             .unwrap();
 

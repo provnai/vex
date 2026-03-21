@@ -24,8 +24,9 @@ async fn test_vep_end_to_end_bundling_and_reverification() {
             Uuid::new_v4(),
             "Generate a report",
             ";; Valid Magpie comment",
+            None,
             0.95,
-            vec![Capability::FileSystem],
+            &[Capability::FileSystem],
         )
         .await;
 
@@ -68,8 +69,9 @@ async fn test_vep_bundling_with_sensors() {
             Uuid::new_v4(),
             "Secure task",
             ";; Fortress run",
+            None,
             1.0,
-            vec![],
+            &[],
         )
         .await;
 

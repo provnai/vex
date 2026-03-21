@@ -221,8 +221,29 @@ impl VexServer {
                 .map_err(|e| ApiError::Internal(format!("Hardware identity failed: {}", e)))?,
         );
 
+        // --- Phase 4: Plonky3 STARK Integration ---
+        let verifier: Arc<dyn vex_core::zk::ZkVerifier> = Arc::new(attest_rs::zk::AuditProver);
+        let prover = Arc::new(attest_rs::zk::AuditProver);
+
+        // Initialize Gate — use real ChoraGate if URL is provided, otherwise fallback to mock
+        let gate_url = std::env::var("CHORA_GATE_URL").ok();
+        let api_key = std::env::var("CHORA_API_KEY").unwrap_or_default();
+
+        let (gate, bridge): (Arc<dyn vex_runtime::Gate>, Arc<vex_chora::AuthorityBridge>) =
+            if let Some(url) = gate_url {
+                let client = Arc::new(vex_chora::client::HttpChoraClient::new(url, api_key));
+                let http_gate = vex_runtime::HttpGate::new(client).with_prover(prover);
+                let bridge = http_gate.inner.bridge.clone();
+                (Arc::new(http_gate), bridge)
+            } else {
+                let mock_gate = Arc::new(vex_runtime::GenericGateMock);
+                let bridge = Arc::new(vex_chora::AuthorityBridge::new(Arc::new(
+                    vex_chora::client::MockChoraClient,
+                )));
+                (mock_gate, bridge)
+            };
+
         let audit_store = Arc::new(vex_persist::AuditStore::new(db.clone()));
-        let gate: Arc<dyn vex_runtime::Gate> = Arc::new(vex_runtime::GenericGateMock);
 
         let base_orchestrator = vex_runtime::Orchestrator::new(
             llm.clone(),
@@ -230,8 +251,12 @@ impl VexServer {
             Some(evolution_store.clone()),
             gate.clone(),
         );
-        let orchestrator =
-            Arc::new(base_orchestrator.with_identity(identity.clone(), audit_store.clone()));
+
+        let orchestrator = Arc::new(
+            base_orchestrator
+                .with_identity(identity.clone(), audit_store.clone())
+                .with_verifier(verifier.clone()),
+        );
 
         // Register Agent Job
         let llm_clone = llm.clone();
@@ -271,10 +296,6 @@ impl VexServer {
         });
 
         let a2a_state = Arc::new(crate::a2a::handler::A2aState::default());
-
-        let bridge = Arc::new(vex_chora::AuthorityBridge::new(Arc::new(
-            vex_chora::client::MockChoraClient,
-        )));
 
         let app_state = AppState::new(
             jwt_auth,

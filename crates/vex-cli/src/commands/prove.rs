@@ -3,7 +3,7 @@ use clap::Parser;
 use colored::Colorize;
 use serde_json::json;
 use std::path::PathBuf;
-use vex_core::segment::IntentData;
+use vex_core::segment::{IntentData, SchemaValue};
 
 /// Generate mock ZK proofs for debugging the VEP Explorer and SDK pipeline
 #[derive(Parser)]
@@ -55,15 +55,15 @@ pub async fn run(args: ProveArgs) -> Result<()> {
     let shadow_intent = IntentData::Shadow {
         commitment_hash: commitment,
         stark_proof_b64: mock_stark.to_string(),
-        public_inputs: json!({
+        public_inputs: SchemaValue(json!({
             "policy_id": "standard-v1",
             "outcome_commitment": "ALLOW",
             "intent_hash_ref": args.intent
-        }),
-        metadata: json!({
+        })),
+        metadata: SchemaValue(json!({
             "debugger_mode": true,
             "timestamp": chrono::Utc::now().to_rfc3339()
-        }),
+        })),
         circuit_id: None,
     };
 
@@ -83,20 +83,20 @@ pub async fn run(args: ProveArgs) -> Result<()> {
                 escalation_id: None,
                 binding_status: None,
                 continuation_token: None,
-                gate_sensors: json!({ "tpm_active": true }),
-                metadata: serde_json::Value::Null,
+                gate_sensors: SchemaValue(json!({ "tpm_active": true })),
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             },
             identity: IdentityData {
                 aid: "0x1234567890abcdef".to_string(),
                 identity_type: "unbound".to_string(),
                 pcrs: Some(HashMap::new()),
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             },
             witness: WitnessData {
                 chora_node_id: "vex-debug-node".to_string(),
                 receipt_hash: "0xabcdef".to_string(),
                 timestamp: chrono::Utc::now().timestamp() as u64,
-                metadata: serde_json::Value::Null,
+                metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
             },
             request_commitment: None,
             intent_hash: String::new(),

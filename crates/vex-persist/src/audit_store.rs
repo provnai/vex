@@ -140,8 +140,8 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0),
                 magpie_source: None,
-                gate_sensors: serde_json::Value::Null,
-                reproducibility_context: serde_json::Value::Null,
+                gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+                reproducibility_context: vex_core::segment::SchemaValue(serde_json::Value::Null),
                 resolution_vep_hash: capsule_data
                     .get("resolution_vep_hash")
                     .and_then(|v| v.as_str())
@@ -154,6 +154,10 @@ impl<B: StorageBackend + ?Sized> AuditStore<B> {
                         serde_json::from_value::<vex_core::ContinuationToken>(v.clone()).ok()
                     }
                 }),
+                intent_data: data
+                    .get("intent")
+                    .cloned()
+                    .and_then(|v| serde_json::from_value::<vex_core::segment::IntentData>(v).ok()),
                 vep_blob: vep_blob.clone(),
             });
         }

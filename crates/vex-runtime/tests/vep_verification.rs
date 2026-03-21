@@ -11,7 +11,8 @@ fn test_vep_binary_serialization() {
         capabilities: vec!["Subprocess".to_string()],
         magpie_source: None,
         circuit_id: None,
-        metadata: serde_json::Value::Null,
+        intent_data: None,
+        metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
     };
 
     let authority = AuthoritySegment {
@@ -23,22 +24,22 @@ fn test_vep_binary_serialization() {
         escalation_id: None,
         binding_status: None,
         continuation_token: None,
-        gate_sensors: serde_json::Value::Null,
-        metadata: serde_json::Value::Null,
+        gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+        metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
     };
 
     let identity = IdentitySegment {
         aid: "1".repeat(64),
         identity_type: "TPM_ECC".to_string(),
         pcrs: None,
-        metadata: serde_json::Value::Null,
+        metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
     };
 
     let witness = WitnessSegment {
         chora_node_id: "node-1".to_string(),
         receipt_hash: "2".repeat(64),
         timestamp: 1710396000,
-        metadata: serde_json::json!({}),
+        metadata: vex_core::segment::SchemaValue(serde_json::json!({})),
     };
 
     let capsule = EvidenceCapsuleV0::new(intent, authority, identity, witness, None).unwrap();
@@ -127,7 +128,8 @@ fn test_vep_signature_verification() {
             capabilities: vec![],
             magpie_source: None,
             circuit_id: None,
-            metadata: serde_json::Value::Null,
+            intent_data: None,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         },
         AuthoritySegment {
             capsule_id: "id".into(),
@@ -138,20 +140,20 @@ fn test_vep_signature_verification() {
             escalation_id: None,
             binding_status: None,
             continuation_token: None,
-            gate_sensors: serde_json::Value::Null,
-            metadata: serde_json::Value::Null,
+            gate_sensors: vex_core::segment::SchemaValue(serde_json::Value::Null),
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         },
         IdentitySegment {
             aid: "1".repeat(64),
             identity_type: "TPM".into(),
             pcrs: None,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         },
         WitnessSegment {
             chora_node_id: "n".into(),
             receipt_hash: "2".repeat(64),
             timestamp: 1710396000,
-            metadata: serde_json::json!({}),
+            metadata: vex_core::segment::SchemaValue(serde_json::json!({})),
         },
         None,
     )

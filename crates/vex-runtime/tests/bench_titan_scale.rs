@@ -32,7 +32,14 @@ async fn bench_titan_scale_concurrency() {
         tasks.push(tokio::spawn(async move {
             let intent = format!(";; Intent number {}", i);
             gate_clone
-                .execute_gate(Uuid::new_v4(), "Benchmarking scale", &intent, 1.0, vec![])
+                .execute_gate(
+                    Uuid::new_v4(),
+                    "Benchmarking scale",
+                    &intent,
+                    None,
+                    1.0,
+                    &[],
+                )
                 .await
         }));
     }

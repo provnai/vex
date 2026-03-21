@@ -22,7 +22,7 @@ mod tests {
             confidence: 0.95,
             capabilities: vec![],
             magpie_source: None,
-            metadata: serde_json::Value::Null,
+            metadata: vex_core::segment::SchemaValue(serde_json::Value::Null),
         };
 
         let capsule = bridge.perform_handshake(intent).await.unwrap();
